@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { @apply bg-transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-300 rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-400; }
+}
+
+@layer components {
+  .sidebar-link {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-sidebar-hover transition-all duration-150 text-sm font-medium cursor-pointer;
+  }
+
+  .sidebar-link.active {
+    @apply text-white bg-brand-600;
+  }
+
+  .stat-card {
+    @apply bg-white rounded-xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-shadow;
+  }
+
+  .page-header {
+    @apply mb-6;
+  }
+
+  .animate-fade-in { animation: fade-in 0.3s ease-out; }
+}
+
+/* Chat bubble styles */
+.chat-bubble-sent {
+  @apply bg-brand-600 text-white rounded-2xl rounded-tr-sm;
+}
+
+.chat-bubble-received {
+  @apply bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm;
+}
+
+/* Status badges */
+.status-active { @apply bg-emerald-100 text-emerald-700; }
+.status-inactive { @apply bg-slate-100 text-slate-600; }
+.status-onboarding { @apply bg-amber-100 text-amber-700; }
+.status-paused { @apply bg-orange-100 text-orange-700; }
+.status-churned { @apply bg-red-100 text-red-700; }
+
+/* Priority badges */
+.priority-low { @apply bg-slate-100 text-slate-600; }
+.priority-medium { @apply bg-blue-100 text-blue-700; }
+.priority-high { @apply bg-orange-100 text-orange-700; }
+.priority-urgent { @apply bg-red-100 text-red-700; }
+
+/* Input / button utilities for social pages */
+.input {
+  @apply w-full px-3 py-2 border border-slate-200 rounded-lg text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder-slate-400 transition-all;
+}
+
+.btn-primary {
+  @apply bg-brand-600 hover:bg-brand-700 text-white font-medium px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-secondary {
+  @apply bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm transition-colors;
+}

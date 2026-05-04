@@ -4,6 +4,9 @@ import useAuthStore from './authStore';
 
 const SocketContext = createContext(null);
 
+// Use env variable in production (Vercel), fallback to same origin in local dev
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
+
 export const SocketProvider = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
   const socketRef = useRef(null);
@@ -22,7 +25,7 @@ export const SocketProvider = ({ children }) => {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
-    socketRef.current = io(window.location.origin, {
+    socketRef.current = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,

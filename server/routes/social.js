@@ -188,10 +188,15 @@ router.get('/analytics', protect, asyncHandler(async (req, res) => {
     publishedAt: { $gte: dateFrom }
   };
   if (clientFilter) {
-    const mongoose = require('mongoose');
-    matchQuery.client = clientFilter instanceof mongoose.Types.ObjectId
-      ? clientFilter
-      : new mongoose.Types.ObjectId(String(clientFilter));
+    try {
+      const mongoose = require('mongoose');
+      const oid = clientFilter instanceof mongoose.Types.ObjectId
+        ? clientFilter
+        : new mongoose.Types.ObjectId(String(clientFilter));
+      matchQuery.client = oid;
+    } catch {
+      // Invalid ObjectId — ignore filter, return all
+    }
   }
 
   // Aggregate by platform

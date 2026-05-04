@@ -111,12 +111,16 @@ export default function ClientSocialPage() {
       try {
         const params = new URLSearchParams({ limit: '30', status: 'published' });
         if (platform) params.set('platform', platform);
-        const [postsRes, analyticsRes] = await Promise.all([
-          api.get(`/social/posts?${params}`),
-          api.get('/social/analytics?days=30'),
-        ]);
+        const postsRes = await api.get(`/social/posts?${params}`);
         setPosts(postsRes.data.posts || []);
-        setAnalytics(analyticsRes.data.analytics);
+        try {
+          const analyticsRes = await api.get('/social/analytics?days=30');
+          setAnalytics(analyticsRes.data.analytics);
+        } catch {
+          setAnalytics(null);
+        }
+      } catch (e) {
+        console.error('Social posts load error:', e?.response?.data?.message || e.message);
       } finally {
         setLoading(false);
       }

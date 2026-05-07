@@ -10,6 +10,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
 export const SocketProvider = ({ children }) => {
   const { isAuthenticated } = useAuthStore();
   const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -17,6 +18,7 @@ export const SocketProvider = ({ children }) => {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
+        setSocket(null);
         setConnected(false);
       }
       return;
@@ -25,26 +27,28 @@ export const SocketProvider = ({ children }) => {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
-    socketRef.current = io(SOCKET_URL, {
+    const newSocket = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
     });
 
-    socketRef.current.on('connect', () => setConnected(true));
-    socketRef.current.on('disconnect', () => setConnected(false));
+    socketRef.current = newSocket;
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => setConnected(true));
+    newSocket.on('disconnect', () => setConnected(false));
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
+      newSocket.disconnect();
+      socketRef.current = null;
+      setSocket(null);
     };
   }, [isAuthenticated]);
 
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current, connected }}>
+    <SocketContext.Provider value={{ socket, connected }}>
       {children}
     </SocketContext.Provider>
   );

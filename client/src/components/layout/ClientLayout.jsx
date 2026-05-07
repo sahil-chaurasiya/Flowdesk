@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Rss, FileText, BarChart3,
@@ -6,6 +6,7 @@ import {
   Menu, X, Target, Instagram
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
+import { useSocket } from '../../context/SocketContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import { getInitials } from '../../lib/utils';
 
@@ -21,10 +22,21 @@ const navItems = [
 ];
 
 export default function ClientLayout() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+
+  // Listen for real-time notifications via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (notif) => {
+      updateUser({ notifications: [notif, ...(user?.notifications || [])].slice(0, 50) });
+    };
+    socket.on('notification', handler);
+    return () => socket.off('notification', handler);
+  }, [socket, user?.notifications, updateUser]);
 
   const handleLogout = async () => {
     await logout();

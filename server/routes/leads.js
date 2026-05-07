@@ -171,6 +171,10 @@ router.get('/batches', protect, asyncHandler(async (req, res) => {
   const { clientId } = req.query;
   const matchClient = req.user.role === 'client' ? req.user.clientId : clientId;
 
+  if (!matchClient) {
+    return res.status(400).json({ success: false, message: 'clientId is required' });
+  }
+
   const batches = await Lead.aggregate([
     { $match: { client: require('mongoose').Types.ObjectId.createFromHexString(String(matchClient)) } },
     { $group: {

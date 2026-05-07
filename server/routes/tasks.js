@@ -122,21 +122,8 @@ router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async
   res.json({ success: true, message: 'Task deleted' });
 }));
 
-// @route POST /api/tasks/:id/comments
-router.post('/:id/comments', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
-  const { text } = req.body;
-  if (!text?.trim()) return res.status(400).json({ success: false, message: 'Comment text is required' });
-
-  const task = await Task.findByIdAndUpdate(
-    req.params.id,
-    { $push: { comments: { user: req.user._id, text: text.trim() } } },
-    { new: true }
-  ).populate('comments.user', 'name avatar role');
-
-  res.json({ success: true, task });
-}));
-
 // @route GET /api/tasks/stats  (admin/manager)
+// NOTE: must be declared before /:id to avoid route shadowing
 router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const { clientId } = req.query;
   const match = clientId ? { client: require('mongoose').Types.ObjectId.createFromHexString(clientId) } : {};
@@ -149,6 +136,20 @@ router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async 
   ]);
 
   res.json({ success: true, byStatus, byPriority, byCategory, overdue });
+}));
+
+// @route POST /api/tasks/:id/comments
+router.post('/:id/comments', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ success: false, message: 'Comment text is required' });
+
+  const task = await Task.findByIdAndUpdate(
+    req.params.id,
+    { $push: { comments: { user: req.user._id, text: text.trim() } } },
+    { new: true }
+  ).populate('comments.user', 'name avatar role');
+
+  res.json({ success: true, task });
 }));
 
 module.exports = router;

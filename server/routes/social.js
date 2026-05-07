@@ -153,6 +153,21 @@ router.put('/posts/:id', protect, authorize('admin', 'manager', 'team'), asyncHa
     req.body.scheduledBy = req.user._id;
   }
 
+  // Recalculate engagementRate if metrics are being updated (pre-save hook doesn't fire on findByIdAndUpdate)
+  if (req.body.metrics) {
+    const m = req.body.metrics;
+    const reach = m.reach ?? existing.metrics?.reach ?? 0;
+    if (reach > 0) {
+      const likes = m.likes ?? existing.metrics?.likes ?? 0;
+      const comments = m.comments ?? existing.metrics?.comments ?? 0;
+      const shares = m.shares ?? existing.metrics?.shares ?? 0;
+      req.body['metrics.engagementRate'] = parseFloat((((likes + comments + shares) / reach) * 100).toFixed(2));
+      // Flatten metrics into dot-notation keys to avoid replacing the whole metrics object
+      Object.keys(m).forEach(k => { req.body[`metrics.${k}`] = m[k]; });
+      delete req.body.metrics;
+    }
+  }
+
   const post = await SocialPost.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
     .populate('client', 'name company')
     .populate('createdBy', 'name avatar role')

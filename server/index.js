@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 
 const connectDB = require('./config/database');
 const { initSocket } = require('./config/socket');
+const { errorHandler } = require('./middleware/error');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -61,31 +62,32 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
+
+// Static files for local uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Routes
 const leadsRouter     = require('./routes/leads');
 const dashboardRouter = require('./routes/dashboard');
 const socialRouter    = require('./routes/social');
 const { router: eventsRouter, emitEvent } = require('./routes/events');
 
-app.use('/api/leads',     leadsRouter);
-app.use('/api/dashboard', dashboardRouter);
-app.use('/api/social',    socialRouter);
-app.use('/api/events',    eventsRouter);
-
 // Make emitEvent available globally for other routes
 app.locals.emitEvent = emitEvent;
-// Static files for local uploads
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
-app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/updates', updateRoutes);
-app.use('/api/messages', messageRoutes);
-app.use('/api/files', fileRoutes);
-app.use('/api/reports', reportRoutes);
+app.use('/api/auth',          authLimiter, authRoutes);
+app.use('/api/users',         userRoutes);
+app.use('/api/clients',       clientRoutes);
+app.use('/api/tasks',         taskRoutes);
+app.use('/api/updates',       updateRoutes);
+app.use('/api/messages',      messageRoutes);
+app.use('/api/files',         fileRoutes);
+app.use('/api/reports',       reportRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/leads',         leadsRouter);
+app.use('/api/dashboard',     dashboardRouter);
+app.use('/api/social',        socialRouter);
+app.use('/api/events',        eventsRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {
@@ -98,15 +100,7 @@ app.use((req, res) => {
 });
 
 // Global Error Handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  const statusCode = err.statusCode || 500;
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {

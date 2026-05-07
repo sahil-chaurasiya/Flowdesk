@@ -25,11 +25,20 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   }
 
   if (status) query.status = status;
-  if (search) query.$or = [
-    { name: { $regex: search, $options: 'i' } },
-    { company: { $regex: search, $options: 'i' } },
-    { email: { $regex: search, $options: 'i' } }
-  ];
+  if (search) {
+    const searchOr = [
+      { name: { $regex: search, $options: 'i' } },
+      { company: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } }
+    ];
+    // If there's already an $or from role-based access, combine with $and to avoid overwriting it
+    if (query.$or) {
+      query.$and = [{ $or: query.$or }, { $or: searchOr }];
+      delete query.$or;
+    } else {
+      query.$or = searchOr;
+    }
+  }
 
   const total = await Client.countDocuments(query);
   const clients = await Client.find(query)

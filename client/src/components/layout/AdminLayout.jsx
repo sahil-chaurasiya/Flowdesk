@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, CheckSquare, MessageSquare,
@@ -7,6 +7,7 @@ import {
   Instagram
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
+import { useSocket } from '../../context/SocketContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import { getInitials } from '../../lib/utils';
 
@@ -42,11 +43,22 @@ const navItems = [
 const TEAM_ROLES = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 
 export default function AdminLayout() {
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateUser } = useAuthStore();
+  const { socket } = useSocket();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+
+  // Listen for real-time notifications via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (notif) => {
+      updateUser({ notifications: [notif, ...(user?.notifications || [])].slice(0, 50) });
+    };
+    socket.on('notification', handler);
+    return () => socket.off('notification', handler);
+  }, [socket, user?.notifications, updateUser]);
 
   const handleLogout = async () => {
     await logout();

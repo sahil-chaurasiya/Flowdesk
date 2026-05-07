@@ -47,6 +47,30 @@ router.post('/', protect, authorize('admin', 'manager', 'team'), asyncHandler(as
   res.status(201).json({ success: true, report: populated });
 }));
 
+// @route GET /api/reports/client/:clientId/summary
+// NOTE: must be declared before /:id to avoid route shadowing
+router.get('/client/:clientId/summary', protect, asyncHandler(async (req, res) => {
+  if (req.user.role === 'client' && String(req.user.clientId) !== req.params.clientId) {
+    return res.status(403).json({ success: false, message: 'Not authorized' });
+  }
+
+  const reports = await Report.find({ client: req.params.clientId, isPublished: true })
+    .sort({ startDate: -1 })
+    .limit(12);
+
+  const totals = reports.reduce((acc, r) => {
+    acc.totalSpend += r.metrics.adSpend || 0;
+    acc.totalRevenue += r.metrics.revenue || 0;
+    acc.totalLeads += r.metrics.leads || 0;
+    acc.totalConversions += r.metrics.conversions || 0;
+    return acc;
+  }, { totalSpend: 0, totalRevenue: 0, totalLeads: 0, totalConversions: 0 });
+
+  totals.avgROAS = totals.totalSpend ? parseFloat((totals.totalRevenue / totals.totalSpend).toFixed(2)) : 0;
+
+  res.json({ success: true, reports, totals });
+}));
+
 // @route GET /api/reports/:id
 router.get('/:id', protect, asyncHandler(async (req, res) => {
   const report = await Report.findById(req.params.id)
@@ -80,29 +104,6 @@ router.put('/:id', protect, authorize('admin', 'manager', 'team'), asyncHandler(
 router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   await Report.findByIdAndDelete(req.params.id);
   res.json({ success: true, message: 'Report deleted' });
-}));
-
-// @route GET /api/reports/client/:clientId/summary
-router.get('/client/:clientId/summary', protect, asyncHandler(async (req, res) => {
-  if (req.user.role === 'client' && String(req.user.clientId) !== req.params.clientId) {
-    return res.status(403).json({ success: false, message: 'Not authorized' });
-  }
-
-  const reports = await Report.find({ client: req.params.clientId, isPublished: true })
-    .sort({ startDate: -1 })
-    .limit(12);
-
-  const totals = reports.reduce((acc, r) => {
-    acc.totalSpend += r.metrics.adSpend || 0;
-    acc.totalRevenue += r.metrics.revenue || 0;
-    acc.totalLeads += r.metrics.leads || 0;
-    acc.totalConversions += r.metrics.conversions || 0;
-    return acc;
-  }, { totalSpend: 0, totalRevenue: 0, totalLeads: 0, totalConversions: 0 });
-
-  totals.avgROAS = totals.totalSpend ? parseFloat((totals.totalRevenue / totals.totalSpend).toFixed(2)) : 0;
-
-  res.json({ success: true, reports, totals });
 }));
 
 module.exports = router;

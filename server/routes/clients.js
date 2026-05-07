@@ -147,7 +147,9 @@ router.get('/:id/overview', protect, asyncHandler(async (req, res) => {
   }
 
   const [client, taskStats, recentUpdates, recentFiles, latestReport] = await Promise.all([
-    Client.findById(req.params.id).populate('accountManager', 'name email avatar jobTitle phone'),
+    Client.findById(req.params.id)
+      .populate('accountManager', 'name email avatar jobTitle phone')
+      .populate('teamMembers', 'name email avatar jobTitle role'),
     Task.aggregate([
       { $match: { client: require('mongoose').Types.ObjectId.createFromHexString(req.params.id) } },
       { $group: { _id: '$status', count: { $sum: 1 } } }

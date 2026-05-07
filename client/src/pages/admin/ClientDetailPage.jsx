@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit3, MessageSquare, Mail, Phone, Globe, Calendar,
-  DollarSign, Plus, CheckCircle, Clock, AlertCircle, Users, X, UserPlus
+  DollarSign, Plus, CheckCircle, Clock, AlertCircle, Users, X, UserPlus,
+  Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye,
+  Heart, MessageCircle, Share2, BarChart2
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -50,6 +52,10 @@ export default function ClientDetailPage() {
   const [files, setFiles] = useState([]);
   const [reports, setReports] = useState([]);
   const [allTeamMembers, setAllTeamMembers] = useState([]);
+  const [socialAccounts, setSocialAccounts] = useState([]);
+  const [socialAnalytics, setSocialAnalytics] = useState(null);
+  const [socialPosts, setSocialPosts] = useState([]);
+  const [socialDays, setSocialDays] = useState(30);
 
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -75,21 +81,35 @@ export default function ClientDetailPage() {
 
   useEffect(() => { loadData(); }, [id]);
 
+  useEffect(() => {
+    if (activeTab === 'social' && id) {
+      api.get(`/social/analytics?clientId=${id}&days=${socialDays}`)
+        .then(r => setSocialAnalytics(r.data.analytics || null))
+        .catch(() => {});
+    }
+  }, [socialDays, activeTab]);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [ovRes, taskRes, updRes, fileRes, repRes] = await Promise.all([
+      const [ovRes, taskRes, updRes, fileRes, repRes, socialAccRes, socialAnaRes, socialPostRes] = await Promise.all([
         api.get(`/clients/${id}/overview`),
         api.get(`/tasks?clientId=${id}&limit=50`),
         api.get(`/updates?clientId=${id}&limit=20`),
         api.get(`/files?clientId=${id}&limit=20`),
         api.get(`/reports?clientId=${id}&limit=10`),
+        api.get(`/social/accounts?clientId=${id}`),
+        api.get(`/social/analytics?clientId=${id}&days=${socialDays}`),
+        api.get(`/social/posts?clientId=${id}&limit=10`),
       ]);
       setOverview(ovRes.data);
       setTasks(taskRes.data.tasks || []);
       setUpdates(updRes.data.updates || []);
       setFiles(fileRes.data.files || []);
       setReports(repRes.data.reports || []);
+      setSocialAccounts(socialAccRes.data.accounts || []);
+      setSocialAnalytics(socialAnaRes.data.analytics || null);
+      setSocialPosts(socialPostRes.data.posts || []);
     } finally { setLoading(false); }
   };
 
@@ -177,6 +197,7 @@ export default function ClientDetailPage() {
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: `Tasks (${tasks.length})` },
     { id: 'updates', label: `Updates (${updates.length})` },
+    { id: 'social', label: `Social (${socialAccounts.length})` },
     { id: 'files', label: `Files (${files.length})` },
     { id: 'reports', label: `Reports (${reports.length})` },
     ...(isManager ? [{ id: 'team', label: `Team (${teamCount})` }] : []),
@@ -422,6 +443,214 @@ export default function ClientDetailPage() {
           )}
         </div>
       )}
+
+      {/* SOCIAL */}
+      {activeTab === 'social' && (() => {
+        const PLATFORM_ICONS = {
+          instagram: <Instagram size={16} className="text-pink-500" />,
+          facebook: <Facebook size={16} className="text-blue-600" />,
+          youtube: <Youtube size={16} className="text-red-500" />,
+          linkedin: <Linkedin size={16} className="text-blue-700" />,
+          twitter: <Twitter size={16} className="text-sky-500" />,
+          tiktok: <span className="text-xs font-bold text-slate-800">TT</span>,
+          google_business: <span className="text-xs font-bold text-emerald-600">G</span>,
+        };
+        const PLATFORM_BG = {
+          instagram: 'bg-pink-50 border-pink-100',
+          facebook: 'bg-blue-50 border-blue-100',
+          youtube: 'bg-red-50 border-red-100',
+          linkedin: 'bg-blue-50 border-blue-100',
+          twitter: 'bg-sky-50 border-sky-100',
+          tiktok: 'bg-slate-50 border-slate-200',
+          google_business: 'bg-emerald-50 border-emerald-100',
+        };
+        const totals = socialAnalytics?.totals || {};
+        const byPlatform = socialAnalytics?.byPlatform || [];
+        const topPosts = socialAnalytics?.topPosts || [];
+
+        return (
+          <div className="space-y-5">
+            {/* Days filter */}
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-800">Social Media Analytics</h3>
+              <div className="flex gap-1">
+                {[7, 30, 90].map(d => (
+                  <button key={d} onClick={() => setSocialDays(d)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${socialDays === d ? 'bg-brand-600 text-white' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                    {d}d
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Connected Accounts */}
+            <Card>
+              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Connected Accounts</h3></CardHeader>
+              <CardContent>
+                {socialAccounts.length === 0 ? (
+                  <p className="text-slate-400 text-sm text-center py-4">No social accounts connected yet</p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {socialAccounts.map(acc => (
+                      <div key={acc._id} className={`flex items-center gap-2.5 p-3 rounded-xl border ${PLATFORM_BG[acc.platform] || 'bg-slate-50 border-slate-200'}`}>
+                        <div className="w-7 h-7 flex items-center justify-center">
+                          {PLATFORM_ICONS[acc.platform] || <Globe size={16} />}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-xs font-semibold text-slate-800 truncate">{acc.accountName}</div>
+                          <div className="text-xs text-slate-500 capitalize">{acc.platform.replace('_', ' ')}</div>
+                          {acc.followers > 0 && <div className="text-xs text-slate-400">{acc.followers.toLocaleString()} followers</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Analytics Summary */}
+            {totals.totalPosts > 0 ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Total Posts', value: totals.totalPosts || 0, icon: <BarChart2 size={16} className="text-brand-500" />, bg: 'bg-brand-50' },
+                    { label: 'Total Reach', value: (totals.totalReach || 0).toLocaleString(), icon: <Eye size={16} className="text-emerald-500" />, bg: 'bg-emerald-50' },
+                    { label: 'Total Likes', value: (totals.totalLikes || 0).toLocaleString(), icon: <Heart size={16} className="text-pink-500" />, bg: 'bg-pink-50' },
+                    { label: 'Avg Engagement', value: `${(totals.avgEngagementRate || 0).toFixed(2)}%`, icon: <TrendingUp size={16} className="text-amber-500" />, bg: 'bg-amber-50' },
+                  ].map(m => (
+                    <Card key={m.label} className={m.bg}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs text-slate-500 font-medium">{m.label}</span>
+                          {m.icon}
+                        </div>
+                        <div className="text-2xl font-bold text-slate-800">{m.value}</div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* By Platform breakdown */}
+                {byPlatform.length > 0 && (
+                  <Card>
+                    <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Performance by Platform</h3></CardHeader>
+                    <CardContent>
+                      <div className="divide-y divide-slate-100">
+                        {byPlatform.map(p => (
+                          <div key={p._id} className="flex items-center gap-4 py-3">
+                            <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                              {PLATFORM_ICONS[p._id] || <Globe size={16} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-slate-800 capitalize">{p._id?.replace('_', ' ')}</div>
+                              <div className="text-xs text-slate-500">{p.posts} posts</div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-3 text-center text-xs">
+                              <div>
+                                <div className="text-slate-400">Reach</div>
+                                <div className="font-semibold text-slate-700">{(p.totalReach || 0).toLocaleString()}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-400">Likes</div>
+                                <div className="font-semibold text-slate-700">{(p.totalLikes || 0).toLocaleString()}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-400">Comments</div>
+                                <div className="font-semibold text-slate-700">{(p.totalComments || 0).toLocaleString()}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-400">Eng. Rate</div>
+                                <div className="font-semibold text-emerald-600">{(p.avgEngagementRate || 0).toFixed(2)}%</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Top Performing Posts */}
+                {topPosts.length > 0 && (
+                  <Card>
+                    <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Top Performing Posts</h3></CardHeader>
+                    <CardContent>
+                      <div className="space-y-3">
+                        {topPosts.map(post => (
+                          <div key={post._id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+                            <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5">
+                              {PLATFORM_ICONS[post.platform] || <Globe size={16} />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                                <span className="text-xs font-medium text-slate-700 capitalize">{post.platform?.replace('_', ' ')}</span>
+                                <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-full text-xs text-slate-500 capitalize">{post.contentType}</span>
+                                {post.publishedAt && <span className="text-xs text-slate-400">{timeAgo(post.publishedAt)}</span>}
+                              </div>
+                              {post.caption && <p className="text-xs text-slate-600 line-clamp-2">{post.caption}</p>}
+                              <div className="flex items-center gap-3 mt-2">
+                                <span className="flex items-center gap-1 text-xs text-slate-500"><Heart size={11} className="text-pink-400" />{(post.metrics?.likes || 0).toLocaleString()}</span>
+                                <span className="flex items-center gap-1 text-xs text-slate-500"><MessageCircle size={11} className="text-blue-400" />{(post.metrics?.comments || 0).toLocaleString()}</span>
+                                <span className="flex items-center gap-1 text-xs text-slate-500"><Share2 size={11} className="text-emerald-400" />{(post.metrics?.shares || 0).toLocaleString()}</span>
+                                <span className="flex items-center gap-1 text-xs text-slate-500"><Eye size={11} className="text-amber-400" />{(post.metrics?.reach || 0).toLocaleString()}</span>
+                                {post.metrics?.engagementRate > 0 && (
+                                  <span className="ml-auto px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                                    {post.metrics.engagementRate.toFixed(2)}% eng.
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              <Card>
+                <CardContent className="text-center py-12">
+                  <BarChart2 size={40} className="mx-auto text-slate-200 mb-3" />
+                  <p className="text-slate-500 font-medium">No published posts in the last {socialDays} days</p>
+                  <p className="text-slate-400 text-sm mt-1">Analytics will appear here once posts are published.</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Recent Posts List */}
+            {socialPosts.length > 0 && (
+              <Card>
+                <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Recent Posts</h3></CardHeader>
+                <CardContent>
+                  <div className="divide-y divide-slate-100">
+                    {socialPosts.map(post => (
+                      <div key={post._id} className="flex items-center gap-3 py-3">
+                        <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                          {PLATFORM_ICONS[post.platform] || <Globe size={16} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-slate-700 truncate">{post.caption || '(no caption)'}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-slate-400 capitalize">{post.contentType}</span>
+                            <span className="text-slate-300">·</span>
+                            <span className="text-xs text-slate-400">{post.assignedTo?.name ? `by ${post.assignedTo.name}` : ''}</span>
+                          </div>
+                        </div>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                          post.status === 'published' ? 'bg-emerald-100 text-emerald-700'
+                          : post.status === 'scheduled' ? 'bg-blue-100 text-blue-700'
+                          : post.status === 'draft' ? 'bg-slate-100 text-slate-600'
+                          : 'bg-red-100 text-red-600'
+                        }`}>{post.status}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        );
+      })()}
 
       {/* FILES */}
       {activeTab === 'files' && (

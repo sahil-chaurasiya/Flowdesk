@@ -13,12 +13,29 @@ const { createNotification } = require('../utils/notifications');
 // GET /api/social/accounts?clientId=xxx
 router.get('/accounts', protect, asyncHandler(async (req, res) => {
   const { clientId } = req.query;
+  const MANAGER_ROLES = ['admin', 'manager'];
   const query = {};
 
   if (req.user.role === 'client') {
+    // Client only sees their own accounts
     query.client = req.user.clientId;
-  } else if (clientId) {
-    query.client = clientId;
+  } else if (MANAGER_ROLES.includes(req.user.role)) {
+    // Admin/manager: optional clientId filter, otherwise all
+    if (clientId) query.client = clientId;
+  } else {
+    // Team members: only see clients they're assigned to
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }]
+    }).select('_id');
+    const assignedIds = assignedClients.map(c => c._id);
+    if (clientId) {
+      // Requested a specific client — only allow if they're assigned
+      const isAssigned = assignedIds.some(id => String(id) === String(clientId));
+      if (!isAssigned) return res.json({ success: true, accounts: [] });
+      query.client = clientId;
+    } else {
+      query.client = { $in: assignedIds };
+    }
   }
 
   const accounts = await SocialAccount.find(query)
@@ -58,13 +75,28 @@ router.get('/posts', protect, asyncHandler(async (req, res) => {
     page = 1, limit = 20, assignedTo
   } = req.query;
 
+  const MANAGER_ROLES = ['admin', 'manager'];
   const query = {};
 
   if (req.user.role === 'client') {
     query.client = req.user.clientId;
     query.isClientVisible = true;
-  } else if (clientId) {
-    query.client = clientId;
+  } else if (MANAGER_ROLES.includes(req.user.role)) {
+    // Admin/manager: optional clientId filter
+    if (clientId) query.client = clientId;
+  } else {
+    // Team members: only see posts for their assigned clients
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }]
+    }).select('_id');
+    const assignedIds = assignedClients.map(c => c._id);
+    if (clientId) {
+      const isAssigned = assignedIds.some(id => String(id) === String(clientId));
+      if (!isAssigned) return res.json({ success: true, posts: [], total: 0, page: 1, pages: 0 });
+      query.client = clientId;
+    } else {
+      query.client = { $in: assignedIds };
+    }
   }
 
   if (platform) query.platform = platform;
@@ -190,10 +222,27 @@ router.delete('/posts/:id', protect, authorize('admin', 'manager'), asyncHandler
 // GET /api/social/analytics?clientId=xxx&days=30
 router.get('/analytics', protect, asyncHandler(async (req, res) => {
   const { clientId, days = 90 } = req.query;
+  const MANAGER_ROLES = ['admin', 'manager'];
 
-  const clientFilter = req.user.role === 'client'
-    ? req.user.clientId
-    : clientId || null;
+  let clientFilter = null;
+  if (req.user.role === 'client') {
+    clientFilter = req.user.clientId;
+  } else if (MANAGER_ROLES.includes(req.user.role)) {
+    clientFilter = clientId || null;
+  } else {
+    // Team members: scope to assigned clients
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }]
+    }).select('_id');
+    const assignedIds = assignedClients.map(c => c._id);
+    if (clientId) {
+      const isAssigned = assignedIds.some(id => String(id) === String(clientId));
+      clientFilter = isAssigned ? clientId : null;
+    } else {
+      // For analytics without a specific client, restrict to assigned ones
+      clientFilter = assignedIds.length ? assignedIds : 'none';
+    }
+  }
 
   const dateFrom = new Date();
   dateFrom.setDate(dateFrom.getDate() - Number(days));
@@ -202,13 +251,21 @@ router.get('/analytics', protect, asyncHandler(async (req, res) => {
     status: 'published',
     publishedAt: { $gte: dateFrom }
   };
+  if (clientFilter === 'none') {
+    // No assigned clients — return empty
+    return res.json({ success: true, analytics: { totals: {}, byPlatform: [], overTime: [], byContentType: [], topPosts: [] } });
+  }
   if (clientFilter) {
     try {
       const mongoose = require('mongoose');
-      const oid = clientFilter instanceof mongoose.Types.ObjectId
-        ? clientFilter
-        : new mongoose.Types.ObjectId(String(clientFilter));
-      matchQuery.client = oid;
+      if (Array.isArray(clientFilter)) {
+        matchQuery.client = { $in: clientFilter };
+      } else {
+        const oid = clientFilter instanceof mongoose.Types.ObjectId
+          ? clientFilter
+          : new mongoose.Types.ObjectId(String(clientFilter));
+        matchQuery.client = oid;
+      }
     } catch {
       // Invalid ObjectId — ignore filter, return all
     }
@@ -289,7 +346,28 @@ router.get('/analytics', protect, asyncHandler(async (req, res) => {
 // GET /api/social/calendar?clientId=xxx&month=2025-07
 router.get('/calendar', protect, asyncHandler(async (req, res) => {
   const { clientId, month } = req.query;
-  const clientFilter = req.user.role === 'client' ? req.user.clientId : clientId;
+  const MANAGER_ROLES = ['admin', 'manager'];
+
+  let clientFilter = null;
+  if (req.user.role === 'client') {
+    clientFilter = req.user.clientId;
+  } else if (MANAGER_ROLES.includes(req.user.role)) {
+    clientFilter = clientId || null;
+  } else {
+    // Team members: restrict to their assigned clients
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }]
+    }).select('_id');
+    const assignedIds = assignedClients.map(c => c._id);
+    if (clientId) {
+      const isAssigned = assignedIds.some(id => String(id) === String(clientId));
+      clientFilter = isAssigned ? clientId : null;
+    } else {
+      clientFilter = assignedIds.length ? assignedIds : 'none';
+    }
+  }
+
+  if (clientFilter === 'none') return res.json({ success: true, posts: [] });
 
   let dateFrom, dateTo;
   if (month) {
@@ -308,7 +386,9 @@ router.get('/calendar', protect, asyncHandler(async (req, res) => {
       { publishedAt: { $gte: dateFrom, $lte: dateTo } }
     ]
   };
-  if (clientFilter) query.client = clientFilter;
+  if (clientFilter) {
+    query.client = Array.isArray(clientFilter) ? { $in: clientFilter } : clientFilter;
+  }
   if (req.user.role === 'client') query.isClientVisible = true;
 
   const posts = await SocialPost.find(query)

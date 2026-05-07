@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { Conversation, Message } = require('../models/Message');
 const Client = require('../models/Client');
-const { protect } = require('../middleware/auth');
+const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { getIO } = require('../config/socket');
 const { createNotification } = require('../utils/notifications');
@@ -143,7 +143,27 @@ router.post('/conversations/:clientId/add-participant', protect, asyncHandler(as
     { client: req.params.clientId },
     { $addToSet: { participants: req.body.userId } },
     { new: true }
-  ).populate('participants', 'name avatar role');
+  ).populate('participants', 'name avatar role jobTitle');
+
+  res.json({ success: true, conversation });
+}));
+
+// @route DELETE /api/messages/conversations/:clientId/remove-participant
+router.delete('/conversations/:clientId/remove-participant', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ success: false, message: 'userId is required' });
+
+  // Never remove the linked client user
+  const client = await require('../models/Client').findById(req.params.clientId).select('linkedUserId');
+  if (client?.linkedUserId && String(client.linkedUserId) === String(userId)) {
+    return res.status(400).json({ success: false, message: 'Cannot remove the client user from their own conversation' });
+  }
+
+  const conversation = await Conversation.findOneAndUpdate(
+    { client: req.params.clientId },
+    { $pull: { participants: userId } },
+    { new: true }
+  ).populate('participants', 'name avatar role jobTitle');
 
   res.json({ success: true, conversation });
 }));

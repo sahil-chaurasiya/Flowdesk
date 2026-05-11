@@ -22,19 +22,19 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
 
   return (
     <form onSubmit={e => { e.preventDefault(); onSubmit(form); }} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Contact Name *" value={form.name} onChange={e => set('name', e.target.value)} required />
         <Input label="Company *" value={form.company} onChange={e => set('company', e.target.value)} required />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Email *" type="email" value={form.email} onChange={e => set('email', e.target.value)} required />
         <Input label="Phone" value={form.phone} onChange={e => set('phone', e.target.value)} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Website" value={form.website} onChange={e => set('website', e.target.value)} />
         <Input label="Industry" value={form.industry} onChange={e => set('industry', e.target.value)} />
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Select label="Status" value={form.status} onChange={e => set('status', e.target.value)}>
           {['onboarding','active','paused','inactive','churned'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase()+s.slice(1)}</option>)}
         </Select>
@@ -43,7 +43,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
         </Select>
         <Input label="Monthly Budget ($)" type="number" value={form.monthlyBudget} onChange={e => set('monthlyBudget', e.target.value)} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Account Manager" value={form.accountManager} onChange={e => set('accountManager', e.target.value)}>
           <option value="">Select manager...</option>
           {managers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
@@ -74,7 +74,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
             <span className="text-sm font-medium text-slate-700">Create portal login for this client</span>
           </label>
           {form.createPortalUser && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label="Portal Email" type="email" value={form.portalEmail} onChange={e => set('portalEmail', e.target.value)} />
               <Input label="Portal Password" value={form.portalPassword} onChange={e => set('portalPassword', e.target.value)} placeholder="Min 8 characters" />
             </div>
@@ -143,87 +143,111 @@ export default function ClientsPage() {
       />
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search clients..." className="sm:w-72" />
-        <div className="flex gap-2 overflow-x-auto">
+      <div className="flex flex-col gap-3">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search clients..." />
+        <div className="flex gap-2 overflow-x-auto pb-1 -mb-1">
           {tabs.map(t => (
             <button key={t.value} onClick={() => setStatusFilter(t.value)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${statusFilter === t.value ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'}`}>
+              className={`px-3 sm:px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors flex-shrink-0 ${statusFilter === t.value ? 'bg-brand-600 text-white' : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'}`}>
               {t.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table on md+, cards on mobile */}
       <Card>
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : clients.length === 0 ? (
           <EmptyState icon={Building2} title="No clients found" description="Create your first client or adjust your filters." action={<Button onClick={() => setShowModal(true)}><Plus size={16} />Add Client</Button>} />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  {['Client', 'Services', 'Manager', 'Plan', 'Status', 'Start Date', ''].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+          <>
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    {['Client', 'Services', 'Manager', 'Plan', 'Status', 'Start Date', ''].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {clients.map(client => (
+                    <tr key={client._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={client.company} size="sm" />
+                          <div>
+                            <div className="font-medium text-slate-800">{client.company}</div>
+                            <div className="text-xs text-slate-400">{client.name} · {client.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex gap-1 flex-wrap max-w-xs">
+                          {client.services?.slice(0, 2).map(s => (
+                            <span key={s} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{SERVICE_LABELS[s] || s}</span>
+                          ))}
+                          {client.services?.length > 2 && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs">+{client.services.length - 2}</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        {client.accountManager ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar name={client.accountManager.name} size="xs" />
+                            <span className="text-slate-700">{client.accountManager.name}</span>
+                          </div>
+                        ) : <span className="text-slate-400">—</span>}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${PLAN_COLORS[client.plan] || 'bg-slate-100 text-slate-600'}`}>
+                          {PLAN_LABELS[client.plan] || client.plan}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(client.status)}`}>
+                          {client.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-500 text-xs">{formatDate(client.startDate)}</td>
+                      <td className="px-4 py-3.5">
+                        <Link to={`/admin/clients/${client._id}`} className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors inline-flex">
+                          <ArrowRight size={16} />
+                        </Link>
+                      </td>
+                    </tr>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {clients.map(client => (
-                  <tr key={client._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={client.company} size="sm" />
-                        <div>
-                          <div className="font-medium text-slate-800">{client.company}</div>
-                          <div className="text-xs text-slate-400">{client.name} · {client.email}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex gap-1 flex-wrap max-w-xs">
-                        {client.services?.slice(0, 2).map(s => (
-                          <span key={s} className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs">{SERVICE_LABELS[s] || s}</span>
-                        ))}
-                        {client.services?.length > 2 && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-xs">+{client.services.length - 2}</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {client.accountManager ? (
-                        <div className="flex items-center gap-2">
-                          <Avatar name={client.accountManager.name} size="xs" />
-                          <span className="text-slate-700">{client.accountManager.name}</span>
-                        </div>
-                      ) : <span className="text-slate-400">—</span>}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${PLAN_COLORS[client.plan] || 'bg-slate-100 text-slate-600'}`}>
-                        {PLAN_LABELS[client.plan] || client.plan}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(client.status)}`}>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {clients.map(client => (
+                <Link key={client._id} to={`/admin/clients/${client._id}`} className="flex items-center gap-3 px-4 py-4 hover:bg-slate-50 transition-colors">
+                  <Avatar name={client.company} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-slate-800 truncate">{client.company}</div>
+                    <div className="text-xs text-slate-500 truncate mt-0.5">{client.name}</div>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(client.status)}`}>
                         {client.status}
                       </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-500 text-xs">{formatDate(client.startDate)}</td>
-                    <td className="px-4 py-3.5">
-                      <Link to={`/admin/clients/${client._id}`} className="p-1.5 text-slate-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors inline-flex">
-                        <ArrowRight size={16} />
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PLAN_COLORS[client.plan] || 'bg-slate-100 text-slate-600'}`}>
+                        {PLAN_LABELS[client.plan] || client.plan}
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowRight size={16} className="text-slate-300 flex-shrink-0" />
+                </Link>
+              ))}
+            </div>
+          </>
         )}
       </Card>
 
-      {/* Create Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add New Client" size="lg">
         <ClientForm onSubmit={handleCreate} loading={saving} managers={managers} />
       </Modal>

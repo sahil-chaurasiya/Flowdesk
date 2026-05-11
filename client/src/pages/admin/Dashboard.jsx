@@ -78,7 +78,6 @@ const ROLE_HERO = {
   },
 };
 
-// ── Admin/Manager Dashboard ────────────────────────────────────────────────────
 function ManagerDashboard({ user }) {
   const [stats, setStats] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -100,16 +99,16 @@ function ManagerDashboard({ user }) {
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
   return (
-    <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="space-y-5">
+      {/* Stats — 2 cols on mobile, 4 on lg */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="Active Clients" value={stats?.activeClients || 0} icon={Building2} color="blue" />
         <StatCard title="Open Tasks" value={stats?.openTasks || 0} icon={CheckSquare} color="orange" subtitle="Pending + In Progress" />
-        <StatCard title="Tasks in Review" value={stats?.reviewTasks || 0} icon={Clock} color="purple" subtitle="Awaiting approval" />
+        <StatCard title="In Review" value={stats?.reviewTasks || 0} icon={Clock} color="purple" subtitle="Awaiting approval" />
         <StatCard title="Team Members" value={stats?.teamCount || 0} icon={Users} color="green" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Pending Tasks */}
         <div className="lg:col-span-2">
           <Card>
@@ -127,10 +126,10 @@ function ManagerDashboard({ user }) {
               ) : (
                 <div className="divide-y divide-slate-100">
                   {tasks.map(task => (
-                    <div key={task._id} className="flex items-center gap-3 px-5 py-3.5">
+                    <div key={task._id} className="flex items-start sm:items-center gap-3 px-4 sm:px-5 py-3.5">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-slate-800 text-sm truncate">{task.title}</div>
-                        <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                        <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                           <span>{task.client?.company}</span>
                           <span>·</span>
                           <span>{CATEGORY_LABELS[task.category]}</span>
@@ -140,7 +139,7 @@ function ManagerDashboard({ user }) {
                         {task.assignedTo ? (
                           <div className="flex items-center gap-1.5">
                             <Avatar name={task.assignedTo.name} size="xs" />
-                            <span className="text-xs text-slate-500 hidden lg:block">{task.assignedTo.name}</span>
+                            <span className="text-xs text-slate-500 hidden sm:block">{task.assignedTo.name}</span>
                           </div>
                         ) : (
                           <span className="text-xs text-red-500 font-medium">Unassigned</span>
@@ -175,9 +174,9 @@ function ManagerDashboard({ user }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-slate-800 text-sm truncate">{client.company}</div>
-                    <div className="text-xs text-slate-400">{client.industry}</div>
+                    <div className="text-xs text-slate-400 truncate">{client.industry}</div>
                   </div>
-                  <ArrowRight size={12} className="text-slate-300" />
+                  <ArrowRight size={12} className="text-slate-300 flex-shrink-0" />
                 </Link>
               ))}
             </CardContent>
@@ -188,7 +187,6 @@ function ManagerDashboard({ user }) {
   );
 }
 
-// ── Team Member Dashboard ──────────────────────────────────────────────────────
 function TeamMemberDashboard({ user }) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -218,16 +216,16 @@ function TeamMemberDashboard({ user }) {
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Hero banner */}
-      <div className={`rounded-2xl bg-gradient-to-br ${hero.color} p-6 text-white`}>
+      <div className={`rounded-2xl bg-gradient-to-br ${hero.color} p-5 sm:p-6 text-white`}>
         <div className="text-3xl mb-1">{hero.icon}</div>
-        <h2 className="text-xl font-bold">{hero.greeting}</h2>
+        <h2 className="text-lg sm:text-xl font-bold">{hero.greeting}</h2>
         <p className="text-white/70 text-sm mt-1">{hero.tip}</p>
       </div>
 
-      {/* Task stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Task stats — 2 cols mobile, 4 cols lg */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="To Do" value={pending.length} icon={AlertCircle} color="orange" />
         <StatCard title="In Progress" value={inProgress.length} icon={Play} color="blue" />
         <StatCard title="In Review" value={review.length} icon={Clock} color="purple" />
@@ -255,13 +253,13 @@ function TeamMemberDashboard({ user }) {
               {[...inProgress, ...pending].slice(0, 8).map(task => {
                 const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
                 return (
-                  <div key={task._id} className={`flex items-start gap-4 px-5 py-4 ${isOverdue ? 'bg-red-50/40' : ''}`}>
+                  <div key={task._id} className={`flex flex-col sm:flex-row sm:items-start gap-3 px-4 sm:px-5 py-4 ${isOverdue ? 'bg-red-50/40' : ''}`}>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-slate-800 text-sm">{task.title}</span>
                         {isOverdue && <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">⚠ Overdue</span>}
                       </div>
-                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2">
+                      <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 flex-wrap">
                         <span className="text-slate-600 font-medium">{task.client?.company}</span>
                         <span>·</span>
                         <span>{CATEGORY_LABELS[task.category]}</span>
@@ -290,7 +288,7 @@ function TeamMemberDashboard({ user }) {
                         <button
                           onClick={() => updateStatus(task._id, 'review')}
                           disabled={updating === task._id}
-                          className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-lg transition-colors disabled:opacity-50"
+                          className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
                         >
                           Send for Review
                         </button>
@@ -307,18 +305,15 @@ function TeamMemberDashboard({ user }) {
   );
 }
 
-// ── Main export — routes to right dashboard by role ────────────────────────────
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const hero = ROLE_HERO[user?.role] || ROLE_HERO.admin;
-
   const isManagerOrAdmin = ['admin', 'manager'].includes(user?.role);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Page title */}
+    <div className="space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">
+        <h1 className="text-lg sm:text-xl font-bold text-slate-800">
           {hero.icon} {hero.greeting}
         </h1>
         <p className="text-slate-500 text-sm mt-0.5">

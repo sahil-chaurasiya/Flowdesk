@@ -13,13 +13,6 @@ const STATUS_COLORS = {
   lost: 'bg-red-100 text-red-600',
 };
 
-const QUALITY_COLORS = {
-  hot: 'bg-red-100 text-red-600',
-  warm: 'bg-orange-100 text-orange-700',
-  cold: 'bg-slate-100 text-slate-500',
-  unqualified: 'bg-slate-50 text-slate-400',
-};
-
 export default function LeadsAdminPage() {
   const [clients, setClients] = useState([]);
   const [selectedClient, setSelectedClient] = useState('');
@@ -114,16 +107,16 @@ export default function LeadsAdminPage() {
       />
 
       {/* Client selector */}
-      <div className="flex gap-3 items-center">
-        <Select value={selectedClient} onChange={e => setSelectedClient(e.target.value)} className="w-64">
+      <div className="flex gap-2 items-center flex-wrap">
+        <Select value={selectedClient} onChange={e => setSelectedClient(e.target.value)} className="flex-1 min-w-[180px] max-w-xs">
           {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
         </Select>
         <Button variant="ghost" onClick={loadBatchesAndStats}><RefreshCw size={15} /></Button>
       </div>
 
-      {/* Stats */}
+      {/* Stats — 2 cols mobile, 4 on lg */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <StatCard title="Total Leads" value={totalLeads} icon={Users} color="blue" subtitle="All time" />
           <StatCard title="New Leads" value={newLeads} icon={Target} color="orange" subtitle="Uncontacted" />
           <StatCard title="Qualified" value={qualified} icon={TrendingUp} color="purple" subtitle="Sales ready" />
@@ -153,32 +146,30 @@ export default function LeadsAdminPage() {
         <EmptyState
           icon={Target}
           title="No leads uploaded yet"
-          description="Upload an Excel or CSV file with your leads. Clients will see them on their dashboard."
+          description="Upload an Excel or CSV file with your leads."
           action={<Button onClick={() => setShowUploadModal(true)}><Upload size={14} /> Upload Leads</Button>}
         />
       ) : (
         <div className="space-y-3">
           {batches.map(batch => (
             <Card key={batch._id} className="overflow-hidden">
-              {/* Batch header */}
               <div
                 className="flex items-center justify-between p-4 cursor-pointer hover:bg-slate-50 transition-colors"
                 onClick={() => loadBatchLeads(batch._id)}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 bg-brand-100 rounded-lg flex items-center justify-center text-brand-600">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 bg-brand-100 rounded-lg flex items-center justify-center text-brand-600 flex-shrink-0">
                     <Target size={18} />
                   </div>
-                  <div>
-                    <div className="font-semibold text-slate-800">{batch.batchLabel || 'Unnamed batch'}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">
-                      {batch.count} leads · Uploaded {timeAgo(batch.createdAt)}
-                      {batch.uploader && ` · by ${batch.uploader.name}`}
-                      {batch.sources?.filter(Boolean).length > 0 && ` · ${batch.sources.filter(Boolean).join(', ')}`}
+                  <div className="min-w-0">
+                    <div className="font-semibold text-slate-800 truncate">{batch.batchLabel || 'Unnamed batch'}</div>
+                    <div className="text-xs text-slate-400 mt-0.5 truncate">
+                      {batch.count} leads · {timeAgo(batch.createdAt)}
+                      {batch.uploader && ` · ${batch.uploader.name}`}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                   <button
                     onClick={e => { e.stopPropagation(); deleteBatch(batch._id); }}
                     className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -189,44 +180,75 @@ export default function LeadsAdminPage() {
                 </div>
               </div>
 
-              {/* Leads table */}
+              {/* Leads — table on md+, cards on mobile */}
               {expandedBatch === batch._id && (
-                <div className="border-t border-slate-100 overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50">
-                      <tr>
-                        {['Name', 'Email', 'Phone', 'Company', 'Source', 'Campaign', 'Status', 'Date'].map(h => (
-                          <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {leads.map(lead => (
-                        <tr key={lead._id} className="hover:bg-slate-50">
-                          <td className="px-4 py-2.5 font-medium text-slate-800 text-xs">{lead.name || '—'}</td>
-                          <td className="px-4 py-2.5 text-slate-600 text-xs">{lead.email || '—'}</td>
-                          <td className="px-4 py-2.5 text-slate-600 text-xs">{lead.phone || '—'}</td>
-                          <td className="px-4 py-2.5 text-slate-600 text-xs">{lead.company || '—'}</td>
-                          <td className="px-4 py-2.5 text-xs">
-                            {lead.source && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{lead.source}</span>}
-                          </td>
-                          <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">{lead.campaign || '—'}</td>
-                          <td className="px-4 py-2.5">
-                            <select
-                              value={lead.status}
-                              onChange={e => updateLeadStatus(lead._id, e.target.value)}
-                              className={`text-xs px-2 py-0.5 rounded-full border-0 cursor-pointer font-medium ${STATUS_COLORS[lead.status]}`}
-                            >
-                              {['new', 'contacted', 'qualified', 'converted', 'lost'].map(s => (
-                                <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-4 py-2.5 text-slate-400 text-xs">{formatDate(lead.leadDate || lead.createdAt)}</td>
+                <div className="border-t border-slate-100">
+                  {/* Desktop table */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          {['Name', 'Email', 'Phone', 'Company', 'Source', 'Campaign', 'Status', 'Date'].map(h => (
+                            <th key={h} className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {leads.map(lead => (
+                          <tr key={lead._id} className="hover:bg-slate-50">
+                            <td className="px-4 py-2.5 font-medium text-slate-800 text-xs">{lead.name || '—'}</td>
+                            <td className="px-4 py-2.5 text-slate-600 text-xs">{lead.email || '—'}</td>
+                            <td className="px-4 py-2.5 text-slate-600 text-xs">{lead.phone || '—'}</td>
+                            <td className="px-4 py-2.5 text-slate-600 text-xs">{lead.company || '—'}</td>
+                            <td className="px-4 py-2.5 text-xs">
+                              {lead.source && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{lead.source}</span>}
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-500 text-xs max-w-xs truncate">{lead.campaign || '—'}</td>
+                            <td className="px-4 py-2.5">
+                              <select
+                                value={lead.status}
+                                onChange={e => updateLeadStatus(lead._id, e.target.value)}
+                                className={`text-xs px-2 py-0.5 rounded-full border-0 cursor-pointer font-medium ${STATUS_COLORS[lead.status]}`}
+                              >
+                                {['new', 'contacted', 'qualified', 'converted', 'lost'].map(s => (
+                                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-400 text-xs">{formatDate(lead.leadDate || lead.createdAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile lead cards */}
+                  <div className="md:hidden divide-y divide-slate-100">
+                    {leads.map(lead => (
+                      <div key={lead._id} className="p-4 space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <div className="font-medium text-slate-800 text-sm">{lead.name || 'Anonymous'}</div>
+                            <div className="text-xs text-slate-500 mt-0.5">{lead.email || lead.phone || '—'}</div>
+                          </div>
+                          <select
+                            value={lead.status}
+                            onChange={e => updateLeadStatus(lead._id, e.target.value)}
+                            className={`text-xs px-2 py-1 rounded-full border-0 cursor-pointer font-medium flex-shrink-0 ${STATUS_COLORS[lead.status]}`}
+                          >
+                            {['new', 'contacted', 'qualified', 'converted', 'lost'].map(s => (
+                              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap text-xs text-slate-500">
+                          {lead.company && <span>{lead.company}</span>}
+                          {lead.source && <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{lead.source}</span>}
+                          <span className="text-slate-400">{formatDate(lead.leadDate || lead.createdAt)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </Card>
@@ -251,11 +273,9 @@ export default function LeadsAdminPage() {
       >
         <div className="space-y-4">
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
-            <strong>Supported columns:</strong> name, email, phone, company, location, source, campaign, notes, date<br />
-            Extra columns are preserved. Rows with no data are skipped.
+            <strong>Supported columns:</strong> name, email, phone, company, location, source, campaign, notes, date
           </div>
 
-          {/* File picker */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">File *</label>
             <div
@@ -277,7 +297,7 @@ export default function LeadsAdminPage() {
             value={uploadForm.batchLabel}
             onChange={e => setUploadForm(p => ({ ...p, batchLabel: e.target.value }))}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Default Source"
               placeholder="e.g. Meta Ads"
@@ -291,7 +311,6 @@ export default function LeadsAdminPage() {
               onChange={e => setUploadForm(p => ({ ...p, campaign: e.target.value }))}
             />
           </div>
-          <p className="text-xs text-slate-400">Source and campaign are used as fallbacks if the file doesn't include those columns.</p>
         </div>
       </Modal>
     </div>

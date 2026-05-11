@@ -6,7 +6,6 @@ import { PageHeader, EmptyState, Avatar, Card, Spinner } from '../../components/
 import { Button, SearchInput, Select, Modal, Input, Textarea } from '../../components/ui/index';
 import { formatDate, getTaskStatusColor, getPriorityColor, timeAgo } from '../../lib/utils';
 
-// Maps task category → suggested role to assign
 const CATEGORY_ROLE_HINT = {
   paid_ads: 'performance_marketer',
   social_media: 'social_media_manager',
@@ -61,9 +60,7 @@ export default function TasksPage() {
   });
 
   useEffect(() => {
-    // Load clients
     api.get('/clients?limit=100').then(r => setClients(r.data.clients || [])).catch(() => {});
-    // Load all team members (all non-client roles)
     api.get('/users?limit=100').then(r => {
       const team = (r.data.users || []).filter(u => u.role !== 'client');
       setMembers(team);
@@ -122,7 +119,6 @@ export default function TasksPage() {
     setTasks(prev => prev.map(t => t._id === id ? { ...t, status } : t));
   };
 
-  // Auto-suggest member when category changes
   const handleCategoryChange = (cat) => {
     setForm(p => {
       const hint = CATEGORY_ROLE_HINT[cat];
@@ -133,7 +129,6 @@ export default function TasksPage() {
 
   const statuses = ['pending', 'in_progress', 'review', 'completed', 'cancelled'];
 
-  // Group members by role for the select
   const membersByRole = members.reduce((acc, m) => {
     const label = ROLE_LABELS[m.role] || m.role;
     if (!acc[label]) acc[label] = [];
@@ -151,21 +146,23 @@ export default function TasksPage() {
         actions={<Button onClick={openCreate}><Plus size={16} />New Task</Button>}
       />
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search tasks..." className="w-64" />
-        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-44">
-          <option value="">All Statuses</option>
-          {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>)}
-        </Select>
-        <Select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="w-36">
-          <option value="">All Priorities</option>
-          {['low', 'medium', 'high', 'urgent'].map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
-        </Select>
-        <Select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="w-48">
-          <option value="">All Categories</option>
-          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-        </Select>
+      {/* Filters - wrap on mobile */}
+      <div className="flex flex-col gap-3">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search tasks..." />
+        <div className="flex gap-2 flex-wrap">
+          <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="flex-1 min-w-[130px]">
+            <option value="">All Statuses</option>
+            {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+          </Select>
+          <Select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="flex-1 min-w-[110px]">
+            <option value="">All Priorities</option>
+            {['low', 'medium', 'high', 'urgent'].map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+          </Select>
+          <Select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="flex-1 min-w-[140px]">
+            <option value="">All Categories</option>
+            {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </Select>
+        </div>
       </div>
 
       {loading ? (
@@ -174,7 +171,8 @@ export default function TasksPage() {
         <EmptyState icon={CheckSquare} title="No tasks found" description="Create a task to get started." action={<Button onClick={openCreate}><Plus size={14} />New Task</Button>} />
       ) : (
         <Card>
-          <div className="overflow-x-auto">
+          {/* Desktop table */}
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -236,10 +234,52 @@ export default function TasksPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile cards */}
+          <div className="lg:hidden divide-y divide-slate-100">
+            {tasks.map(task => (
+              <div key={task._id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-slate-800 text-sm">{task.title}</div>
+                    <div className="text-xs text-slate-400 mt-0.5">{task.client?.company} · {timeAgo(task.createdAt)}</div>
+                  </div>
+                  <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                  {isManager ? (
+                    <select value={task.status} onChange={e => updateStatus(task._id, e.target.value)}
+                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize border-0 cursor-pointer ${getTaskStatusColor(task.status)}`}>
+                      {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                    </select>
+                  ) : (
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(task.status)}`}>
+                      {task.status.replace('_', ' ')}
+                    </span>
+                  )}
+                  <span className="text-xs text-slate-500">{CATEGORY_LABELS[task.category]}</span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+                  {task.assignedTo ? (
+                    <div className="flex items-center gap-1.5">
+                      <Avatar name={task.assignedTo.name} size="xs" />
+                      <span>{task.assignedTo.name}</span>
+                    </div>
+                  ) : <span className="text-slate-400">Unassigned</span>}
+                  {task.deadline && (
+                    <span className="flex items-center gap-1"><Clock size={11} />{formatDate(task.deadline)}</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
       )}
 
-      {/* Create / Edit Modal */}
+      {/* Modal */}
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'Edit Task' : 'New Task'} size="md"
         footer={<div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
@@ -249,8 +289,8 @@ export default function TasksPage() {
         <div className="space-y-4">
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required />
           <Textarea label="Description" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} />
-          
-          <div className="grid grid-cols-2 gap-3">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select label="Client *" value={form.client} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}>
               <option value="">Select client...</option>
               {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
@@ -260,7 +300,6 @@ export default function TasksPage() {
             </Select>
           </div>
 
-          {/* Assign To — grouped by role */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Assign To</label>
             <select
@@ -279,12 +318,12 @@ export default function TasksPage() {
             </select>
             {form.category && CATEGORY_ROLE_HINT[form.category] && (
               <p className="text-xs text-slate-400 mt-1">
-                💡 Suggested role for this task: <span className="text-brand-600 font-medium">{ROLE_LABELS[CATEGORY_ROLE_HINT[form.category]]}</span>
+                💡 Suggested role: <span className="text-brand-600 font-medium">{ROLE_LABELS[CATEGORY_ROLE_HINT[form.category]]}</span>
               </p>
             )}
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select label="Priority" value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
               {['low', 'medium', 'high', 'urgent'].map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
             </Select>

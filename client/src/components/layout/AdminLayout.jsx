@@ -11,7 +11,6 @@ import { useSocket } from '../../context/SocketContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import { getInitials } from '../../lib/utils';
 
-// Role labels for display
 const ROLE_LABELS = {
   admin: 'Admin',
   manager: 'Project Manager',
@@ -22,10 +21,6 @@ const ROLE_LABELS = {
   copywriter: 'Copywriter',
 };
 
-// Nav items per role
-// adminOnly    → only admin sees it
-// managerOnly  → admin + manager see it
-// teamOnly     → team members (non-admin/manager) see it
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/clients', icon: Building2, label: 'Clients', managerOnly: true },
@@ -50,7 +45,25 @@ export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
 
-  // Listen for real-time notifications via socket
+  // Close mobile sidebar on resize to desktop
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 768) setMobileOpen(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Prevent body scroll when mobile sidebar is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileOpen]);
+
   useEffect(() => {
     if (!socket) return;
     const handler = (notif) => {
@@ -76,56 +89,64 @@ export default function AdminLayout() {
     return true;
   });
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ isMobile = false }) => (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/10 ${collapsed ? 'justify-center' : ''}`}>
+      <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/10 ${collapsed && !isMobile ? 'justify-center' : ''}`}>
         <div className="w-9 h-9 bg-brand-600 rounded-lg flex items-center justify-center flex-shrink-0">
           <span className="text-white font-bold text-sm">TF</span>
         </div>
-        {!collapsed && (
-          <div>
-            <div className="text-white font-bold text-sm leading-tight">To Fly Media</div>
-            <div className="text-slate-400 text-xs">{ROLE_LABELS[user?.role] || 'Team Portal'}</div>
+        {(!collapsed || isMobile) && (
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-bold text-sm leading-tight truncate">To Fly Media</div>
+            <div className="text-slate-400 text-xs truncate">{ROLE_LABELS[user?.role] || 'Team Portal'}</div>
           </div>
+        )}
+        {isMobile && (
+          <button
+            onClick={() => setMobileOpen(false)}
+            className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors ml-auto"
+          >
+            <X size={18} />
+          </button>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {filteredNav.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
-              `sidebar-link ${isActive ? 'active' : ''} ${collapsed ? 'justify-center' : ''}`
+              `sidebar-link ${isActive ? 'active' : ''} ${collapsed && !isMobile ? 'justify-center' : ''}`
             }
-            title={collapsed ? label : undefined}
+            title={collapsed && !isMobile ? label : undefined}
             onClick={() => setMobileOpen(false)}
           >
             <Icon size={18} className="flex-shrink-0" />
-            {!collapsed && <span>{label}</span>}
+            {(!collapsed || isMobile) && <span>{label}</span>}
           </NavLink>
         ))}
       </nav>
 
       {/* Role badge */}
-      {!collapsed && (
+      {(!collapsed || isMobile) && (
         <div className="px-4 pb-2">
           <div className="bg-white/5 rounded-lg px-3 py-2 text-center">
             <div className="text-xs text-slate-400 leading-tight">Signed in as</div>
-            <div className="text-xs font-semibold text-white mt-0.5">{ROLE_LABELS[user?.role] || user?.role}</div>
+            <div className="text-xs font-semibold text-white mt-0.5 truncate">{ROLE_LABELS[user?.role] || user?.role}</div>
           </div>
         </div>
       )}
 
       {/* User section */}
       <div className="border-t border-white/10 p-3">
-        <div className={`flex items-center gap-3 px-2 py-2 rounded-lg ${collapsed ? 'justify-center' : ''}`}>
+        <div className={`flex items-center gap-3 px-2 py-2 rounded-lg ${collapsed && !isMobile ? 'justify-center' : ''}`}>
           <div className="w-8 h-8 bg-brand-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {getInitials(user?.name)}
           </div>
-          {!collapsed && (
+          {(!collapsed || isMobile) && (
             <div className="flex-1 min-w-0">
               <div className="text-white text-sm font-medium truncate">{user?.name}</div>
               <div className="text-slate-400 text-xs truncate">{user?.email}</div>
@@ -134,10 +155,10 @@ export default function AdminLayout() {
         </div>
         <button
           onClick={handleLogout}
-          className={`sidebar-link mt-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 w-full ${collapsed ? 'justify-center' : ''}`}
+          className={`sidebar-link mt-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 w-full ${collapsed && !isMobile ? 'justify-center' : ''}`}
         >
           <LogOut size={16} />
-          {!collapsed && <span>Sign out</span>}
+          {(!collapsed || isMobile) && <span>Sign out</span>}
         </button>
       </div>
     </div>
@@ -146,11 +167,13 @@ export default function AdminLayout() {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       {/* Desktop sidebar */}
-      <aside className={`hidden md:flex flex-col bg-sidebar transition-all duration-300 flex-shrink-0 ${collapsed ? 'w-16' : 'w-56'}`}>
+      <aside
+        className={`hidden md:flex flex-col bg-sidebar transition-all duration-300 flex-shrink-0 relative ${collapsed ? 'w-16' : 'w-56'}`}
+      >
         <SidebarContent />
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 translate-x-full bg-sidebar border border-white/10 rounded-r-lg p-1.5 text-slate-400 hover:text-white transition-colors z-10 hidden md:flex"
+          className="absolute top-1/2 -translate-y-1/2 translate-x-full bg-sidebar border border-white/10 rounded-r-lg p-1.5 text-slate-400 hover:text-white transition-colors z-10 hidden md:flex"
           style={{ left: collapsed ? '3.5rem' : '13.5rem' }}
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -160,9 +183,12 @@ export default function AdminLayout() {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-sidebar z-50">
-            <SidebarContent />
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] bg-sidebar z-50 shadow-2xl">
+            <SidebarContent isMobile />
           </aside>
         </div>
       )}
@@ -170,16 +196,31 @@ export default function AdminLayout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar */}
-        <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 flex-shrink-0">
-          <button className="md:hidden text-slate-500 hover:text-slate-700" onClick={() => setMobileOpen(true)}>
+        <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-4 flex-shrink-0 gap-2">
+          <button
+            className="md:hidden text-slate-500 hover:text-slate-700 p-1.5 rounded-lg hover:bg-slate-100 transition-colors flex-shrink-0"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
+          >
             <Menu size={20} />
           </button>
+
+          {/* Mobile brand name */}
+          <div className="flex items-center gap-2 md:hidden">
+            <div className="w-6 h-6 bg-brand-600 rounded flex items-center justify-center flex-shrink-0">
+              <span className="text-white font-bold text-xs">TF</span>
+            </div>
+            <span className="text-slate-700 font-semibold text-sm">To Fly Media</span>
+          </div>
+
           <div className="flex-1" />
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1">
             <div className="relative">
               <button
                 onClick={() => setShowNotifs(!showNotifs)}
                 className="relative p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                aria-label="Notifications"
               >
                 <Bell size={18} />
                 {user?.notifications?.filter(n => !n.read).length > 0 && (
@@ -191,7 +232,7 @@ export default function AdminLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-5 lg:p-6">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-5 lg:p-6">
           <Outlet />
         </main>
       </div>

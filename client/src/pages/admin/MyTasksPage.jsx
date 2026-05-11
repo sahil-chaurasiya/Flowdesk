@@ -39,7 +39,6 @@ export default function MyTasksPage() {
       const params = new URLSearchParams({ limit: 100 });
       if (statusFilter) params.set('status', statusFilter);
       const { data } = await api.get(`/tasks?${params}`);
-      // team_member endpoint already filters by assignedTo on backend
       setTasks(data.tasks || []);
     } finally { setLoading(false); }
   }, [statusFilter]);
@@ -69,11 +68,11 @@ export default function MyTasksPage() {
         <h1 className="text-xl font-bold text-slate-800">
           {welcome.icon} {welcome.greeting}
         </h1>
-        <p className="text-slate-500 text-sm mt-0.5">{welcome.tip}</p>
+        {welcome.tip && <p className="text-slate-500 text-sm mt-0.5 leading-relaxed">{welcome.tip}</p>}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard title="To Do" value={pending} icon={AlertCircle} color="orange" subtitle="Pending" />
         <StatCard title="In Progress" value={inProgress} icon={Play} color="blue" subtitle="Active" />
         <StatCard title="In Review" value={review} icon={Clock} color="purple" subtitle="Awaiting approval" />
@@ -101,10 +100,11 @@ export default function MyTasksPage() {
           {tasks.map(task => {
             const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
             return (
-              <Card key={task._id} className={`p-5 transition-all hover:shadow-md ${isOverdue ? 'border-red-200' : ''}`}>
-                <div className="flex items-start justify-between gap-4">
+              <Card key={task._id} className={`p-4 sm:p-5 transition-all hover:shadow-md ${isOverdue ? 'border-red-200' : ''}`}>
+                {/* Title row */}
+                <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="font-semibold text-slate-900">{task.title}</span>
                       {task.isClientRequest && (
                         <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Client Request</span>
@@ -113,45 +113,45 @@ export default function MyTasksPage() {
                         <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>
                       )}
                     </div>
-                    <p className="text-sm text-slate-500 line-clamp-2 mb-3">{task.description || 'No description provided.'}</p>
-
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                      <span className="font-medium text-slate-700">{task.client?.company}</span>
-                      <span>{CATEGORY_LABELS[task.category] || task.category}</span>
-                      <span className={`px-2 py-0.5 rounded-full font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>
-                      {task.deadline && (
-                        <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 font-semibold' : ''}`}>
-                          <Clock size={11} /> Due {formatDate(task.deadline)}
-                        </span>
-                      )}
-                      <span className="text-slate-400">{timeAgo(task.createdAt)}</span>
-                    </div>
                   </div>
+                  {/* Status badge — always visible */}
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ${getTaskStatusColor(task.status)}`}>
+                    {task.status.replace('_', ' ')}
+                  </span>
+                </div>
 
-                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getTaskStatusColor(task.status)}`}>
-                      {task.status.replace('_', ' ')}
+                <p className="text-sm text-slate-500 line-clamp-2 mb-3">{task.description || 'No description provided.'}</p>
+
+                {/* Meta tags */}
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-3">
+                  <span className="font-medium text-slate-700">{task.client?.company}</span>
+                  <span>{CATEGORY_LABELS[task.category] || task.category}</span>
+                  <span className={`px-2 py-0.5 rounded-full font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>
+                  {task.deadline && (
+                    <span className={`flex items-center gap-1 ${isOverdue ? 'text-red-500 font-semibold' : ''}`}>
+                      <Clock size={11} /> Due {formatDate(task.deadline)}
                     </span>
-                    {/* Status update buttons */}
-                    <div className="flex gap-1.5">
-                      {task.status === 'pending' && (
-                        <Button size="xs" onClick={() => updateStatus(task._id, 'in_progress')} loading={updating === task._id}>
-                          Start
-                        </Button>
-                      )}
-                      {task.status === 'in_progress' && (
-                        <Button size="xs" variant="secondary" onClick={() => updateStatus(task._id, 'review')} loading={updating === task._id}>
-                          Send for Review
-                        </Button>
-                      )}
-                      {task.status === 'review' && (
-                        <span className="text-xs text-slate-400 italic">Awaiting PM review</span>
-                      )}
-                      {task.status === 'completed' && (
-                        <span className="text-xs text-emerald-600 font-medium">✓ Done</span>
-                      )}
-                    </div>
-                  </div>
+                  )}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  {task.status === 'pending' && (
+                    <Button size="xs" onClick={() => updateStatus(task._id, 'in_progress')} loading={updating === task._id}>
+                      Start
+                    </Button>
+                  )}
+                  {task.status === 'in_progress' && (
+                    <Button size="xs" variant="secondary" onClick={() => updateStatus(task._id, 'review')} loading={updating === task._id}>
+                      Send for Review
+                    </Button>
+                  )}
+                  {task.status === 'review' && (
+                    <span className="text-xs text-slate-400 italic self-center">Awaiting PM review</span>
+                  )}
+                  {task.status === 'completed' && (
+                    <span className="text-xs text-emerald-600 font-medium self-center">✓ Done</span>
+                  )}
                 </div>
               </Card>
             );

@@ -204,47 +204,51 @@ export default function ClientDetailPage() {
   ];
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-start gap-4">
-        <Link to="/admin/clients" className="mt-1 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+    <div className="space-y-4 animate-fade-in">
+      {/* Header — stacks on mobile */}
+      <div className="flex items-start gap-3">
+        <Link to="/admin/clients" className="mt-1 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0">
           <ArrowLeft size={18} />
         </Link>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <Avatar name={client.company} size="md" />
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">{client.company}</h1>
+          {/* Top row: avatar + name + status badges */}
+          <div className="flex items-start gap-3 flex-wrap">
+            <Avatar name={client.company} size="md" className="flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{client.company}</h1>
               <p className="text-slate-500 text-sm">{client.name} · {client.industry}</p>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(client.status)}`}>{client.status}</span>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium ${PLAN_COLORS[client.plan]}`}>{PLAN_LABELS[client.plan]}</span>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(client.status)}`}>{client.status}</span>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${PLAN_COLORS[client.plan]}`}>{PLAN_LABELS[client.plan]}</span>
+            </div>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Link to={`/admin/messages/${id}`}>
-            <Button variant="outline" size="sm"><MessageSquare size={14} />Chat</Button>
-          </Link>
-          {isManager && (
-            <Button variant="outline" size="sm" onClick={() => {
-              setEditForm({
-                name: client.name, company: client.company, email: client.email,
-                phone: client.phone || '', website: client.website || '',
-                industry: client.industry || '', status: client.status,
-                plan: client.plan, monthlyBudget: client.monthlyBudget, notes: client.notes || '',
-              });
-              setShowEditModal(true);
-            }}><Edit3 size={14} />Edit</Button>
-          )}
-          <Button size="sm" onClick={() => setShowUpdateModal(true)}><Plus size={14} />Update</Button>
+          {/* Action buttons row */}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <Link to={`/admin/messages/${id}`}>
+              <Button variant="outline" size="sm"><MessageSquare size={14} />Chat</Button>
+            </Link>
+            {isManager && (
+              <Button variant="outline" size="sm" onClick={() => {
+                setEditForm({
+                  name: client.name, company: client.company, email: client.email,
+                  phone: client.phone || '', website: client.website || '',
+                  industry: client.industry || '', status: client.status,
+                  plan: client.plan, monthlyBudget: client.monthlyBudget, notes: client.notes || '',
+                });
+                setShowEditModal(true);
+              }}><Edit3 size={14} />Edit</Button>
+            )}
+            <Button size="sm" onClick={() => setShowUpdateModal(true)}><Plus size={14} />Update</Button>
+          </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      {/* Tabs — horizontally scrollable */}
+      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            className={`px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
             {t.label}
           </button>
         ))}
@@ -257,12 +261,12 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Client Information</h3></CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2 text-slate-600"><Mail size={14} className="text-slate-400" />{client.email}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400" />{client.phone || '—'}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><Globe size={14} className="text-slate-400" />{client.website || '—'}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><Calendar size={14} className="text-slate-400" />Started {formatDate(client.startDate)}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><DollarSign size={14} className="text-slate-400" />{formatCurrency(client.monthlyBudget)}/mo</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="flex items-center gap-2 text-slate-600 min-w-0"><Mail size={14} className="text-slate-400 flex-shrink-0" /><span className="truncate">{client.email}</span></div>
+                  <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400 flex-shrink-0" />{client.phone || '—'}</div>
+                  <div className="flex items-center gap-2 text-slate-600 min-w-0"><Globe size={14} className="text-slate-400 flex-shrink-0" /><span className="truncate">{client.website || '—'}</span></div>
+                  <div className="flex items-center gap-2 text-slate-600"><Calendar size={14} className="text-slate-400 flex-shrink-0" />Started {formatDate(client.startDate)}</div>
+                  <div className="flex items-center gap-2 text-slate-600"><DollarSign size={14} className="text-slate-400 flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
                 </div>
                 {client.services?.length > 0 && (
                   <div className="mt-4">
@@ -395,17 +399,15 @@ export default function ClientDetailPage() {
             <Card>
               <div className="divide-y divide-slate-100">
                 {tasks.map(t => (
-                  <div key={t._id} className="flex items-center gap-4 px-5 py-3.5">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-slate-800 text-sm">{t.title}</div>
-                      {t.description && <div className="text-xs text-slate-500 mt-0.5 truncate">{t.description}</div>}
-                      <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(t.priority)}`}>{t.priority}</span>
-                        {t.category && t.category !== 'other' && <span className="text-xs text-slate-500">{CATEGORY_LABELS[t.category]}</span>}
-                        {t.assignedTo && <span className="text-xs text-slate-400">→ {t.assignedTo.name}</span>}
-                        {t.deadline && <span className="text-xs text-slate-400 flex items-center gap-1"><Clock size={11} />{formatDate(t.deadline)}</span>}
-                      </div>
+                  <div key={t._id} className="px-4 sm:px-5 py-3.5">
+                    <div className="font-medium text-slate-800 text-sm">{t.title}</div>
+                    {t.description && <div className="text-xs text-slate-500 mt-0.5 truncate">{t.description}</div>}
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(t.priority)}`}>{t.priority}</span>
+                      {t.category && t.category !== 'other' && <span className="text-xs text-slate-500">{CATEGORY_LABELS[t.category]}</span>}
+                      {t.assignedTo && <span className="text-xs text-slate-400">→ {t.assignedTo.name}</span>}
+                      {t.deadline && <span className="text-xs text-slate-400 flex items-center gap-1"><Clock size={11} />{formatDate(t.deadline)}</span>}
                     </div>
                   </div>
                 ))}
@@ -426,7 +428,7 @@ export default function ClientDetailPage() {
                   <CardContent>
                     <div className="flex items-start gap-3">
                       <Avatar name={u.author?.name} size="sm" className="flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-slate-800 text-sm">{u.title}</span>
                           {u.isPinned && <span className="px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full text-xs">📌 Pinned</span>}
@@ -471,7 +473,7 @@ export default function ClientDetailPage() {
         return (
           <div className="space-y-5">
             {/* Days filter */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-3">
               <h3 className="font-semibold text-slate-800">Social Media Analytics</h3>
               <div className="flex gap-1">
                 {[7, 30, 90].map(d => (
@@ -490,10 +492,10 @@ export default function ClientDetailPage() {
                 {socialAccounts.length === 0 ? (
                   <p className="text-slate-400 text-sm text-center py-4">No social accounts connected yet</p>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {socialAccounts.map(acc => (
                       <div key={acc._id} className={`flex items-center gap-2.5 p-3 rounded-xl border ${PLATFORM_BG[acc.platform] || 'bg-slate-50 border-slate-200'}`}>
-                        <div className="w-7 h-7 flex items-center justify-center">
+                        <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
                           {PLATFORM_ICONS[acc.platform] || <Globe size={16} />}
                         </div>
                         <div className="min-w-0">
@@ -524,42 +526,44 @@ export default function ClientDetailPage() {
                           <span className="text-xs text-slate-500 font-medium">{m.label}</span>
                           {m.icon}
                         </div>
-                        <div className="text-2xl font-bold text-slate-800">{m.value}</div>
+                        <div className="text-xl sm:text-2xl font-bold text-slate-800">{m.value}</div>
                       </CardContent>
                     </Card>
                   ))}
                 </div>
 
-                {/* By Platform breakdown */}
+                {/* By Platform — scrollable on mobile */}
                 {byPlatform.length > 0 && (
                   <Card>
                     <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Performance by Platform</h3></CardHeader>
                     <CardContent>
                       <div className="divide-y divide-slate-100">
                         {byPlatform.map(p => (
-                          <div key={p._id} className="flex items-center gap-4 py-3">
-                            <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
-                              {PLATFORM_ICONS[p._id] || <Globe size={16} />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-sm font-medium text-slate-800 capitalize">{p._id?.replace('_', ' ')}</div>
-                              <div className="text-xs text-slate-500">{p.posts} posts</div>
-                            </div>
-                            <div className="grid grid-cols-4 gap-3 text-center text-xs">
+                          <div key={p._id} className="py-3">
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                                {PLATFORM_ICONS[p._id] || <Globe size={16} />}
+                              </div>
                               <div>
+                                <div className="text-sm font-medium text-slate-800 capitalize">{p._id?.replace('_', ' ')}</div>
+                                <div className="text-xs text-slate-500">{p.posts} posts</div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-4 gap-2 text-center text-xs ml-10">
+                              <div className="bg-slate-50 rounded-lg p-2">
                                 <div className="text-slate-400">Reach</div>
                                 <div className="font-semibold text-slate-700">{(p.totalReach || 0).toLocaleString()}</div>
                               </div>
-                              <div>
+                              <div className="bg-slate-50 rounded-lg p-2">
                                 <div className="text-slate-400">Likes</div>
                                 <div className="font-semibold text-slate-700">{(p.totalLikes || 0).toLocaleString()}</div>
                               </div>
-                              <div>
+                              <div className="bg-slate-50 rounded-lg p-2">
                                 <div className="text-slate-400">Comments</div>
                                 <div className="font-semibold text-slate-700">{(p.totalComments || 0).toLocaleString()}</div>
                               </div>
-                              <div>
-                                <div className="text-slate-400">Eng. Rate</div>
+                              <div className="bg-slate-50 rounded-lg p-2">
+                                <div className="text-slate-400">Eng.</div>
                                 <div className="font-semibold text-emerald-600">{(p.avgEngagementRate || 0).toFixed(2)}%</div>
                               </div>
                             </div>
@@ -582,19 +586,19 @@ export default function ClientDetailPage() {
                               {PLATFORM_ICONS[post.platform] || <Globe size={16} />}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap mb-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <span className="text-xs font-medium text-slate-700 capitalize">{post.platform?.replace('_', ' ')}</span>
                                 <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-full text-xs text-slate-500 capitalize">{post.contentType}</span>
                                 {post.publishedAt && <span className="text-xs text-slate-400">{timeAgo(post.publishedAt)}</span>}
                               </div>
                               {post.caption && <p className="text-xs text-slate-600 line-clamp-2">{post.caption}</p>}
-                              <div className="flex items-center gap-3 mt-2">
+                              <div className="flex flex-wrap items-center gap-2 mt-2">
                                 <span className="flex items-center gap-1 text-xs text-slate-500"><Heart size={11} className="text-pink-400" />{(post.metrics?.likes || 0).toLocaleString()}</span>
                                 <span className="flex items-center gap-1 text-xs text-slate-500"><MessageCircle size={11} className="text-blue-400" />{(post.metrics?.comments || 0).toLocaleString()}</span>
                                 <span className="flex items-center gap-1 text-xs text-slate-500"><Share2 size={11} className="text-emerald-400" />{(post.metrics?.shares || 0).toLocaleString()}</span>
                                 <span className="flex items-center gap-1 text-xs text-slate-500"><Eye size={11} className="text-amber-400" />{(post.metrics?.reach || 0).toLocaleString()}</span>
                                 {post.metrics?.engagementRate > 0 && (
-                                  <span className="ml-auto px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
+                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
                                     {post.metrics.engagementRate.toFixed(2)}% eng.
                                   </span>
                                 )}
@@ -632,11 +636,10 @@ export default function ClientDetailPage() {
                           <p className="text-sm text-slate-700 truncate">{post.caption || '(no caption)'}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-xs text-slate-400 capitalize">{post.contentType}</span>
-                            <span className="text-slate-300">·</span>
-                            <span className="text-xs text-slate-400">{post.assignedTo?.name ? `by ${post.assignedTo.name}` : ''}</span>
+                            {post.assignedTo?.name && <><span className="text-slate-300">·</span><span className="text-xs text-slate-400">by {post.assignedTo.name}</span></>}
                           </div>
                         </div>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize flex-shrink-0 ${
                           post.status === 'published' ? 'bg-emerald-100 text-emerald-700'
                           : post.status === 'scheduled' ? 'bg-blue-100 text-blue-700'
                           : post.status === 'draft' ? 'bg-slate-100 text-slate-600'
@@ -659,13 +662,13 @@ export default function ClientDetailPage() {
             <Card>
               <div className="divide-y divide-slate-100">
                 {files.map(f => (
-                  <div key={f._id} className="flex items-center gap-4 px-5 py-3.5">
-                    <div className="text-2xl">{f.mimeType?.includes('pdf') ? '📄' : f.mimeType?.includes('image') ? '🖼️' : f.mimeType?.includes('zip') ? '📦' : '📎'}</div>
+                  <div key={f._id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
+                    <div className="text-2xl flex-shrink-0">{f.mimeType?.includes('pdf') ? '📄' : f.mimeType?.includes('image') ? '🖼️' : f.mimeType?.includes('zip') ? '📦' : '📎'}</div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-slate-800 text-sm truncate">{f.name}</div>
                       <div className="text-xs text-slate-500">{f.uploadedBy?.name} · {timeAgo(f.createdAt)}</div>
                     </div>
-                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
+                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline flex-shrink-0">Download</a>
                   </div>
                 ))}
               </div>
@@ -682,14 +685,14 @@ export default function ClientDetailPage() {
               {reports.map(r => (
                 <Card key={r._id}>
                   <CardContent>
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between flex-wrap gap-2 mb-3">
                       <div>
                         <div className="font-semibold text-slate-800">{r.title}</div>
                         <div className="text-xs text-slate-500">{formatDate(r.startDate)} — {formatDate(r.endDate)}</div>
                       </div>
                       <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs capitalize">{r.period}</span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
                         { label: 'Ad Spend', value: formatCurrency(r.metrics?.adSpend), color: 'bg-slate-50' },
                         { label: 'Revenue', value: formatCurrency(r.metrics?.revenue), color: 'bg-emerald-50' },
@@ -710,17 +713,16 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* TEAM MANAGEMENT (admin/manager only) */}
+      {/* TEAM MANAGEMENT */}
       {activeTab === 'team' && isManager && (
         <div className="space-y-5">
-          {/* Account Manager */}
           <Card>
             <CardHeader>
               <h3 className="font-semibold text-slate-800 text-sm">Account Manager</h3>
               <p className="text-xs text-slate-400 mt-0.5">Primary point of contact responsible for this client</p>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 {client.accountManager ? (
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar name={client.accountManager.name} size="md" />
@@ -733,7 +735,7 @@ export default function ClientDetailPage() {
                 ) : (
                   <p className="text-slate-400 text-sm flex-1">No account manager assigned</p>
                 )}
-                <div className="flex-shrink-0 min-w-[220px]">
+                <div className="w-full sm:w-auto sm:min-w-[220px]">
                   <Select value={client.accountManager?._id || ''} onChange={e => handleSetAccountManager(e.target.value)} disabled={savingTeam}>
                     <option value="">— Change Account Manager —</option>
                     {eligibleManagers.map(m => (
@@ -745,13 +747,12 @@ export default function ClientDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Team Members */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <h3 className="font-semibold text-slate-800 text-sm">Team Members</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">People working on this client's account — they can access client tasks, social posts, and files</p>
+                  <p className="text-xs text-slate-400 mt-0.5">People working on this client's account</p>
                 </div>
                 <Button size="sm" onClick={() => { setAddMemberId(''); setShowAddMemberModal(true); }}>
                   <UserPlus size={14} />Add Member
@@ -763,7 +764,6 @@ export default function ClientDetailPage() {
                 <div className="text-center py-8">
                   <Users size={32} className="mx-auto text-slate-200 mb-2" />
                   <p className="text-slate-400 text-sm">No team members assigned yet</p>
-                  <p className="text-slate-300 text-xs mt-1">Add team members so they can access this client's data</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -773,14 +773,13 @@ export default function ClientDetailPage() {
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-slate-800 text-sm">{m.name}</div>
                         <div className="text-xs text-slate-500">{m.jobTitle || ROLE_LABELS[m.role] || m.role}</div>
-                        {m.email && <div className="text-xs text-slate-400">{m.email}</div>}
+                        {m.email && <div className="text-xs text-slate-400 truncate">{m.email}</div>}
                       </div>
-                      <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium">
+                      <span className="hidden sm:inline-flex px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium flex-shrink-0">
                         {ROLE_LABELS[m.role] || m.role}
                       </span>
                       <button onClick={() => handleRemoveTeamMember(m._id)} disabled={savingTeam}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                        title="Remove from client">
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0">
                         <X size={14} />
                       </button>
                     </div>
@@ -791,28 +790,27 @@ export default function ClientDetailPage() {
           </Card>
 
           <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700">
-            <strong>Access Note:</strong> Assigned team members will only see this client's tasks, social posts, and files. Removing a member immediately revokes their access to this client's data.
+            <strong>Access Note:</strong> Assigned team members will only see this client's tasks, social posts, and files. Removing a member immediately revokes their access.
           </div>
         </div>
       )}
 
-      {/* Add Team Member Modal */}
+      {/* Modals */}
       <Modal isOpen={showAddMemberModal} onClose={() => setShowAddMemberModal(false)} title="Add Team Member"
         footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowAddMemberModal(false)}>Cancel</Button><Button loading={savingTeam} onClick={handleAddTeamMember} disabled={!addMemberId}>Add to Client</Button></div>}
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">Assign a team member to <strong>{client.company}</strong>. They will gain access to this client's tasks, social posts, and files.</p>
+          <p className="text-sm text-slate-600">Assign a team member to <strong>{client.company}</strong>.</p>
           <Select label="Team Member" value={addMemberId} onChange={e => setAddMemberId(e.target.value)}>
             <option value="">— Select a team member —</option>
             {availableToAdd.map(m => (
               <option key={m._id} value={m._id}>{m.name} — {m.jobTitle || ROLE_LABELS[m.role] || m.role}</option>
             ))}
           </Select>
-          {availableToAdd.length === 0 && <p className="text-xs text-slate-400 text-center">All team members are already assigned to this client.</p>}
+          {availableToAdd.length === 0 && <p className="text-xs text-slate-400 text-center">All team members are already assigned.</p>}
         </div>
       </Modal>
 
-      {/* Post Update Modal */}
       <Modal isOpen={showUpdateModal} onClose={() => setShowUpdateModal(false)} title="Post Update"
         footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowUpdateModal(false)}>Cancel</Button><Button loading={saving} onClick={handleAddUpdate}>Post Update</Button></div>}
       >
@@ -825,14 +823,13 @@ export default function ClientDetailPage() {
         </div>
       </Modal>
 
-      {/* Add Task Modal */}
       <Modal isOpen={showTaskModal} onClose={() => setShowTaskModal(false)} title="Add Task"
         footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowTaskModal(false)}>Cancel</Button><Button loading={saving} onClick={handleAddTask}>Create Task</Button></div>}
       >
         <div className="space-y-4">
           <Input label="Title" value={taskForm.title} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} required />
           <Textarea label="Description" value={taskForm.description} onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))} rows={3} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select label="Category" value={taskForm.category} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))}>
               {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </Select>
@@ -840,14 +837,14 @@ export default function ClientDetailPage() {
               {['low', 'medium', 'high', 'urgent'].map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Deadline" type="date" value={taskForm.deadline} onChange={e => setTaskForm(p => ({ ...p, deadline: e.target.value }))} />
             <Select label="Assign To" value={taskForm.assignedTo} onChange={e => setTaskForm(p => ({ ...p, assignedTo: e.target.value }))}>
               <option value="">Unassigned</option>
               {client.teamMembers?.length > 0 && (
                 <optgroup label="This Client's Team">
-                  {client.accountManager && <option value={client.accountManager._id}>{client.accountManager.name} (Account Manager)</option>}
-                  {client.teamMembers.map(m => <option key={m._id} value={m._id}>{m.name} ({ROLE_LABELS[m.role] || m.role})</option>)}
+                  {client.accountManager && <option value={client.accountManager._id}>{client.accountManager.name} (AM)</option>}
+                  {client.teamMembers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </optgroup>
               )}
               <optgroup label="All Team Members">
@@ -855,7 +852,7 @@ export default function ClientDetailPage() {
                   const inClientTeam = client.teamMembers?.some(tm => String(tm._id) === String(m._id));
                   const isAM = String(client.accountManager?._id) === String(m._id);
                   return !inClientTeam && !isAM;
-                }).map(m => <option key={m._id} value={m._id}>{m.name} ({ROLE_LABELS[m.role] || m.role})</option>)}
+                }).map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
               </optgroup>
             </Select>
           </div>
@@ -866,25 +863,24 @@ export default function ClientDetailPage() {
         </div>
       </Modal>
 
-      {/* Edit Client Modal */}
       {isManager && (
         <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Client"
           footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button><Button loading={saving} onClick={handleSaveEdit}>Save Changes</Button></div>}
         >
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label="Contact Name" value={editForm.name || ''} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
               <Input label="Company" value={editForm.company || ''} onChange={e => setEditForm(p => ({ ...p, company: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label="Email" type="email" value={editForm.email || ''} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
               <Input label="Phone" value={editForm.phone || ''} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input label="Website" value={editForm.website || ''} onChange={e => setEditForm(p => ({ ...p, website: e.target.value }))} />
               <Input label="Industry" value={editForm.industry || ''} onChange={e => setEditForm(p => ({ ...p, industry: e.target.value }))} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select label="Status" value={editForm.status || ''} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}>
                 {['active', 'inactive', 'onboarding', 'paused', 'churned'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
               </Select>

@@ -44,6 +44,7 @@ const CSS = `
     display: flex; align-items: center; justify-content: center;
     font-size: 10px; font-weight: 700; color: white;
     font-family: 'Geist', sans-serif;
+    flex-shrink: 0;
   }
   .lp-wordmark { font-size: 13.5px; font-weight: 600; color: var(--text); letter-spacing: -.2px; }
   .lp-nav-login {
@@ -67,7 +68,7 @@ const CSS = `
   }
   .lp-h1 {
     font-family: 'Instrument Serif', serif;
-    font-size: clamp(42px, 6vw, 72px);
+    font-size: clamp(36px, 6vw, 72px);
     font-weight: 400; line-height: 1.08;
     letter-spacing: -1.5px; color: var(--text);
     margin-bottom: 24px;
@@ -218,10 +219,54 @@ const CSS = `
   .fu.d1 { transition-delay: .08s; }
   .fu.d2 { transition-delay: .16s; }
 
+  /* MOBILE NAV DRAWER */
+  .lp-nav-drawer {
+    position: fixed; top: 56px; left: 0; right: 0; z-index: 99;
+    background: rgba(247,245,242,0.98);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 12px;
+    transform: translateY(-110%);
+    transition: transform .25s ease;
+  }
+  .lp-nav-drawer.open { transform: translateY(0); }
+  .lp-nav-drawer a {
+    font-size: 15px; font-weight: 500; color: var(--text);
+    text-decoration: none; padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .lp-nav-drawer a:last-child { border-bottom: none; }
+
+  /* HAMBURGER */
+  .lp-hamburger {
+    display: none;
+    flex-direction: column; gap: 5px;
+    cursor: pointer; padding: 4px;
+    background: none; border: none;
+  }
+  .lp-hamburger span {
+    display: block; width: 20px; height: 2px;
+    background: var(--text); border-radius: 2px;
+    transition: transform .2s, opacity .2s;
+  }
+  .lp-hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .lp-hamburger.open span:nth-child(2) { opacity: 0; }
+  .lp-hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
   @media(max-width: 600px) {
     .lp-nav { padding: 0 20px; }
-    .lp-hero, .lp-what, .lp-who, .lp-login-section { padding-left: 20px; padding-right: 20px; }
+    .lp-nav-login { display: none; }
+    .lp-hamburger { display: flex; }
+    .lp-hero { padding: 100px 20px 60px; }
+    .lp-what, .lp-who, .lp-login-section { padding-left: 20px; padding-right: 20px; padding-top: 48px; padding-bottom: 48px; }
     .lp-footer { padding: 20px; }
+    .lp-h1 { letter-spacing: -1px; }
+    .lp-roles { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media(max-width: 400px) {
+    .lp-roles { grid-template-columns: 1fr; }
   }
 `;
 
@@ -270,6 +315,7 @@ const ROLES = [
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const refs = useRef([]);
 
   useEffect(() => {
@@ -287,6 +333,11 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
+  // Close menu on scroll
+  useEffect(() => {
+    if (menuOpen && scrolled) setMenuOpen(false);
+  }, [scrolled]);
+
   const fade = (delay = '') => ({
     ref: el => { if (el && !refs.current.includes(el)) refs.current.push(el); },
     className: `fu${delay ? ` ${delay}` : ''}`,
@@ -303,7 +354,19 @@ export default function LandingPage() {
           <span className="lp-wordmark">To Fly Media</span>
         </Link>
         <Link to="/login" className="lp-nav-login">Sign in</Link>
+        <button
+          className={`lp-hamburger${menuOpen ? ' open' : ''}`}
+          onClick={() => setMenuOpen(p => !p)}
+          aria-label="Toggle menu"
+        >
+          <span /><span /><span />
+        </button>
       </nav>
+
+      {/* Mobile Nav Drawer */}
+      <div className={`lp-nav-drawer${menuOpen ? ' open' : ''}`}>
+        <Link to="/login" onClick={() => setMenuOpen(false)}>Sign in →</Link>
+      </div>
 
       {/* Hero */}
       <section className="lp-hero">

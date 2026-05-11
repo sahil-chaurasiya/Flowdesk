@@ -29,8 +29,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-slate-50">
-      {/* Left panel */}
-      <div className="hidden lg:flex flex-col justify-between w-[420px] bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-10 relative overflow-hidden">
+      {/* Left panel — hidden on mobile */}
+      <div className="hidden lg:flex flex-col justify-between w-[420px] bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-10 relative overflow-hidden flex-shrink-0">
         {/* Glow */}
         <div className="absolute inset-0 opacity-20" style={{
           backgroundImage: 'radial-gradient(circle at 30% 40%, #3b82f6 0%, transparent 60%), radial-gradient(circle at 70% 70%, #8b5cf6 0%, transparent 60%)'
@@ -62,7 +62,7 @@ export default function LoginPage() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
+      <div className="flex-1 flex items-center justify-center px-5 py-10 sm:px-8 sm:py-12 overflow-y-auto">
         <div className="w-full max-w-sm">
           {/* Mobile logo */}
           <div className="flex items-center gap-2.5 mb-8 lg:hidden">

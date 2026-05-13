@@ -1,44 +1,45 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { CheckSquare, Plus, Clock, User, Filter } from 'lucide-react';
+import { CheckSquare, Plus, Clock, Search } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
-import { PageHeader, EmptyState, Avatar, Card, Spinner } from '../../components/shared/LoadingScreen';
-import { Button, SearchInput, Select, Modal, Input, Textarea } from '../../components/ui/index';
-import { formatDate, getTaskStatusColor, getPriorityColor, timeAgo } from '../../lib/utils';
-
-const CATEGORY_ROLE_HINT = {
-  paid_ads: 'performance_marketer',
-  social_media: 'social_media_manager',
-  video_editing: 'video_editor',
-  graphic_design: 'graphic_designer',
-  copywriting: 'copywriter',
-  reporting: null,
-  strategy: 'manager',
-  client_request: 'manager',
-  other: null,
-};
+import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner } from '../../components/shared/LoadingScreen';
+import { Button, Select, Modal, Input, Textarea } from '../../components/ui/index';
+import { formatDate, timeAgo } from '../../lib/utils';
 
 const CATEGORY_LABELS = {
-  paid_ads: '📊 Paid Ads',
-  social_media: '📱 Social Media',
-  video_editing: '🎬 Video Editing',
-  graphic_design: '🎨 Graphic Design',
-  copywriting: '✍️ Copywriting',
-  reporting: '📋 Reporting',
-  strategy: '🧠 Strategy',
-  client_request: '💬 Client Request',
-  other: '📌 Other',
+  paid_ads: 'Paid Ads', social_media: 'Social Media', video_editing: 'Video Editing',
+  graphic_design: 'Graphic Design', copywriting: 'Copywriting', reporting: 'Reporting',
+  strategy: 'Strategy', client_request: 'Client Request', other: 'Other',
 };
 
 const ROLE_LABELS = {
-  admin: 'Admin',
-  manager: 'Project Manager',
-  performance_marketer: 'Performance Marketer',
-  social_media_manager: 'Social Media Manager',
-  video_editor: 'Video Editor',
-  graphic_designer: 'Graphic Designer',
-  copywriter: 'Copywriter',
+  admin: 'Admin', manager: 'Project Manager',
+  performance_marketer: 'Performance Marketer', social_media_manager: 'Social Media Manager',
+  video_editor: 'Video Editor', graphic_designer: 'Graphic Designer', copywriter: 'Copywriter',
 };
+
+const CATEGORY_ROLE_HINT = {
+  paid_ads: 'performance_marketer', social_media: 'social_media_manager',
+  video_editing: 'video_editor', graphic_design: 'graphic_designer',
+  copywriting: 'copywriter',
+};
+
+const PRIORITY_STYLE = {
+  low:    { background: '#f5f4f1', color: '#7a7770' },
+  medium: { background: '#eff0fe', color: '#3a56d4' },
+  high:   { background: '#fef7ea', color: '#92600a' },
+  urgent: { background: '#fef2f2', color: '#b91c1c' },
+};
+
+const STATUS_STYLE = {
+  pending:     { background: '#f5f4f1', color: '#7a7770' },
+  in_progress: { background: '#eff0fe', color: '#3a56d4' },
+  review:      { background: '#fdf2ff', color: '#7e22ce' },
+  completed:   { background: '#edf7f1', color: '#2a7d4f' },
+  cancelled:   { background: '#fef2f2', color: '#b91c1c' },
+};
+
+const STATUSES = ['pending', 'in_progress', 'review', 'completed', 'cancelled'];
 
 export default function TasksPage() {
   const { user } = useAuthStore();
@@ -56,15 +57,14 @@ export default function TasksPage() {
   const [form, setForm] = useState({
     title: '', description: '', client: '', assignedTo: '',
     priority: 'medium', status: 'pending', deadline: '',
-    category: 'other', isClientVisible: false
+    category: 'other', isClientVisible: false,
   });
 
   useEffect(() => {
-    api.get('/clients?limit=100').then(r => setClients(r.data.clients || [])).catch(() => {});
+    api.get('/clients?limit=100').then(r => setClients(r.data.clients || []));
     api.get('/users?limit=100').then(r => {
-      const team = (r.data.users || []).filter(u => u.role !== 'client');
-      setMembers(team);
-    }).catch(() => {});
+      setMembers((r.data.users || []).filter(u => u.role !== 'client'));
+    });
   }, []);
 
   const load = useCallback(async () => {
@@ -75,11 +75,14 @@ export default function TasksPage() {
       if (priorityFilter) params.set('priority', priorityFilter);
       const { data } = await api.get(`/tasks?${params}`);
       let filtered = data.tasks || [];
-      if (search) filtered = filtered.filter(t =>
-        t.title.toLowerCase().includes(search.toLowerCase()) ||
-        t.client?.company?.toLowerCase().includes(search.toLowerCase()) ||
-        t.assignedTo?.name?.toLowerCase().includes(search.toLowerCase())
-      );
+      if (search) {
+        const q = search.toLowerCase();
+        filtered = filtered.filter(t =>
+          t.title.toLowerCase().includes(q) ||
+          t.client?.company?.toLowerCase().includes(q) ||
+          t.assignedTo?.name?.toLowerCase().includes(q)
+        );
+      }
       if (categoryFilter) filtered = filtered.filter(t => t.category === categoryFilter);
       setTasks(filtered);
     } finally { setLoading(false); }
@@ -93,14 +96,9 @@ export default function TasksPage() {
     setShowModal(true);
   };
 
-  const openEdit = (task) => {
-    setEditing(task);
-    setForm({
-      ...task,
-      client: task.client?._id,
-      assignedTo: task.assignedTo?._id || '',
-      deadline: task.deadline ? task.deadline.split('T')[0] : ''
-    });
+  const openEdit = t => {
+    setEditing(t);
+    setForm({ ...t, client: t.client?._id, assignedTo: t.assignedTo?._id || '', deadline: t.deadline ? t.deadline.split('T')[0] : '' });
     setShowModal(true);
   };
 
@@ -119,15 +117,13 @@ export default function TasksPage() {
     setTasks(prev => prev.map(t => t._id === id ? { ...t, status } : t));
   };
 
-  const handleCategoryChange = (cat) => {
-    setForm(p => {
-      const hint = CATEGORY_ROLE_HINT[cat];
-      const suggested = hint ? members.find(m => m.role === hint) : null;
-      return { ...p, category: cat, assignedTo: suggested ? suggested._id : p.assignedTo };
-    });
+  const handleCategoryChange = cat => {
+    const hint = CATEGORY_ROLE_HINT[cat];
+    const suggested = hint ? members.find(m => m.role === hint) : null;
+    setForm(p => ({ ...p, category: cat, assignedTo: suggested ? suggested._id : p.assignedTo }));
   };
 
-  const statuses = ['pending', 'in_progress', 'review', 'completed', 'cancelled'];
+  const isManager = ['admin', 'manager'].includes(user?.role);
 
   const membersByRole = members.reduce((acc, m) => {
     const label = ROLE_LABELS[m.role] || m.role;
@@ -136,29 +132,57 @@ export default function TasksPage() {
     return acc;
   }, {});
 
-  const isManager = ['admin', 'manager'].includes(user?.role);
+  const FILTER_TABS = [
+    { label: 'All',         value: '' },
+    { label: 'Pending',     value: 'pending' },
+    { label: 'In Progress', value: 'in_progress' },
+    { label: 'Review',      value: 'review' },
+    { label: 'Completed',   value: 'completed' },
+  ];
 
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-6 animate-fade-in">
       <PageHeader
-        title={isManager ? 'All Tasks' : 'Tasks'}
-        subtitle={`${tasks.length} tasks`}
-        actions={<Button onClick={openCreate}><Plus size={16} />New Task</Button>}
+        title={isManager ? 'All Tasks' : 'My Tasks'}
+        subtitle={`${tasks.length} task${tasks.length !== 1 ? 's' : ''}`}
+        actions={<Button onClick={openCreate}><Plus size={14} />New Task</Button>}
       />
 
-      {/* Filters - wrap on mobile */}
+      {/* Filters */}
       <div className="flex flex-col gap-3">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search tasks..." />
-        <div className="flex gap-2 flex-wrap">
-          <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="flex-1 min-w-[130px]">
-            <option value="">All Statuses</option>
-            {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>)}
-          </Select>
-          <Select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="flex-1 min-w-[110px]">
+        <div className="relative max-w-xs">
+          <Search size={13} color="#a8a49e" className="absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search tasks..."
+            className="fd-input pl-9"
+          />
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Status tabs */}
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {FILTER_TABS.map(t => (
+              <button
+                key={t.value}
+                onClick={() => setStatusFilter(t.value)}
+                className="px-3 py-1.5 rounded-lg text-[12px] font-medium whitespace-nowrap transition-all border flex-shrink-0"
+                style={statusFilter === t.value
+                  ? { background: '#4f6ef0', color: '#ffffff', borderColor: '#4060e0' }
+                  : { background: '#ffffff', color: '#7a7770', borderColor: '#e0ddd7' }
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <Select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="min-w-[120px]">
             <option value="">All Priorities</option>
-            {['low', 'medium', 'high', 'urgent'].map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+            {['low','medium','high','urgent'].map(p => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+            ))}
           </Select>
-          <Select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="flex-1 min-w-[140px]">
+          <Select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className="min-w-[140px]">
             <option value="">All Categories</option>
             {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </Select>
@@ -168,128 +192,211 @@ export default function TasksPage() {
       {loading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
       ) : tasks.length === 0 ? (
-        <EmptyState icon={CheckSquare} title="No tasks found" description="Create a task to get started." action={<Button onClick={openCreate}><Plus size={14} />New Task</Button>} />
+        <EmptyState
+          icon={CheckSquare}
+          title="No tasks found"
+          description="Create a task or adjust filters."
+          action={<Button onClick={openCreate}><Plus size={14} />New Task</Button>}
+        />
       ) : (
         <Card>
-          {/* Desktop table */}
+          {/* Desktop */}
           <div className="hidden lg:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+            <table className="fd-table">
+              <thead>
                 <tr>
-                  {['Task', 'Client', 'Category', 'Assigned To', 'Priority', 'Status', 'Deadline', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                  {['Task', 'Client', 'Category', 'Assigned To', 'Priority', 'Status', 'Deadline', ''].map(h => (
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {tasks.map(task => (
-                  <tr key={task._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3.5 max-w-xs">
-                      <div className="font-medium text-slate-800 truncate">{task.title}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{timeAgo(task.createdAt)}</div>
-                      {task.isClientRequest && (
-                        <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded mt-1 inline-block">Client Request</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-600 text-xs">{task.client?.company || '—'}</td>
-                    <td className="px-4 py-3.5 text-xs text-slate-600">
-                      {CATEGORY_LABELS[task.category] || task.category}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {task.assignedTo ? (
-                        <div className="flex items-center gap-2">
-                          <Avatar name={task.assignedTo.name} size="xs" />
-                          <div>
-                            <div className="text-slate-700 text-xs font-medium">{task.assignedTo.name}</div>
-                            <div className="text-slate-400 text-xs">{ROLE_LABELS[task.assignedTo.role] || task.assignedTo.jobTitle || ''}</div>
-                          </div>
+              <tbody>
+                {tasks.map(task => {
+                  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
+                  const ss = STATUS_STYLE[task.status] || STATUS_STYLE.pending;
+                  return (
+                    <tr
+                      key={task._id}
+                      style={isOverdue ? { background: '#fffbfa' } : {}}
+                    >
+                      <td style={{ maxWidth: 200 }}>
+                        <div className="font-medium text-[13px] truncate" style={{ color: '#1a1916' }}>
+                          {task.title}
                         </div>
-                      ) : <span className="text-slate-400 text-xs">Unassigned</span>}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(task.priority)}`}>{task.priority}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      {isManager ? (
-                        <select value={task.status} onChange={e => updateStatus(task._id, e.target.value)}
-                          className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize border-0 cursor-pointer ${getTaskStatusColor(task.status)}`}>
-                          {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                        </select>
-                      ) : (
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(task.status)}`}>
-                          {task.status.replace('_', ' ')}
+                        <div className="text-[10.5px] mt-0.5 font-mono" style={{ color: '#a8a49e' }}>
+                          {timeAgo(task.createdAt)}
+                        </div>
+                        {task.isClientRequest && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 inline-block"
+                            style={{ background: '#fef7ea', color: '#92600a' }}
+                          >
+                            Client Request
+                          </span>
+                        )}
+                        {isOverdue && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 inline-block ml-1"
+                            style={{ background: '#fef2f2', color: '#b91c1c' }}
+                          >
+                            Overdue
+                          </span>
+                        )}
+                      </td>
+                      <td className="text-[12.5px]" style={{ color: '#44423d' }}>
+                        {task.client?.company || '—'}
+                      </td>
+                      <td className="text-[12.5px]" style={{ color: '#7a7770' }}>
+                        {CATEGORY_LABELS[task.category] || task.category}
+                      </td>
+                      <td>
+                        {task.assignedTo ? (
+                          <div className="flex items-center gap-2">
+                            <Avatar name={task.assignedTo.name} size="xs" />
+                            <div>
+                              <div className="text-[12.5px] font-medium" style={{ color: '#44423d' }}>
+                                {task.assignedTo.name}
+                              </div>
+                              <div className="text-[10.5px]" style={{ color: '#a8a49e' }}>
+                                {ROLE_LABELS[task.assignedTo.role] || ''}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-[12.5px] font-medium" style={{ color: '#b91c1c' }}>Unassigned</span>
+                        )}
+                      </td>
+                      <td>
+                        <span
+                          className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full capitalize"
+                          style={PRIORITY_STYLE[task.priority] || PRIORITY_STYLE.low}
+                        >
+                          {task.priority}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-slate-500 text-xs">
-                      {task.deadline ? (
-                        <span className="flex items-center gap-1"><Clock size={11} />{formatDate(task.deadline)}</span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td>
+                        {isManager ? (
+                          <select
+                            value={task.status}
+                            onChange={e => updateStatus(task._id, e.target.value)}
+                            className="text-[11.5px] px-2.5 py-1.5 rounded-lg border-0 cursor-pointer font-medium outline-none capitalize"
+                            style={{ ...ss, fontFamily: "'Geist', system-ui" }}
+                          >
+                            {STATUSES.map(s => (
+                              <option key={s} value={s} style={{ background: '#ffffff', color: '#1a1916' }}>
+                                {s.replace('_', ' ')}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span
+                            className="text-[11.5px] font-medium px-2.5 py-1.5 rounded-lg capitalize inline-block"
+                            style={ss}
+                          >
+                            {task.status.replace('_', ' ')}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        {task.deadline ? (
+                          <div className="flex items-center gap-1 text-[12px] font-mono" style={{ color: isOverdue ? '#b91c1c' : '#7a7770' }}>
+                            <Clock size={11} strokeWidth={1.7} />
+                            {formatDate(task.deadline)}
+                          </div>
+                        ) : <span style={{ color: '#ccc9c2' }}>—</span>}
+                      </td>
+                      <td>
+                        <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          {/* Mobile cards */}
-          <div className="lg:hidden divide-y divide-slate-100">
-            {tasks.map(task => (
-              <div key={task._id} className="p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-slate-800 text-sm">{task.title}</div>
-                    <div className="text-xs text-slate-400 mt-0.5">{task.client?.company} · {timeAgo(task.createdAt)}</div>
-                  </div>
-                  <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(task.priority)}`}>{task.priority}</span>
-                  {isManager ? (
-                    <select value={task.status} onChange={e => updateStatus(task._id, e.target.value)}
-                      className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize border-0 cursor-pointer ${getTaskStatusColor(task.status)}`}>
-                      {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                    </select>
-                  ) : (
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(task.status)}`}>
-                      {task.status.replace('_', ' ')}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500">{CATEGORY_LABELS[task.category]}</span>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                  {task.assignedTo ? (
-                    <div className="flex items-center gap-1.5">
-                      <Avatar name={task.assignedTo.name} size="xs" />
-                      <span>{task.assignedTo.name}</span>
+          {/* Mobile */}
+          <div className="lg:hidden divide-y" style={{ borderColor: '#f2f0ec' }}>
+            {tasks.map(task => {
+              const ss = STATUS_STYLE[task.status] || STATUS_STYLE.pending;
+              return (
+                <div key={task._id} className="p-4 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-[13px]" style={{ color: '#1a1916' }}>{task.title}</div>
+                      <div className="text-[11.5px] mt-0.5" style={{ color: '#a8a49e' }}>
+                        {task.client?.company} · {timeAgo(task.createdAt)}
+                      </div>
                     </div>
-                  ) : <span className="text-slate-400">Unassigned</span>}
-                  {task.deadline && (
-                    <span className="flex items-center gap-1"><Clock size={11} />{formatDate(task.deadline)}</span>
-                  )}
+                    <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full capitalize"
+                      style={PRIORITY_STYLE[task.priority] || PRIORITY_STYLE.low}
+                    >
+                      {task.priority}
+                    </span>
+                    {isManager ? (
+                      <select
+                        value={task.status}
+                        onChange={e => updateStatus(task._id, e.target.value)}
+                        className="text-[11px] px-2 py-0.5 rounded-lg border-0 font-medium capitalize outline-none"
+                        style={{ ...ss, fontFamily: "'Geist', system-ui" }}
+                      >
+                        {STATUSES.map(s => (
+                          <option key={s} value={s} style={{ background: '#ffffff', color: '#1a1916' }}>
+                            {s.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[11px] font-medium px-2 py-0.5 rounded-lg capitalize" style={ss}>
+                        {task.status.replace('_', ' ')}
+                      </span>
+                    )}
+                    <span className="text-[11.5px]" style={{ color: '#a8a49e' }}>
+                      {CATEGORY_LABELS[task.category]}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11.5px]" style={{ color: '#a8a49e' }}>
+                    {task.assignedTo ? (
+                      <div className="flex items-center gap-1.5">
+                        <Avatar name={task.assignedTo.name} size="xs" />
+                        <span>{task.assignedTo.name}</span>
+                      </div>
+                    ) : <span style={{ color: '#b91c1c' }}>Unassigned</span>}
+                    {task.deadline && (
+                      <div className="flex items-center gap-1 font-mono">
+                        <Clock size={10} />
+                        {formatDate(task.deadline)}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       )}
 
       {/* Modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editing ? 'Edit Task' : 'New Task'} size="md"
-        footer={<div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-          <Button loading={saving} onClick={handleSave}>{editing ? 'Save Changes' : 'Create Task'}</Button>
-        </div>}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={editing ? 'Edit Task' : 'New Task'}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button loading={saving} onClick={handleSave}>
+              {editing ? 'Save Changes' : 'Create Task'}
+            </Button>
+          </div>
+        }
       >
         <div className="space-y-4">
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} required />
           <Textarea label="Description" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} />
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select label="Client *" value={form.client} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}>
               <option value="">Select client...</option>
@@ -299,43 +406,42 @@ export default function TasksPage() {
               {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </Select>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Assign To</label>
-            <select
-              value={form.assignedTo}
-              onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))}
-              className="w-full border border-slate-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500"
-            >
+            <label className="block text-[12px] font-medium mb-1.5" style={{ color: '#44423d' }}>Assign To</label>
+            <select value={form.assignedTo} onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))} className="fd-input">
               <option value="">Unassigned</option>
               {Object.entries(membersByRole).map(([roleLabel, roleMembers]) => (
                 <optgroup key={roleLabel} label={roleLabel}>
-                  {roleMembers.map(m => (
-                    <option key={m._id} value={m._id}>{m.name}</option>
-                  ))}
+                  {roleMembers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </optgroup>
               ))}
             </select>
             {form.category && CATEGORY_ROLE_HINT[form.category] && (
-              <p className="text-xs text-slate-400 mt-1">
-                💡 Suggested role: <span className="text-brand-600 font-medium">{ROLE_LABELS[CATEGORY_ROLE_HINT[form.category]]}</span>
+              <p className="text-[11px] mt-1" style={{ color: '#a8a49e' }}>
+                Suggested: <span style={{ color: '#3a56d4', fontWeight: 500 }}>{ROLE_LABELS[CATEGORY_ROLE_HINT[form.category]]}</span>
               </p>
             )}
           </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select label="Priority" value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
-              {['low', 'medium', 'high', 'urgent'].map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+              {['low','medium','high','urgent'].map(v => (
+                <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>
+              ))}
             </Select>
             <Select label="Status" value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-              {statuses.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+              {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
             </Select>
             <Input label="Deadline" type="date" value={form.deadline} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
           </div>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={form.isClientVisible} onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" />
-            <span className="text-sm text-slate-700">Visible to client portal</span>
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.isClientVisible}
+              onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))}
+              className="rounded"
+              style={{ accentColor: '#4f6ef0' }}
+            />
+            <span className="text-[13px]" style={{ color: '#44423d' }}>Visible to client portal</span>
           </label>
         </div>
       </Modal>

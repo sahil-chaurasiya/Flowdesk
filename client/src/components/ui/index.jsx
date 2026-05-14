@@ -6,29 +6,60 @@ function cn(...classes) { return classes.filter(Boolean).join(' '); }
 // ─── Button ──────────────────────────────────────────────────────────────────
 const BTN_VARIANTS = {
   primary: {
-    base: 'bg-[#4f6ef0] text-white border-[#4060e0]',
-    hover: 'hover:bg-[#3a56d4]',
-    shadow: '0 1px 3px rgba(28,25,20,0.12), inset 0 1px 0 rgba(255,255,255,0.14)',
+    style: {
+      background: '#4f6ef0',
+      color: '#ffffff',
+      border: '1px solid #4060e0',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.14)',
+    },
+    hoverStyle: {
+      background: '#3a56d4',
+    },
   },
   secondary: {
-    base: 'bg-white text-[#44423d] border-[#e0ddd7]',
-    hover: 'hover:bg-[#fafaf9] hover:border-[#c8c4bc]',
-    shadow: '0 1px 2px rgba(28,25,20,0.06)',
+    style: {
+      background: 'var(--fd-btn-secondary-bg)',
+      color: 'var(--fd-btn-secondary-text)',
+      border: '1px solid var(--fd-btn-secondary-border)',
+      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+    },
+    hoverStyle: {
+      background: 'var(--fd-btn-secondary-hover)',
+    },
   },
   ghost: {
-    base: 'bg-transparent text-[#7a7770] border-transparent',
-    hover: 'hover:bg-[#f5f4f1] hover:text-[#1a1916]',
-    shadow: 'none',
+    style: {
+      background: 'transparent',
+      color: 'var(--fd-btn-ghost-text)',
+      border: '1px solid transparent',
+      boxShadow: 'none',
+    },
+    hoverStyle: {
+      background: 'var(--fd-btn-ghost-hover-bg)',
+      color: 'var(--fd-btn-ghost-hover-text)',
+    },
   },
   danger: {
-    base: 'bg-[#fef2f2] text-[#b91c1c] border-[#fecaca]',
-    hover: 'hover:bg-[#fee2e2] hover:border-[#fca5a5]',
-    shadow: 'none',
+    style: {
+      background: 'var(--fd-danger-bg, #fef2f2)',
+      color: 'var(--fd-danger-text, #b91c1c)',
+      border: '1px solid var(--fd-danger-border, #fecaca)',
+      boxShadow: 'none',
+    },
+    hoverStyle: {
+      background: 'var(--fd-danger-hover-bg, #fee2e2)',
+    },
   },
   outline: {
-    base: 'bg-white text-[#44423d] border-[#e0ddd7]',
-    hover: 'hover:bg-[#f5f4f1]',
-    shadow: 'none',
+    style: {
+      background: 'var(--fd-btn-secondary-bg)',
+      color: 'var(--fd-btn-secondary-text)',
+      border: '1px solid var(--fd-btn-secondary-border)',
+      boxShadow: 'none',
+    },
+    hoverStyle: {
+      background: 'var(--fd-btn-ghost-hover-bg)',
+    },
   },
 };
 
@@ -43,17 +74,27 @@ export function Button({
   children, variant = 'primary', size = 'md',
   className, loading, disabled, style, ...props
 }) {
+  const [hovered, setHovered] = useState(false);
   const v = BTN_VARIANTS[variant] || BTN_VARIANTS.primary;
   const s = BTN_SIZES[size] || BTN_SIZES.md;
+  const combinedStyle = {
+    fontFamily: "'Geist', system-ui, sans-serif",
+    ...v.style,
+    ...(hovered && !disabled && !loading ? v.hoverStyle : {}),
+    ...style,
+  };
+
   return (
     <button
       className={cn(
-        'inline-flex items-center justify-center font-semibold border transition-all duration-150',
+        'inline-flex items-center justify-center font-semibold transition-all duration-150',
         'disabled:opacity-50 disabled:cursor-not-allowed select-none whitespace-nowrap',
-        v.base, v.hover, s, className
+        s, className
       )}
-      style={{ boxShadow: v.shadow, fontFamily: "'Geist', system-ui, sans-serif", ...style }}
+      style={combinedStyle}
       disabled={disabled || loading}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       {...props}
     >
       {loading && (
@@ -63,7 +104,7 @@ export function Button({
             width: size === 'xs' ? 12 : 14,
             height: size === 'xs' ? 12 : 14,
             border: '2px solid',
-            borderColor: variant === 'primary' ? 'rgba(255,255,255,0.3)' : '#e0ddd7',
+            borderColor: variant === 'primary' ? 'rgba(255,255,255,0.3)' : 'var(--fd-border)',
             borderTopColor: variant === 'primary' ? '#ffffff' : '#4f6ef0',
           }}
         />
@@ -78,7 +119,7 @@ export function Input({ label, error, hint, className = '', containerClassName =
   return (
     <div className={cn('space-y-1.5', containerClassName)}>
       {label && (
-        <label className="block text-[12px] font-medium" style={{ color: '#44423d' }}>
+        <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
           {label}
         </label>
       )}
@@ -88,35 +129,40 @@ export function Input({ label, error, hint, className = '', containerClassName =
         {...props}
       />
       {error && (
-        <p className="flex items-center gap-1 text-[11px]" style={{ color: '#b91c1c' }}>
+        <p className="flex items-center gap-1 text-[11px]" style={{ color: '#ef4444' }}>
           <AlertCircle size={11} />
           {error}
         </p>
       )}
       {hint && !error && (
-        <p className="text-[11px]" style={{ color: '#a8a49e' }}>{hint}</p>
+        <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{hint}</p>
       )}
     </div>
   );
 }
 
 // ─── Textarea ────────────────────────────────────────────────────────────────
-export function Textarea({ label, error, rows = 4, className = '', ...props }) {
+export function Textarea({ label, error, hint, className = '', containerClassName = '', ...props }) {
   return (
-    <div className="space-y-1.5">
+    <div className={cn('space-y-1.5', containerClassName)}>
       {label && (
-        <label className="block text-[12px] font-medium" style={{ color: '#44423d' }}>{label}</label>
+        <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
+          {label}
+        </label>
       )}
       <textarea
-        rows={rows}
         className={cn('fd-input resize-none', className)}
-        style={error ? { borderColor: '#fca5a5' } : {}}
+        style={error ? { borderColor: '#fca5a5', boxShadow: '0 0 0 3px rgba(185,28,28,0.08)' } : {}}
         {...props}
       />
       {error && (
-        <p className="flex items-center gap-1 text-[11px]" style={{ color: '#b91c1c' }}>
-          <AlertCircle size={11} />{error}
+        <p className="flex items-center gap-1 text-[11px]" style={{ color: '#ef4444' }}>
+          <AlertCircle size={11} />
+          {error}
         </p>
+      )}
+      {hint && !error && (
+        <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{hint}</p>
       )}
     </div>
   );
@@ -127,7 +173,7 @@ export function Select({ label, error, className = '', children, ...props }) {
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="block text-[12px] font-medium" style={{ color: '#44423d' }}>{label}</label>
+        <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>{label}</label>
       )}
       <select
         className={cn('fd-input cursor-pointer', className)}
@@ -136,7 +182,7 @@ export function Select({ label, error, className = '', children, ...props }) {
       >
         {children}
       </select>
-      {error && <p className="text-[11px]" style={{ color: '#b91c1c' }}>{error}</p>}
+      {error && <p className="text-[11px]" style={{ color: '#ef4444' }}>{error}</p>}
     </div>
   );
 }
@@ -157,7 +203,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer })
       {/* Backdrop */}
       <div
         className="absolute inset-0 backdrop-blur-sm"
-        style={{ background: 'rgba(26,25,22,0.25)' }}
+        style={{ background: 'rgba(0,0,0,0.35)' }}
         onClick={onClose}
       />
       {/* Panel */}
@@ -167,17 +213,17 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer })
           sizes[size]
         )}
         style={{
-          background: '#ffffff',
-          border: '1px solid #e8e5e0',
-          boxShadow: '0 20px 60px -8px rgba(28,25,20,0.14), 0 4px 16px -2px rgba(28,25,20,0.08)',
+          background: 'var(--fd-modal-bg)',
+          border: '1px solid var(--fd-modal-border)',
+          boxShadow: '0 20px 60px -8px rgba(0,0,0,0.25), 0 4px 16px -2px rgba(0,0,0,0.12)',
         }}
       >
         {/* Header */}
         <div
           className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
-          style={{ borderColor: '#eeece8' }}
+          style={{ borderColor: 'var(--fd-modal-border)' }}
         >
-          <h2 className="text-[15px] font-semibold" style={{ color: '#1a1916' }}>{title}</h2>
+          <h2 className="text-[15px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{title}</h2>
           <button onClick={onClose} className="btn-ghost p-1.5 ml-2">
             <X size={16} />
           </button>
@@ -190,7 +236,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer })
         {footer && (
           <div
             className="px-6 py-4 border-t flex-shrink-0"
-            style={{ borderColor: '#eeece8', background: '#fafaf9' }}
+            style={{ borderColor: 'var(--fd-modal-border)', background: 'var(--fd-modal-footer-bg)' }}
           >
             {footer}
           </div>
@@ -230,21 +276,21 @@ export function ToastProvider({ children }) {
               key={t.id}
               className="flex items-start gap-3 rounded-xl px-4 py-3.5 min-w-[280px] max-w-sm animate-fade-in pointer-events-auto"
               style={{
-                background: '#ffffff',
+                background: 'var(--fd-toast-bg)',
                 border: `1px solid ${ts.border}`,
-                boxShadow: '0 8px 30px rgba(28,25,20,0.10), 0 2px 8px rgba(28,25,20,0.06)',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08)',
                 borderLeft: `3px solid ${ts.bar}`,
               }}
             >
               <div className="flex-shrink-0 mt-0.5">{ts.icon}</div>
               <div className="flex-1 min-w-0">
                 {t.title && (
-                  <div className="text-[13px] font-semibold leading-none" style={{ color: '#1a1916' }}>
+                  <div className="text-[13px] font-semibold leading-none" style={{ color: 'var(--fd-ink-1)' }}>
                     {t.title}
                   </div>
                 )}
                 {t.message && (
-                  <div className="text-[12px] mt-1 leading-snug" style={{ color: '#7a7770' }}>
+                  <div className="text-[12px] mt-1 leading-snug" style={{ color: 'var(--fd-ink-3)' }}>
                     {t.message}
                   </div>
                 )}
@@ -252,7 +298,7 @@ export function ToastProvider({ children }) {
               <button
                 onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
                 className="flex-shrink-0 p-0.5 transition-colors"
-                style={{ color: '#ccc9c2' }}
+                style={{ color: 'var(--fd-ink-5)' }}
               >
                 <X size={13} />
               </button>
@@ -275,7 +321,7 @@ export function Tabs({ tabs, activeTab, onChange }) {
   return (
     <div
       className="flex items-center gap-0.5 p-1 rounded-lg"
-      style={{ background: '#f5f4f1', border: '1px solid #e8e5e0' }}
+      style={{ background: 'var(--fd-tabs-bg)', border: '1px solid var(--fd-tabs-border)' }}
     >
       {tabs.map(tab => (
         <button
@@ -284,8 +330,12 @@ export function Tabs({ tabs, activeTab, onChange }) {
           className="px-3 py-1.5 rounded-md text-[12px] font-medium transition-all duration-120"
           style={
             activeTab === tab.value
-              ? { background: '#ffffff', color: '#1a1916', boxShadow: '0 1px 3px rgba(28,25,20,0.08)' }
-              : { color: '#7a7770' }
+              ? {
+                  background: 'var(--fd-tab-active-bg)',
+                  color: 'var(--fd-tab-active-text)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                }
+              : { color: 'var(--fd-tab-text)' }
           }
         >
           {tab.label}
@@ -314,7 +364,7 @@ export function Label({ children, className = '' }) {
   return (
     <span
       className={cn('text-[10.5px] font-semibold uppercase tracking-wider', className)}
-      style={{ color: '#a8a49e' }}
+      style={{ color: 'var(--fd-ink-4)' }}
     >
       {children}
     </span>

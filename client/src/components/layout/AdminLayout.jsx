@@ -4,10 +4,11 @@ import {
   LayoutDashboard, Users, CheckSquare, MessageSquare,
   BarChart3, Upload, Bell, LogOut, ChevronLeft,
   ChevronRight, Menu, X, Rss, Building2, Target,
-  ListChecks, Instagram,
+  ListChecks, Instagram, Sun, Moon,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
+import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import { getInitials } from '../../lib/utils';
 
@@ -46,6 +47,7 @@ const TEAM_ROLES = ['performance_marketer', 'social_media_manager', 'video_edito
 export default function AdminLayout() {
   const { user, logout, updateUser } = useAuthStore();
   const { socket } = useSocket();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -87,13 +89,18 @@ export default function AdminLayout() {
   const unread = user?.notifications?.filter(n => !n.read).length || 0;
 
   const SidebarContent = ({ isMobile = false }) => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={{ background: 'var(--fd-sidebar-bg)' }}>
 
       {/* Logo */}
-      <div className={`flex items-center gap-2.5 px-4 h-[58px] border-b border-[#eeece8] flex-shrink-0 ${collapsed && !isMobile ? 'justify-center' : ''}`}>
+      <div
+        className={`flex items-center gap-2.5 px-4 h-[58px] flex-shrink-0 ${collapsed && !isMobile ? 'justify-center' : ''}`}
+        style={{ borderBottom: '1px solid var(--fd-sidebar-border)' }}
+      >
         {/* Logomark */}
-        <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-[#4f6ef0]"
-          style={{ boxShadow: '0 1px 3px rgba(79,110,240,0.35)' }}>
+        <div
+          className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-[#4f6ef0]"
+          style={{ boxShadow: '0 1px 3px rgba(79,110,240,0.35)' }}
+        >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M4.5 8H9.5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
@@ -101,8 +108,8 @@ export default function AdminLayout() {
         </div>
         {(!collapsed || isMobile) && (
           <div className="flex-1 min-w-0">
-            <div className="text-[13.5px] font-semibold text-[#1a1916] leading-none tracking-[-0.01em]">Flowdesk</div>
-            <div className="text-[11px] text-[#a8a49e] mt-0.5 truncate">{ROLE_LABELS[user?.role] || 'Team Portal'}</div>
+            <div className="text-[13.5px] font-semibold leading-none tracking-[-0.01em]" style={{ color: 'var(--fd-ink-1)' }}>Flowdesk</div>
+            <div className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>{ROLE_LABELS[user?.role] || 'Team Portal'}</div>
           </div>
         )}
         {isMobile && (
@@ -121,7 +128,10 @@ export default function AdminLayout() {
             <div key={section.label} className="mb-3 last:mb-0">
               {(!collapsed || isMobile) && (
                 <div className="px-2 mb-1 pt-1">
-                  <span className="text-[10px] font-semibold uppercase tracking-widest text-[#ccc9c2]">
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ color: 'var(--fd-sidebar-section)' }}
+                  >
                     {section.label}
                   </span>
                 </div>
@@ -150,24 +160,27 @@ export default function AdminLayout() {
       </nav>
 
       {/* User footer */}
-      <div className="border-t border-[#eeece8] p-2.5 flex-shrink-0">
+      <div className="p-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--fd-sidebar-border)' }}>
         <div className={`flex items-center gap-2.5 px-2 py-2 rounded-lg ${collapsed && !isMobile ? 'justify-center' : ''}`}>
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0"
-            style={{ background: '#eff0fe', color: '#3a56d4' }}
+            style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
           >
             {getInitials(user?.name)}
           </div>
           {(!collapsed || isMobile) && (
             <div className="flex-1 min-w-0">
-              <div className="text-[12.5px] font-medium text-[#1a1916] truncate leading-none">{user?.name}</div>
-              <div className="text-[10.5px] text-[#a8a49e] mt-0.5 truncate">{user?.email}</div>
+              <div className="text-[12.5px] font-medium truncate leading-none" style={{ color: 'var(--fd-ink-1)' }}>{user?.name}</div>
+              <div className="text-[10.5px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>{user?.email}</div>
             </div>
           )}
         </div>
         <button
           onClick={handleLogout}
-          className={`sidebar-link mt-0.5 hover:text-red-600 hover:bg-red-50 w-full ${collapsed && !isMobile ? 'justify-center' : ''}`}
+          className={`sidebar-link mt-0.5 w-full ${collapsed && !isMobile ? 'justify-center' : ''}`}
+          style={{ '--hover-color': '#ef4444', '--hover-bg': 'rgba(239,68,68,0.1)' }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = isDark ? 'rgba(239,68,68,0.12)' : '#fef2f2'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = ''; e.currentTarget.style.background = ''; }}
         >
           <div className="icon-wrap"><LogOut size={14} strokeWidth={1.7} /></div>
           {(!collapsed || isMobile) && <span>Sign out</span>}
@@ -177,19 +190,26 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#f7f6f3' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--fd-canvas)' }}>
 
       {/* Desktop sidebar */}
       <aside
-        className={`hidden md:flex flex-col transition-all duration-250 ease-in-out flex-shrink-0 relative border-r border-[#eeece8] ${collapsed ? 'w-[52px]' : 'w-[216px]'}`}
-        style={{ background: '#ffffff' }}
+        className={`hidden md:flex flex-col transition-all duration-250 ease-in-out flex-shrink-0 relative ${collapsed ? 'w-[52px]' : 'w-[216px]'}`}
+        style={{ background: 'var(--fd-sidebar-bg)', borderRight: '1px solid var(--fd-sidebar-border)' }}
       >
         <SidebarContent />
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-[70px] w-5.5 h-5.5 bg-white border border-[#e0ddd7] rounded-full flex items-center justify-center text-[#a8a49e] hover:text-[#44423d] transition-all z-10"
-          style={{ width: '22px', height: '22px', boxShadow: '0 1px 4px rgba(28,25,20,0.1)' }}
+          className="absolute -right-3 top-[70px] flex items-center justify-center transition-all z-10"
+          style={{
+            width: '22px', height: '22px',
+            background: 'var(--fd-surface)',
+            border: '1px solid var(--fd-border-strong)',
+            borderRadius: '50%',
+            color: 'var(--fd-ink-4)',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+          }}
         >
           {collapsed ? <ChevronRight size={11} strokeWidth={2.5} /> : <ChevronLeft size={11} strokeWidth={2.5} />}
         </button>
@@ -198,10 +218,18 @@ export default function AdminLayout() {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-[#1a1916]/30 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <div
+            className="absolute inset-0 backdrop-blur-sm"
+            style={{ background: 'rgba(0,0,0,0.35)' }}
+            onClick={() => setMobileOpen(false)}
+          />
           <aside
-            className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 border-r border-[#eeece8] shadow-float animate-slide-in"
-            style={{ background: '#ffffff' }}
+            className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 animate-slide-in"
+            style={{
+              background: 'var(--fd-sidebar-bg)',
+              borderRight: '1px solid var(--fd-sidebar-border)',
+              boxShadow: '0 20px 60px -8px rgba(0,0,0,0.3)',
+            }}
           >
             <SidebarContent isMobile />
           </aside>
@@ -213,10 +241,16 @@ export default function AdminLayout() {
 
         {/* Topbar */}
         <header
-          className="h-[58px] flex items-center justify-between px-5 flex-shrink-0 gap-3 border-b border-[#eeece8]"
-          style={{ background: '#ffffff' }}
+          className="h-[58px] flex items-center justify-between px-5 flex-shrink-0 gap-3"
+          style={{
+            background: 'var(--fd-header-bg)',
+            borderBottom: '1px solid var(--fd-header-border)',
+          }}
         >
-          <button className="md:hidden btn-ghost p-1.5 flex-shrink-0" onClick={() => setMobileOpen(true)}>
+          <button
+            className="md:hidden btn-ghost p-1.5 flex-shrink-0"
+            onClick={() => setMobileOpen(true)}
+          >
             <Menu size={17} />
           </button>
 
@@ -227,13 +261,28 @@ export default function AdminLayout() {
                 <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-[13px] font-semibold text-[#1a1916]">Flowdesk</span>
+            <span className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>Flowdesk</span>
           </div>
 
           <div className="flex-1" />
 
           {/* Right */}
           <div className="flex items-center gap-1">
+
+            {/* Dark mode toggle */}
+            <button
+              onClick={toggleTheme}
+              className="btn-ghost p-2"
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+            >
+              {isDark
+                ? <Sun size={16} strokeWidth={1.7} />
+                : <Moon size={16} strokeWidth={1.7} />
+              }
+            </button>
+
+            {/* Notifications */}
             <div className="relative">
               <button
                 onClick={() => setShowNotifs(!showNotifs)}
@@ -242,7 +291,10 @@ export default function AdminLayout() {
               >
                 <Bell size={16} strokeWidth={1.7} />
                 {unread > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-[#4f6ef0] rounded-full ring-2 ring-white" />
+                  <span
+                    className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-[#4f6ef0] rounded-full"
+                    style={{ boxShadow: '0 0 0 2px var(--fd-header-bg)' }}
+                  />
                 )}
               </button>
               {showNotifs && <NotificationPanel onClose={() => setShowNotifs(false)} />}

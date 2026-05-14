@@ -3,10 +3,11 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Rss, FileText, BarChart3,
   MessageCircle, ClipboardList, Bell, LogOut,
-  Menu, X, Target, Instagram,
+  Menu, X, Target, Instagram, Sun, Moon,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
+import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import { getInitials } from '../../lib/utils';
 
@@ -24,6 +25,7 @@ const navItems = [
 export default function ClientLayout() {
   const { user, logout, updateUser } = useAuthStore();
   const { socket } = useSocket();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
@@ -52,10 +54,13 @@ export default function ClientLayout() {
   const unread = user?.notifications?.filter(n => !n.read).length || 0;
 
   const SidebarContent = ({ isMobile = false }) => (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" style={{ background: 'var(--fd-sidebar-bg)' }}>
 
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-4 h-[58px] border-b border-[#eeece8] flex-shrink-0">
+      <div
+        className="flex items-center gap-2.5 px-4 h-[58px] flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--fd-sidebar-border)' }}
+      >
         <div
           className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-[#4f6ef0]"
           style={{ boxShadow: '0 1px 3px rgba(79,110,240,0.35)' }}
@@ -66,8 +71,8 @@ export default function ClientLayout() {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[13.5px] font-semibold text-[#1a1916] leading-none tracking-[-0.01em]">To Fly Media</div>
-          <div className="text-[11px] text-[#a8a49e] mt-0.5">Client Portal</div>
+          <div className="text-[13.5px] font-semibold leading-none tracking-[-0.01em]" style={{ color: 'var(--fd-ink-1)' }}>To Fly Media</div>
+          <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>Client Portal</div>
         </div>
         {isMobile && (
           <button onClick={() => setMobileOpen(false)} className="btn-ghost p-1.5">
@@ -77,10 +82,15 @@ export default function ClientLayout() {
       </div>
 
       {/* Status pill */}
-      <div className="mx-3 mt-3 mb-1 px-3 py-2 rounded-lg flex items-center gap-2"
-        style={{ background: '#edf7f1', border: '1px solid #b8e2c9' }}>
-        <span className="w-1.5 h-1.5 rounded-full bg-[#2a7d4f] flex-shrink-0" />
-        <span className="text-[11px] text-[#2a7d4f] font-medium">Workspace active</span>
+      <div
+        className="mx-3 mt-3 mb-1 px-3 py-2 rounded-lg flex items-center gap-2"
+        style={{
+          background: isDark ? 'rgba(42,125,79,0.15)' : '#edf7f1',
+          border: isDark ? '1px solid rgba(42,125,79,0.3)' : '1px solid #b8e2c9',
+        }}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: isDark ? '#4ade80' : '#2a7d4f' }} />
+        <span className="text-[11px] font-medium" style={{ color: isDark ? '#4ade80' : '#2a7d4f' }}>Workspace active</span>
       </div>
 
       {/* Nav */}
@@ -103,22 +113,27 @@ export default function ClientLayout() {
       </nav>
 
       {/* User footer */}
-      <div className="border-t border-[#eeece8] p-2.5 flex-shrink-0">
+      <div className="p-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--fd-sidebar-border)' }}>
         <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg">
           <div
             className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0"
-            style={{ background: '#edf7f1', color: '#2a7d4f' }}
+            style={{
+              background: isDark ? 'rgba(42,125,79,0.2)' : '#edf7f1',
+              color: isDark ? '#4ade80' : '#2a7d4f',
+            }}
           >
             {getInitials(user?.name)}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="text-[12.5px] font-medium text-[#1a1916] truncate leading-none">{user?.name}</div>
-            <div className="text-[10.5px] text-[#a8a49e] mt-0.5">Client</div>
+            <div className="text-[12.5px] font-medium truncate leading-none" style={{ color: 'var(--fd-ink-1)' }}>{user?.name}</div>
+            <div className="text-[10.5px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>Client</div>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="sidebar-link mt-0.5 hover:text-red-600 hover:bg-red-50 w-full"
+          className="sidebar-link mt-0.5 w-full"
+          onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = isDark ? 'rgba(239,68,68,0.12)' : '#fef2f2'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = ''; e.currentTarget.style.background = ''; }}
         >
           <div className="icon-wrap"><LogOut size={14} strokeWidth={1.7} /></div>
           <span>Sign out</span>
@@ -128,12 +143,12 @@ export default function ClientLayout() {
   );
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: '#f7f6f3' }}>
+    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--fd-canvas)' }}>
 
       {/* Desktop sidebar */}
       <aside
-        className="hidden md:flex flex-col w-[216px] flex-shrink-0 border-r border-[#eeece8]"
-        style={{ background: '#ffffff' }}
+        className="hidden md:flex flex-col w-[216px] flex-shrink-0"
+        style={{ background: 'var(--fd-sidebar-bg)', borderRight: '1px solid var(--fd-sidebar-border)' }}
       >
         <SidebarContent />
       </aside>
@@ -141,10 +156,18 @@ export default function ClientLayout() {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div className="fixed inset-0 z-40 md:hidden">
-          <div className="absolute inset-0 bg-[#1a1916]/30 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <div
+            className="absolute inset-0 backdrop-blur-sm"
+            style={{ background: 'rgba(0,0,0,0.35)' }}
+            onClick={() => setMobileOpen(false)}
+          />
           <aside
-            className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 border-r border-[#eeece8] shadow-float animate-slide-in"
-            style={{ background: '#ffffff' }}
+            className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 animate-slide-in"
+            style={{
+              background: 'var(--fd-sidebar-bg)',
+              borderRight: '1px solid var(--fd-sidebar-border)',
+              boxShadow: '0 20px 60px -8px rgba(0,0,0,0.3)',
+            }}
           >
             <SidebarContent isMobile />
           </aside>
@@ -154,8 +177,11 @@ export default function ClientLayout() {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header
-          className="h-[58px] flex items-center justify-between px-5 flex-shrink-0 gap-3 border-b border-[#eeece8]"
-          style={{ background: '#ffffff' }}
+          className="h-[58px] flex items-center justify-between px-5 flex-shrink-0 gap-3"
+          style={{
+            background: 'var(--fd-header-bg)',
+            borderBottom: '1px solid var(--fd-header-border)',
+          }}
         >
           <button className="md:hidden btn-ghost p-1.5 flex-shrink-0" onClick={() => setMobileOpen(true)}>
             <Menu size={17} />
@@ -166,17 +192,38 @@ export default function ClientLayout() {
                 <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </div>
-            <span className="text-[13px] font-semibold text-[#1a1916]">Client Portal</span>
+            <span className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>Client Portal</span>
           </div>
+
           <div className="flex-1" />
-          <div className="relative">
-            <button onClick={() => setShowNotifs(!showNotifs)} className="relative btn-ghost p-2">
-              <Bell size={16} strokeWidth={1.7} />
-              {unread > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-[#4f6ef0] rounded-full ring-2 ring-white" />
-              )}
+
+          <div className="flex items-center gap-1">
+            {/* Dark mode toggle */}
+            <button
+              onClick={toggleTheme}
+              className="btn-ghost p-2"
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={isDark ? 'Light mode' : 'Dark mode'}
+            >
+              {isDark
+                ? <Sun size={16} strokeWidth={1.7} />
+                : <Moon size={16} strokeWidth={1.7} />
+              }
             </button>
-            {showNotifs && <NotificationPanel onClose={() => setShowNotifs(false)} />}
+
+            {/* Notifications */}
+            <div className="relative">
+              <button onClick={() => setShowNotifs(!showNotifs)} className="relative btn-ghost p-2">
+                <Bell size={16} strokeWidth={1.7} />
+                {unread > 0 && (
+                  <span
+                    className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-[#4f6ef0] rounded-full"
+                    style={{ boxShadow: '0 0 0 2px var(--fd-header-bg)' }}
+                  />
+                )}
+              </button>
+              {showNotifs && <NotificationPanel onClose={() => setShowNotifs(false)} />}
+            </div>
           </div>
         </header>
 

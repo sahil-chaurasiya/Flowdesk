@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ["class"],
+  // Use data-theme attribute for dark mode — works with our ThemeContext
+  darkMode: ["selector", "[data-theme='dark']"],
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     container: { center: true, padding: "2rem", screens: { "2xl": "1400px" } },
@@ -18,20 +19,20 @@ export default {
         accent: { DEFAULT: "hsl(var(--accent))", foreground: "hsl(var(--accent-foreground))" },
 
         // ── Core palette ──────────────────────────────────────────────────
-        // Page / surface layers
-        canvas:   '#f7f6f3',   // warm off-white page bg
-        surface:  '#ffffff',   // card / panel surface
-        raised:   '#fafaf9',   // slightly elevated surface
-        sunken:   '#f0eeea',   // depressed / input bg
+        // These are now driven by CSS variables; keeping for Tailwind class reference
+        canvas:   '#f7f6f3',
+        surface:  '#ffffff',
+        raised:   '#fafaf9',
+        sunken:   '#f0eeea',
 
-        // Brand accent — muted slate-blue, not electric
+        // Brand accent
         accent: {
           50:  '#f0f4ff',
           100: '#e3eafd',
           200: '#c5d4fb',
           300: '#a0b8f8',
           400: '#7896f3',
-          500: '#4f6ef0',   // primary action
+          500: '#4f6ef0',
           600: '#3a56d4',
           700: '#2d43a8',
           800: '#253480',
@@ -40,11 +41,11 @@ export default {
 
         // Neutral text hierarchy
         ink: {
-          DEFAULT: '#1a1916',  // near-black heading
-          2: '#44423d',        // body text
-          3: '#7a7770',        // secondary / label
-          4: '#a8a49e',        // muted / placeholder
-          5: '#ccc9c2',        // disabled / border
+          DEFAULT: '#1a1916',
+          2: '#44423d',
+          3: '#7a7770',
+          4: '#a8a49e',
+          5: '#ccc9c2',
         },
 
         // Semantic tokens
@@ -53,7 +54,6 @@ export default {
         danger:  { DEFAULT: '#b91c1c', bg: '#fef2f2', border: '#fecaca' },
         info:    { DEFAULT: '#1e56a0', bg: '#eff5ff', border: '#bfdbfe' },
 
-        // Sidebar — warm near-white with subtle warmth
         sidebar: '#ffffff',
         'sidebar-hover': '#f5f4f1',
         'sidebar-active': '#eff0fe',
@@ -87,15 +87,14 @@ export default {
       },
 
       boxShadow: {
-        // Layered soft shadows — the secret to premium light UI
-        'card':    '0 1px 2px 0 rgba(28,25,20,0.04), 0 1px 6px 0 rgba(28,25,20,0.03)',
-        'card-md': '0 2px 8px 0 rgba(28,25,20,0.06), 0 1px 3px 0 rgba(28,25,20,0.04)',
-        'card-lg': '0 8px 30px 0 rgba(28,25,20,0.08), 0 2px 8px 0 rgba(28,25,20,0.05)',
-        'float':   '0 20px 60px -8px rgba(28,25,20,0.14), 0 4px 16px -2px rgba(28,25,20,0.08)',
-        'btn':     '0 1px 3px 0 rgba(28,25,20,0.12), inset 0 1px 0 rgba(255,255,255,0.15)',
-        'btn-hover': '0 2px 6px 0 rgba(28,25,20,0.16), inset 0 1px 0 rgba(255,255,255,0.12)',
-        'inset':   'inset 0 1px 3px 0 rgba(28,25,20,0.06)',
-        'focus':   '0 0 0 3px rgba(79,110,240,0.14)',
+        'card':    '0 1px 2px 0 rgba(0,0,0,0.04), 0 1px 6px 0 rgba(0,0,0,0.03)',
+        'card-md': '0 2px 8px 0 rgba(0,0,0,0.06), 0 1px 3px 0 rgba(0,0,0,0.04)',
+        'card-lg': '0 8px 30px 0 rgba(0,0,0,0.08), 0 2px 8px 0 rgba(0,0,0,0.05)',
+        'float':   '0 20px 60px -8px rgba(0,0,0,0.14), 0 4px 16px -2px rgba(0,0,0,0.08)',
+        'btn':     '0 1px 3px 0 rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.15)',
+        'btn-hover': '0 2px 6px 0 rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.12)',
+        'inset':   'inset 0 1px 3px 0 rgba(0,0,0,0.06)',
+        'focus':   '0 0 0 3px rgba(79,110,240,0.18)',
         'none':    'none',
       },
 

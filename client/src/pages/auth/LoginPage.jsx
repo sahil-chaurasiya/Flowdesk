@@ -34,7 +34,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#f7f6f3' }}>
+    <div className="min-h-screen flex" style={{ background: 'var(--fd-canvas)' }}>
 
       {/* ── Left — Brand panel ─────────────────────────────────────────── */}
       <div
@@ -138,7 +138,7 @@ export default function LoginPage() {
               <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          <span className="text-[14px] font-semibold" style={{ color: '#1a1916' }}>Flowdesk</span>
+          <span className="text-[14px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>Flowdesk</span>
         </div>
 
         <div className="w-full max-w-[360px] mx-auto">
@@ -147,11 +147,11 @@ export default function LoginPage() {
           <div className="mb-8">
             <h2
               className="text-[26px] font-bold tracking-[-0.02em]"
-              style={{ color: '#1a1916' }}
+              style={{ color: 'var(--fd-ink-1)' }}
             >
               Sign in
             </h2>
-            <p className="text-[13px] mt-1.5" style={{ color: '#7a7770' }}>
+            <p className="text-[13px] mt-1.5" style={{ color: 'var(--fd-ink-3)' }}>
               Access your workspace
             </p>
           </div>
@@ -160,7 +160,7 @@ export default function LoginPage() {
           {error && (
             <div
               className="flex items-center gap-2.5 px-4 py-3 rounded-lg mb-4 text-[12.5px]"
-              style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c' }}
+              style={{ background: 'rgba(185,28,28,0.1)', border: '1px solid rgba(185,28,28,0.25)', color: '#f87171' }}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0">
                 <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5"/>
@@ -173,7 +173,7 @@ export default function LoginPage() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="block text-[12px] font-medium" style={{ color: '#44423d' }}>
+              <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
                 Email address
               </label>
               <input
@@ -188,7 +188,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-[12px] font-medium" style={{ color: '#44423d' }}>
+              <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
                 Password
               </label>
               <div className="relative">
@@ -205,7 +205,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPw(p => !p)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: '#a8a49e' }}
+                  style={{ color: 'var(--fd-ink-4)' }}
                 >
                   {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -232,27 +232,25 @@ export default function LoginPage() {
           {/* Demo accounts */}
           <div className="mt-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 h-px" style={{ background: '#eeece8' }} />
-              <span className="text-[11px] font-medium" style={{ color: '#a8a49e' }}>Demo accounts</span>
-              <div className="flex-1 h-px" style={{ background: '#eeece8' }} />
+              <div className="flex-1 h-px" style={{ background: 'var(--fd-border)' }} />
+              <span className="text-[11px] font-medium" style={{ color: 'var(--fd-ink-4)' }}>Demo accounts</span>
+              <div className="flex-1 h-px" style={{ background: 'var(--fd-border)' }} />
             </div>
 
             <div
               className="rounded-xl overflow-hidden"
-              style={{ border: '1px solid #e8e5e0' }}
+              style={{ border: '1px solid var(--fd-border-strong)' }}
             >
               {DEMO_ACCOUNTS.map((d, i) => (
                 <button
                   key={i}
                   type="button"
                   onClick={() => setForm({ email: d.email, password: d.pw })}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors group"
+                  className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors group hover:bg-[var(--fd-surface-raised)]"
                   style={{
-                    borderBottom: i < DEMO_ACCOUNTS.length - 1 ? '1px solid #f2f0ec' : 'none',
+                    borderBottom: i < DEMO_ACCOUNTS.length - 1 ? '1px solid var(--fd-border-subtle)' : 'none',
                     background: 'transparent',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#fafaf9'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                 >
                   <div>
                     <div
@@ -261,19 +259,19 @@ export default function LoginPage() {
                     >
                       {d.role}
                     </div>
-                    <div className="text-[11px] font-mono mt-0.5" style={{ color: '#a8a49e' }}>
+                    <div className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
                       {d.email}
                     </div>
                   </div>
-                  <ArrowRight size={12} color="#ccc9c2" />
+                  <ArrowRight size={12} style={{ color: 'var(--fd-ink-5)' }} />
                 </button>
               ))}
               <div
                 className="px-4 py-2 flex items-center gap-1.5"
-                style={{ background: '#fafaf9', borderTop: '1px solid #f2f0ec' }}
+                style={{ background: 'var(--fd-surface-raised)', borderTop: '1px solid var(--fd-border-subtle)' }}
               >
-                <span className="text-[10.5px]" style={{ color: '#a8a49e' }}>All passwords:</span>
-                <code className="text-[10.5px] font-mono" style={{ color: '#7a7770' }}>*Role*123!</code>
+                <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>All passwords:</span>
+                <code className="text-[10.5px] font-mono" style={{ color: 'var(--fd-ink-2)' }}>*Role*123!</code>
               </div>
             </div>
           </div>

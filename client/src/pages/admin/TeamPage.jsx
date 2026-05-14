@@ -14,7 +14,8 @@ const ROLE_LABELS = {
   copywriter: 'Copywriter',
 };
 
-const ROLE_STYLE = {
+// Light mode role badge styles
+const ROLE_STYLE_LIGHT = {
   admin:                { background: '#fef2f2', color: '#b91c1c' },
   manager:              { background: '#fdf2ff', color: '#7e22ce' },
   performance_marketer: { background: '#eff0fe', color: '#3a56d4' },
@@ -23,6 +24,23 @@ const ROLE_STYLE = {
   graphic_designer:     { background: '#f0f4ff', color: '#1d4ed8' },
   copywriter:           { background: '#f0fdf4', color: '#15803d' },
 };
+
+// Dark mode role badge styles
+const ROLE_STYLE_DARK = {
+  admin:                { background: 'rgba(185,28,28,0.18)', color: '#f87171' },
+  manager:              { background: 'rgba(126,34,206,0.18)', color: '#c084fc' },
+  performance_marketer: { background: 'rgba(79,110,240,0.2)', color: '#7896f3' },
+  social_media_manager: { background: 'rgba(157,23,77,0.18)', color: '#f472b6' },
+  video_editor:         { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
+  graphic_designer:     { background: 'rgba(29,78,216,0.18)', color: '#60a5fa' },
+  copywriter:           { background: 'rgba(21,128,61,0.18)', color: '#4ade80' },
+};
+
+function getRoleStyle(role) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const map = isDark ? ROLE_STYLE_DARK : ROLE_STYLE_LIGHT;
+  return map[role] || { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' };
+}
 
 export default function TeamPage() {
   const [users, setUsers] = useState([]);
@@ -95,39 +113,39 @@ export default function TeamPage() {
                   <Avatar name={u.name} size="md" />
                   <div className="flex-1 min-w-0">
                     <div
-                      className="font-semibold text-[13.5px] truncate group-hover:text-[#3a56d4] transition-colors"
-                      style={{ color: '#1a1916' }}
+                      className="font-semibold text-[13.5px] truncate group-hover:text-[var(--fd-sidebar-link-active)] transition-colors"
+                      style={{ color: 'var(--fd-ink-1)' }}
                     >
                       {u.name}
                     </div>
-                    <div className="text-[11.5px] mt-0.5 truncate" style={{ color: '#a8a49e' }}>
+                    <div className="text-[11.5px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>
                       {u.jobTitle || ROLE_LABELS[u.role] || u.role}
                     </div>
                     <span
                       className="inline-flex mt-2 px-2 py-0.5 rounded-full text-[10.5px] font-semibold"
-                      style={ROLE_STYLE[u.role] || { background: '#f5f4f1', color: '#44423d' }}
+                      style={getRoleStyle(u.role)}
                     >
                       {ROLE_LABELS[u.role] || u.role}
                     </span>
                   </div>
-                  <ChevronRight size={14} color="#ccc9c2" className="mt-0.5 flex-shrink-0 group-hover:text-[#4f6ef0] transition-colors" />
+                  <ChevronRight size={14} style={{ color: 'var(--fd-ink-5)' }} className="mt-0.5 flex-shrink-0 group-hover:text-[var(--fd-sidebar-link-active)] transition-colors" />
                 </div>
 
                 {/* Details */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 text-[12px]" style={{ color: '#7a7770' }}>
-                    <Mail size={11} color="#ccc9c2" strokeWidth={1.7} className="flex-shrink-0" />
+                  <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                    <Mail size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
                     <span className="truncate">{u.email}</span>
                   </div>
                   {u.phone && (
-                    <div className="flex items-center gap-2 text-[12px]" style={{ color: '#7a7770' }}>
-                      <Phone size={11} color="#ccc9c2" strokeWidth={1.7} className="flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                      <Phone size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
                       <span>{u.phone}</span>
                     </div>
                   )}
                   {u.department && (
-                    <div className="flex items-center gap-2 text-[12px]" style={{ color: '#7a7770' }}>
-                      <Shield size={11} color="#ccc9c2" strokeWidth={1.7} className="flex-shrink-0" />
+                    <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                      <Shield size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
                       <span>{u.department}</span>
                     </div>
                   )}
@@ -136,20 +154,18 @@ export default function TeamPage() {
                 {/* Footer */}
                 <div
                   className="flex items-center justify-between mt-4 pt-3 border-t"
-                  style={{ borderColor: '#f2f0ec' }}
+                  style={{ borderColor: 'var(--fd-border-subtle)' }}
                 >
-                  <span className="text-[11px] font-mono" style={{ color: '#ccc9c2' }}>
+                  <span className="text-[11px] font-mono" style={{ color: 'var(--fd-ink-5)' }}>
                     Since {formatDate(u.createdAt)}
                   </span>
                   <button
                     onClick={(e) => toggleActive(e, u._id, u.isActive)}
-                    className="text-[11.5px] font-medium px-2 py-0.5 rounded-md transition-all"
+                    className="text-[11.5px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
                     style={u.isActive
                       ? { color: '#b91c1c' }
                       : { color: '#2a7d4f' }
                     }
-                    onMouseEnter={e => e.currentTarget.style.background = u.isActive ? '#fef2f2' : '#edf7f1'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     {u.isActive ? 'Deactivate' : 'Activate'}
                   </button>

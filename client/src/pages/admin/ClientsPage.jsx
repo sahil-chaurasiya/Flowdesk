@@ -6,20 +6,46 @@ import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner 
 import { Button, Modal, Input, Select } from '../../components/ui/index';
 import { formatDate, SERVICE_LABELS, PLAN_LABELS } from '../../lib/utils';
 
-const STATUS_STYLE = {
+// Status & plan styles now use CSS vars so they adapt to dark mode automatically
+const STATUS_STYLE_LIGHT = {
   active:     { background: '#edf7f1', color: '#2a7d4f' },
   onboarding: { background: '#fef7ea', color: '#92600a' },
   paused:     { background: '#fef7ea', color: '#92600a' },
-  inactive:   { background: '#f5f4f1', color: '#7a7770' },
+  inactive:   { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
   churned:    { background: '#fef2f2', color: '#b91c1c' },
 };
 
-const PLAN_STYLE = {
-  starter:    { background: '#f5f4f1', color: '#44423d' },
+const STATUS_STYLE_DARK = {
+  active:     { background: 'rgba(42,125,79,0.18)', color: '#4ade80' },
+  onboarding: { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
+  paused:     { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
+  inactive:   { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
+  churned:    { background: 'rgba(185,28,28,0.18)', color: '#f87171' },
+};
+
+const PLAN_STYLE_LIGHT = {
+  starter:    { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' },
   growth:     { background: '#eff0fe', color: '#3a56d4' },
   scale:      { background: '#fdf2ff', color: '#7e22ce' },
   enterprise: { background: '#fef7ea', color: '#92600a' },
 };
+
+const PLAN_STYLE_DARK = {
+  starter:    { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
+  growth:     { background: 'rgba(79,110,240,0.2)', color: '#7896f3' },
+  scale:      { background: 'rgba(126,34,206,0.18)', color: '#c084fc' },
+  enterprise: { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
+};
+
+function getStatusStyle(status) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return (isDark ? STATUS_STYLE_DARK : STATUS_STYLE_LIGHT)[status] || (isDark ? STATUS_STYLE_DARK : STATUS_STYLE_LIGHT).inactive;
+}
+
+function getPlanStyle(plan) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return (isDark ? PLAN_STYLE_DARK : PLAN_STYLE_LIGHT)[plan] || (isDark ? PLAN_STYLE_DARK : PLAN_STYLE_LIGHT).starter;
+}
 
 const STATUS_TABS = [
   { label: 'All',         value: '' },
@@ -82,7 +108,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
 
       {/* Services */}
       <div>
-        <label className="block text-[12px] font-medium mb-2" style={{ color: '#44423d' }}>Services</label>
+        <label className="block text-[12px] font-medium mb-2 text-[var(--fd-ink-2)]">Services</label>
         <div className="flex flex-wrap gap-2">
           {SERVICES_LIST.map(([val, label]) => (
             <button
@@ -92,7 +118,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
               className="px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all"
               style={form.services.includes(val)
                 ? { background: '#4f6ef0', color: '#ffffff', borderColor: '#4060e0' }
-                : { background: '#ffffff', color: '#44423d', borderColor: '#e0ddd7' }
+                : { background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }
               }
             >
               {label}
@@ -102,7 +128,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
       </div>
 
       <div>
-        <label className="block text-[12px] font-medium mb-1.5" style={{ color: '#44423d' }}>Notes</label>
+        <label className="block text-[12px] font-medium mb-1.5 text-[var(--fd-ink-2)]">Notes</label>
         <textarea
           className="fd-input resize-none"
           rows={3}
@@ -112,10 +138,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
       </div>
 
       {!initial && (
-        <div
-          className="rounded-xl p-4 space-y-3"
-          style={{ background: '#fafaf9', border: '1px solid #e8e5e0' }}
-        >
+        <div className="rounded-xl p-4 space-y-3 bg-[var(--fd-surface-raised)] border border-[var(--fd-border)]">
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
@@ -124,7 +147,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
               className="rounded"
               style={{ accentColor: '#4f6ef0' }}
             />
-            <span className="text-[13px] font-medium" style={{ color: '#44423d' }}>
+            <span className="text-[13px] font-medium text-[var(--fd-ink-2)]">
               Create client portal login
             </span>
           </label>
@@ -200,7 +223,7 @@ export default function ClientsPage() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative max-w-sm flex-shrink-0">
-          <Search size={13} color="#a8a49e" className="absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--fd-ink-4)]" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -216,7 +239,7 @@ export default function ClientsPage() {
               className="px-3 py-1.5 rounded-lg text-[12px] font-medium whitespace-nowrap transition-all flex-shrink-0 border"
               style={statusFilter === t.value
                 ? { background: '#4f6ef0', color: '#ffffff', borderColor: '#4060e0', boxShadow: '0 1px 3px rgba(79,110,240,0.25)' }
-                : { background: '#ffffff', color: '#7a7770', borderColor: '#e0ddd7' }
+                : { background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }
               }
             >
               {t.label}
@@ -255,10 +278,10 @@ export default function ClientsPage() {
                         <div className="flex items-center gap-3">
                           <Avatar name={client.company} size="sm" />
                           <div>
-                            <div className="font-semibold text-[13px]" style={{ color: '#1a1916' }}>
+                            <div className="font-semibold text-[13px] text-[var(--fd-ink-1)]">
                               {client.company}
                             </div>
-                            <div className="text-[11px] mt-0.5" style={{ color: '#a8a49e' }}>
+                            <div className="text-[11px] mt-0.5 text-[var(--fd-ink-4)]">
                               {client.name} · {client.email}
                             </div>
                           </div>
@@ -270,7 +293,7 @@ export default function ClientsPage() {
                             <span
                               key={s}
                               className="px-2 py-0.5 rounded text-[10.5px] font-medium"
-                              style={{ background: '#f5f4f1', color: '#7a7770' }}
+                              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
                             >
                               {(SERVICE_LABELS || {})[s] || s}
                             </span>
@@ -278,7 +301,7 @@ export default function ClientsPage() {
                           {client.services?.length > 2 && (
                             <span
                               className="px-2 py-0.5 rounded text-[10.5px]"
-                              style={{ background: '#f5f4f1', color: '#a8a49e' }}
+                              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)' }}
                             >
                               +{client.services.length - 2}
                             </span>
@@ -289,16 +312,16 @@ export default function ClientsPage() {
                         {client.accountManager ? (
                           <div className="flex items-center gap-2">
                             <Avatar name={client.accountManager.name} size="xs" />
-                            <span className="text-[12.5px]" style={{ color: '#44423d' }}>
+                            <span className="text-[12.5px] text-[var(--fd-ink-2)]">
                               {client.accountManager.name}
                             </span>
                           </div>
-                        ) : <span style={{ color: '#ccc9c2' }}>—</span>}
+                        ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>}
                       </td>
                       <td>
                         <span
                           className="text-[11px] font-medium px-2 py-0.5 rounded-full capitalize"
-                          style={PLAN_STYLE[client.plan] || PLAN_STYLE.starter}
+                          style={getPlanStyle(client.plan)}
                         >
                           {(PLAN_LABELS || {})[client.plan] || client.plan}
                         </span>
@@ -306,12 +329,12 @@ export default function ClientsPage() {
                       <td>
                         <span
                           className="text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize"
-                          style={STATUS_STYLE[client.status] || STATUS_STYLE.inactive}
+                          style={getStatusStyle(client.status)}
                         >
                           {client.status}
                         </span>
                       </td>
-                      <td className="text-[12px] font-mono" style={{ color: '#a8a49e' }}>
+                      <td className="text-[12px] font-mono text-[var(--fd-ink-4)]">
                         {formatDate(client.startDate)}
                       </td>
                       <td>
@@ -329,33 +352,31 @@ export default function ClientsPage() {
             </div>
 
             {/* Mobile cards */}
-            <div className="md:hidden divide-y" style={{ borderColor: '#f2f0ec' }}>
+            <div className="md:hidden divide-y" style={{ borderColor: 'var(--fd-border-subtle)' }}>
               {clients.map(client => (
                 <Link
                   key={client._id}
                   to={`/admin/clients/${client._id}`}
-                  className="flex items-center gap-3.5 px-4 py-4 transition-colors"
-                  onMouseEnter={e => e.currentTarget.style.background = '#fafaf9'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  className="flex items-center gap-3.5 px-4 py-4 transition-colors hover:bg-[var(--fd-table-row-hover)]"
                 >
                   <Avatar name={client.company} size="md" />
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[13px] truncate" style={{ color: '#1a1916' }}>
+                    <div className="font-semibold text-[13px] truncate text-[var(--fd-ink-1)]">
                       {client.company}
                     </div>
-                    <div className="text-[11.5px] mt-0.5 truncate" style={{ color: '#7a7770' }}>
+                    <div className="text-[11.5px] mt-0.5 truncate text-[var(--fd-ink-3)]">
                       {client.name}
                     </div>
                     <div className="flex items-center gap-2 mt-1.5">
                       <span
                         className="text-[10.5px] font-medium px-2 py-0.5 rounded-full capitalize"
-                        style={STATUS_STYLE[client.status] || STATUS_STYLE.inactive}
+                        style={getStatusStyle(client.status)}
                       >
                         {client.status}
                       </span>
                     </div>
                   </div>
-                  <ChevronRight size={14} color="#ccc9c2" className="flex-shrink-0" />
+                  <ChevronRight size={14} style={{ color: 'var(--fd-ink-5)' }} className="flex-shrink-0" />
                 </Link>
               ))}
             </div>

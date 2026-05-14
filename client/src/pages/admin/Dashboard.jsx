@@ -37,18 +37,18 @@ const ROLE_HERO = {
 };
 
 const PRIORITY_STYLES = {
-  low:    { background: '#f5f4f1', color: '#7a7770' },
-  medium: { background: '#eff0fe', color: '#3a56d4' },
-  high:   { background: '#fef7ea', color: '#92600a' },
-  urgent: { background: '#fef2f2', color: '#b91c1c' },
+  low:    { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
+  medium: { background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' },
+  high:   { background: 'rgba(146,96,10,0.15)', color: '#f59e0b' },
+  urgent: { background: 'rgba(185,28,28,0.15)', color: '#ef4444' },
 };
 
 const STATUS_STYLES = {
-  pending:     { background: '#f5f4f1', color: '#7a7770' },
-  in_progress: { background: '#eff0fe', color: '#3a56d4' },
-  review:      { background: '#fdf2ff', color: '#7e22ce' },
-  completed:   { background: '#edf7f1', color: '#2a7d4f' },
-  cancelled:   { background: '#fef2f2', color: '#b91c1c' },
+  pending:     { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
+  in_progress: { background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' },
+  review:      { background: 'rgba(126,34,206,0.15)', color: '#a855f7' },
+  completed:   { background: 'rgba(42,125,79,0.15)', color: '#22c55e' },
+  cancelled:   { background: 'rgba(185,28,28,0.15)', color: '#ef4444' },
 };
 
 function TaskRow({ task, onStatusChange, updating }) {
@@ -57,36 +57,34 @@ function TaskRow({ task, onStatusChange, updating }) {
 
   return (
     <div
-      className="flex items-center gap-4 px-5 py-3.5 border-b transition-colors last:border-0"
+      className="flex items-center gap-4 px-5 py-3.5 border-b transition-colors last:border-0 hover:bg-[var(--fd-table-row-hover)]"
       style={{
-        borderColor: '#f2f0ec',
-        background: isOverdue ? '#fffbfa' : 'transparent',
+        borderColor: 'var(--fd-table-row-border)',
+        background: isOverdue ? 'rgba(185,28,28,0.04)' : 'transparent',
       }}
-      onMouseEnter={e => !isOverdue && (e.currentTarget.style.background = '#fafaf9')}
-      onMouseLeave={e => e.currentTarget.style.background = isOverdue ? '#fffbfa' : 'transparent'}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[13px] font-medium truncate" style={{ color: '#1a1916' }}>
+          <span className="text-[13px] font-medium truncate" style={{ color: 'var(--fd-ink-1)' }}>
             {task.title}
           </span>
           {isOverdue && (
             <span
               className="text-[10px] font-semibold px-1.5 py-0.5 rounded flex-shrink-0"
-              style={{ background: '#fef2f2', color: '#b91c1c' }}
+              style={{ background: 'rgba(185,28,28,0.15)', color: '#ef4444' }}
             >
               Overdue
             </span>
           )}
         </div>
-        <div className="text-[11.5px] mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: '#a8a49e' }}>
-          <span className="font-medium" style={{ color: '#7a7770' }}>{task.client?.company}</span>
+        <div className="text-[11.5px] mt-0.5 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--fd-ink-4)' }}>
+          <span className="font-medium" style={{ color: 'var(--fd-ink-3)' }}>{task.client?.company}</span>
           <span>·</span>
           <span>{CATEGORY_LABELS[task.category] || task.category}</span>
           {task.deadline && (
             <>
               <span>·</span>
-              <span style={isOverdue ? { color: '#b91c1c', fontWeight: 500 } : {}}>
+              <span style={isOverdue ? { color: '#ef4444', fontWeight: 500 } : {}}>
                 Due {formatDate(task.deadline)}
               </span>
             </>
@@ -98,12 +96,12 @@ function TaskRow({ task, onStatusChange, updating }) {
         {task.assignedTo ? (
           <div className="flex items-center gap-1.5">
             <Avatar name={task.assignedTo.name} size="xs" />
-            <span className="text-[11.5px] hidden sm:block" style={{ color: '#7a7770' }}>
+            <span className="text-[11.5px] hidden sm:block" style={{ color: 'var(--fd-ink-3)' }}>
               {task.assignedTo.name?.split(' ')[0]}
             </span>
           </div>
         ) : (
-          <span className="text-[11.5px] font-medium" style={{ color: '#b91c1c' }}>Unassigned</span>
+          <span className="text-[11.5px] font-medium" style={{ color: '#ef4444' }}>Unassigned</span>
         )}
 
         <span
@@ -128,8 +126,8 @@ function TaskRow({ task, onStatusChange, updating }) {
             disabled={updating === task._id}
             className="text-[11px] px-2.5 py-1.5 rounded-lg font-medium transition-all"
             style={{
-              background: '#fdf2ff', color: '#7e22ce',
-              border: '1px solid #e9d5ff',
+              background: 'rgba(126,34,206,0.15)', color: '#a855f7',
+              border: '1px solid rgba(126,34,206,0.25)',
             }}
           >
             Submit
@@ -144,11 +142,11 @@ function SectionHeading({ title, count, linkTo, linkLabel = 'View all' }) {
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="text-[13.5px] font-semibold" style={{ color: '#1a1916' }}>{title}</span>
+        <span className="text-[13.5px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{title}</span>
         {count !== undefined && count > 0 && (
           <span
             className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center"
-            style={{ background: '#eff0fe', color: '#3a56d4' }}
+            style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
           >
             {count}
           </span>
@@ -158,7 +156,7 @@ function SectionHeading({ title, count, linkTo, linkLabel = 'View all' }) {
         <Link
           to={linkTo}
           className="flex items-center gap-1 text-[12px] font-medium transition-colors"
-          style={{ color: '#4f6ef0' }}
+          style={{ color: 'var(--fd-sidebar-link-active)' }}
         >
           {linkLabel} <ChevronRight size={12} />
         </Link>
@@ -220,32 +218,30 @@ function ManagerDashboard() {
             </CardHeader>
             <CardContent className="p-0">
               {clients.length === 0 ? (
-                <div className="py-8 text-center text-[13px]" style={{ color: '#a8a49e' }}>No active clients</div>
+                <div className="py-8 text-center text-[13px]" style={{ color: 'var(--fd-ink-4)' }}>No active clients</div>
               ) : (
                 clients.map(client => (
                   <Link
                     key={client._id}
                     to={`/admin/clients/${client._id}`}
-                    className="flex items-center gap-3 px-5 py-3.5 border-b last:border-0 group transition-colors"
-                    style={{ borderColor: '#f2f0ec' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#fafaf9'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    className="flex items-center gap-3 px-5 py-3.5 border-b last:border-0 group transition-colors hover:bg-[var(--fd-table-row-hover)]"
+                    style={{ borderColor: 'var(--fd-table-row-border)' }}
                   >
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                      style={{ background: '#eff0fe', color: '#3a56d4' }}
+                      style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
                     >
                       {client.company?.charAt(0)?.toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[12.5px] font-medium truncate" style={{ color: '#1a1916' }}>
+                      <div className="text-[12.5px] font-medium truncate" style={{ color: 'var(--fd-ink-1)' }}>
                         {client.company}
                       </div>
-                      <div className="text-[11px] truncate" style={{ color: '#a8a49e' }}>
+                      <div className="text-[11px] truncate" style={{ color: 'var(--fd-ink-4)' }}>
                         {client.industry}
                       </div>
                     </div>
-                    <ChevronRight size={13} color="#ccc9c2" />
+                    <ChevronRight size={13} style={{ color: 'var(--fd-ink-5)' }} />
                   </Link>
                 ))
               )}
@@ -288,12 +284,7 @@ function TeamMemberDashboard({ user }) {
     <div className="space-y-6">
       {/* Role banner */}
       <div
-        className="relative rounded-2xl px-6 py-5 overflow-hidden"
-        style={{
-          background: '#ffffff',
-          border: '1px solid #e8e5e0',
-          boxShadow: '0 1px 2px rgba(28,25,20,0.04)',
-        }}
+        className="relative rounded-2xl px-6 py-5 overflow-hidden fd-card"
       >
         {/* Faint watermark */}
         <div
@@ -304,10 +295,10 @@ function TeamMemberDashboard({ user }) {
         </div>
         <div className="relative z-10">
           <div className="text-[22px] mb-1" aria-hidden>{hero.emoji}</div>
-          <h2 className="text-[17px] font-bold tracking-[-0.01em]" style={{ color: '#1a1916' }}>
+          <h2 className="text-[17px] font-bold tracking-[-0.01em]" style={{ color: 'var(--fd-ink-1)' }}>
             {hero.greeting}
           </h2>
-          <p className="text-[13px] mt-1 max-w-md" style={{ color: '#7a7770' }}>{hero.tip}</p>
+          <p className="text-[13px] mt-1 max-w-md" style={{ color: 'var(--fd-ink-3)' }}>{hero.tip}</p>
         </div>
       </div>
 
@@ -353,14 +344,14 @@ export default function AdminDashboard() {
         <div>
           <h1
             className="text-[22px] font-bold tracking-[-0.02em] leading-none mb-1.5"
-            style={{ color: '#1a1916' }}
+            style={{ color: 'var(--fd-ink-1)' }}
           >
             {ROLE_HERO[user?.role]?.greeting || 'Dashboard'}
           </h1>
-          <div className="flex items-center gap-2 text-[13px]" style={{ color: '#a8a49e' }}>
+          <div className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--fd-ink-4)' }}>
             <span>{ROLE_LABELS[user?.role]}</span>
             <span>·</span>
-            <span style={{ color: '#7a7770' }}>{user?.name}</span>
+            <span style={{ color: 'var(--fd-ink-3)' }}>{user?.name}</span>
           </div>
         </div>
         {isManagerOrAdmin && (

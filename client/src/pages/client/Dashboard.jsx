@@ -15,30 +15,34 @@ import {
 } from '../../components/shared/LoadingScreen';
 import { formatDate, timeAgo, SERVICE_LABELS, PLAN_LABELS } from '../../lib/utils';
 
-// ─── Color tokens ─────────────────────────────────────────────────────────────
-const C = {
-  bg: '#f7f6f3',
-  surface: '#ffffff',
-  border: '#eeece8',
-  borderLight: '#f2f0ec',
-  ink: '#1a1916',
-  inkMid: '#44423d',
-  inkMute: '#7a7770',
-  inkFaint: '#a8a49e',
-  inkGhost: '#ccc9c2',
-  blue: '#3a56d4',
-  blueSoft: '#eff0fe',
-  green: '#2a7d4f',
-  greenSoft: '#edf7f1',
-  amber: '#92600a',
-  amberSoft: '#fef7ea',
-  purple: '#7e22ce',
-  purpleSoft: '#fdf2ff',
-  red: '#b91c1c',
-  redSoft: '#fff0f0',
-  teal: '#0e7490',
-  tealSoft: '#ecfeff',
-};
+// ─── Color tokens — now use CSS variables so dark mode works ──────────────────
+// These are used for inline SVG/canvas elements that can't use CSS classes directly.
+// For everything else we use var(--fd-*) directly.
+function getTokens() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    surface: isDark ? '#1e2025' : '#ffffff',
+    border: isDark ? '#2a2d36' : '#eeece8',
+    borderLight: isDark ? '#252830' : '#f2f0ec',
+    ink: isDark ? '#edeae4' : '#1a1916',
+    inkMid: isDark ? '#c4c0b8' : '#44423d',
+    inkMute: isDark ? '#8a8680' : '#7a7770',
+    inkFaint: isDark ? '#5e5b55' : '#a8a49e',
+    inkGhost: isDark ? '#3d3b36' : '#ccc9c2',
+    blue: isDark ? '#7896f3' : '#3a56d4',
+    blueSoft: isDark ? 'rgba(79,110,240,0.2)' : '#eff0fe',
+    green: isDark ? '#4ade80' : '#2a7d4f',
+    greenSoft: isDark ? 'rgba(42,125,79,0.18)' : '#edf7f1',
+    amber: isDark ? '#fbbf24' : '#92600a',
+    amberSoft: isDark ? 'rgba(146,96,10,0.18)' : '#fef7ea',
+    purple: isDark ? '#c084fc' : '#7e22ce',
+    purpleSoft: isDark ? 'rgba(126,34,206,0.18)' : '#fdf2ff',
+    red: isDark ? '#f87171' : '#b91c1c',
+    redSoft: isDark ? 'rgba(185,28,28,0.18)' : '#fff0f0',
+    teal: isDark ? '#38bdf8' : '#0e7490',
+    tealSoft: isDark ? 'rgba(14,116,163,0.18)' : '#ecfeff',
+  };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtNum(n) {
@@ -67,14 +71,6 @@ const PLATFORM_ICON = {
   youtube: '▶️', linkedin: '💼', twitter: '🐦',
 };
 
-const STATUS_STYLE = {
-  new:       { background: '#f5f4f1', color: C.inkMute },
-  contacted: { background: C.blueSoft, color: C.blue },
-  qualified: { background: C.amberSoft, color: C.amber },
-  converted: { background: C.greenSoft, color: C.green },
-  lost:      { background: C.redSoft, color: C.red },
-};
-
 const STATUS_ORDER = ['new', 'contacted', 'qualified', 'converted', 'lost'];
 
 // ─── Mini components ──────────────────────────────────────────────────────────
@@ -83,16 +79,15 @@ function SectionHeader({ title, icon: Icon, linkTo, subtitle }) {
     <div className="flex items-start justify-between gap-4">
       <div>
         <div className="flex items-center gap-2">
-          {Icon && <Icon size={13} color={C.inkFaint} strokeWidth={1.7} />}
-          <span className="text-[13.5px] font-semibold" style={{ color: C.ink }}>{title}</span>
+          {Icon && <Icon size={13} className="text-[var(--fd-ink-4)]" strokeWidth={1.7} />}
+          <span className="text-[13.5px] font-semibold text-[var(--fd-ink-1)]">{title}</span>
         </div>
-        {subtitle && <p className="text-[11px] mt-0.5 ml-5" style={{ color: C.inkFaint }}>{subtitle}</p>}
+        {subtitle && <p className="text-[11px] mt-0.5 ml-5 text-[var(--fd-ink-4)]">{subtitle}</p>}
       </div>
       {linkTo && (
         <Link
           to={linkTo}
-          className="flex items-center gap-1 text-[12px] font-medium flex-shrink-0"
-          style={{ color: C.blue }}
+          className="flex items-center gap-1 text-[12px] font-medium flex-shrink-0 text-[var(--fd-sidebar-link-active)]"
         >
           View all <ChevronRight size={12} />
         </Link>
@@ -102,7 +97,7 @@ function SectionHeader({ title, icon: Icon, linkTo, subtitle }) {
 }
 
 // ─── Sparkline (pure SVG, no deps) ───────────────────────────────────────────
-function Sparkline({ data = [], color = C.blue, height = 36, width = 100 }) {
+function Sparkline({ data = [], color, height = 36, width = 100 }) {
   if (!data.length) return null;
   const max = Math.max(...data, 1);
   const min = Math.min(...data);
@@ -117,12 +112,12 @@ function Sparkline({ data = [], color = C.blue, height = 36, width = 100 }) {
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} fill="none">
       <defs>
-        <linearGradient id={`sg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={`sg-${color?.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.18" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={fill} fill={`url(#sg-${color.replace('#','')})`} />
+      <path d={fill} fill={`url(#sg-${color?.replace('#','')})`} />
       <path d={line} stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -130,12 +125,12 @@ function Sparkline({ data = [], color = C.blue, height = 36, width = 100 }) {
 
 // ─── Horizontal bar ───────────────────────────────────────────────────────────
 function HBar({ value, max, color, height = 6 }) {
-  const pct = max ? Math.min((value / max) * 100, 100) : 0;
+  const p = max ? Math.min((value / max) * 100, 100) : 0;
   return (
-    <div className="rounded-full overflow-hidden" style={{ background: C.border, height }}>
+    <div className="rounded-full overflow-hidden bg-[var(--fd-border)]" style={{ height }}>
       <div
         className="h-full rounded-full transition-all duration-700"
-        style={{ width: `${pct}%`, background: color }}
+        style={{ width: `${p}%`, background: color }}
       />
     </div>
   );
@@ -175,6 +170,7 @@ function DonutChart({ segments = [], size = 80, thickness = 12 }) {
 // ─── Delta badge ─────────────────────────────────────────────────────────────
 function Delta({ value, suffix = '%' }) {
   const up = value >= 0;
+  const C = getTokens();
   return (
     <span
       className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold px-1.5 py-0.5 rounded-full"
@@ -189,10 +185,7 @@ function Delta({ value, suffix = '%' }) {
 // ─── Big stat card ────────────────────────────────────────────────────────────
 function BigStatCard({ title, value, icon: Icon, color, bg, delta, subtitle, sparkData }) {
   return (
-    <div
-      className="rounded-2xl p-4 flex flex-col gap-2"
-      style={{ background: C.surface, border: `1px solid ${C.border}` }}
-    >
+    <div className="fd-card rounded-2xl p-4 flex flex-col gap-2">
       <div className="flex items-start justify-between">
         <div
           className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -203,11 +196,11 @@ function BigStatCard({ title, value, icon: Icon, color, bg, delta, subtitle, spa
         {delta !== undefined && <Delta value={delta} />}
       </div>
       <div>
-        <div className="text-[22px] font-bold tabular-nums leading-none" style={{ color: C.ink }}>
+        <div className="text-[22px] font-bold tabular-nums leading-none text-[var(--fd-ink-1)]">
           {value}
         </div>
-        <div className="text-[11.5px] mt-1 font-medium" style={{ color: C.inkMute }}>{title}</div>
-        {subtitle && <div className="text-[11px] mt-0.5" style={{ color: C.inkFaint }}>{subtitle}</div>}
+        <div className="text-[11.5px] mt-1 font-medium text-[var(--fd-ink-3)]">{title}</div>
+        {subtitle && <div className="text-[11px] mt-0.5 text-[var(--fd-ink-4)]">{subtitle}</div>}
       </div>
       {sparkData && (
         <div className="mt-auto pt-1">
@@ -218,10 +211,9 @@ function BigStatCard({ title, value, icon: Icon, color, bg, delta, subtitle, spa
   );
 }
 
-// ─── Generate mock sparkline from a stat (makes UI informative even w/o timeseries API) ─
 function mockSpark(seed, count = 10) {
   let v = 30 + (seed % 40);
-  return Array.from({ length: count }, (_, i) => {
+  return Array.from({ length: count }, () => {
     v = Math.max(0, v + (Math.random() - 0.45) * 15);
     return Math.round(v);
   });
@@ -256,12 +248,14 @@ export default function ClientDashboard() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
+  // Get dynamic color tokens
+  const C = getTokens();
+
   const client = overview?.client;
   const manager = client?.accountManager;
   const totals = socialAnalytics?.totals || {};
   const byPlatform = socialAnalytics?.byPlatform || [];
 
-  // Lead funnel data
   const byStatus = leadStats?.byStatus || [];
   const totalLeads = leadStats?.total || 0;
   const qualifiedLeads = byStatus.find(s => s._id === 'qualified')?.count || 0;
@@ -269,19 +263,24 @@ export default function ClientDashboard() {
   const newLeads = byStatus.find(s => s._id === 'new')?.count || 0;
   const conversionRate = totalLeads ? ((convertedLeads / totalLeads) * 100).toFixed(1) : 0;
 
-  // Funnel segments for donut
+  const STATUS_STYLE = {
+    new:       { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
+    contacted: { background: C.blueSoft, color: C.blue },
+    qualified: { background: C.amberSoft, color: C.amber },
+    converted: { background: C.greenSoft, color: C.green },
+    lost:      { background: C.redSoft, color: C.red },
+  };
+
   const funnelSegments = STATUS_ORDER.map(s => ({
     label: s,
     value: byStatus.find(x => x._id === s)?.count || 0,
-    color: { new: '#ccc9c2', contacted: C.blue, qualified: '#f59e0b', converted: C.green, lost: C.red }[s],
+    color: { new: C.inkGhost, contacted: C.blue, qualified: '#f59e0b', converted: C.green, lost: C.red }[s],
   })).filter(s => s.value > 0);
 
-  // Social platform bars
   const topPlatform = byPlatform.reduce((best, p) => (!best || p.reach > best.reach) ? p : best, null);
   const maxReach = byPlatform.reduce((m, p) => Math.max(m, p.reach || 0), 1);
   const maxLikes = byPlatform.reduce((m, p) => Math.max(m, p.likes || 0), 1);
 
-  // Engagement rate colour
   const engRate = totals.avgEngagementRate || 0;
   const engColor = engRate >= 5 ? C.green : engRate >= 2 ? C.amber : C.red;
 
@@ -291,11 +290,11 @@ export default function ClientDashboard() {
       {/* ─── HEADER ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[22px] font-bold tracking-[-0.02em] leading-none mb-1.5" style={{ color: C.ink }}>
+          <h1 className="text-[22px] font-bold tracking-[-0.02em] leading-none mb-1.5 text-[var(--fd-ink-1)]">
             Welcome back, {user?.name?.split(' ')[0]} 👋
           </h1>
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[13px]" style={{ color: C.inkMute }}>{client?.company}</span>
+            <span className="text-[13px] text-[var(--fd-ink-3)]">{client?.company}</span>
             {client?.plan && (
               <>
                 <span style={{ color: C.inkGhost }}>·</span>
@@ -309,8 +308,8 @@ export default function ClientDashboard() {
         <div
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-semibold capitalize flex-shrink-0"
           style={client?.status === 'active'
-            ? { background: C.greenSoft, color: C.green, border: `1px solid #b8e2c9` }
-            : { background: '#f5f4f1', color: C.inkMute, border: `1px solid ${C.border}` }
+            ? { background: C.greenSoft, color: C.green, border: `1px solid ${C.green}40` }
+            : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }
           }
         >
           <span className="w-1.5 h-1.5 rounded-full" style={{ background: client?.status === 'active' ? C.green : C.inkFaint }} />
@@ -335,7 +334,7 @@ export default function ClientDashboard() {
           value={fmtNum(qualifiedLeads)}
           icon={Star}
           color="#f59e0b"
-          bg="#fffbeb"
+          bg={C.amberSoft}
           delta={8}
           subtitle={`${pct(qualifiedLeads, totalLeads)} of pipeline`}
           sparkData={mockSpark(qualifiedLeads || 22)}
@@ -366,32 +365,30 @@ export default function ClientDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
         {/* Lead Funnel */}
-        <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+        <div className="fd-card rounded-2xl p-5 flex flex-col gap-4">
           <SectionHeader title="Lead Pipeline" icon={Target} linkTo="/portal/leads" subtitle="Current funnel breakdown" />
 
           <div className="flex items-center gap-5">
-            {/* Donut */}
             <div className="relative flex-shrink-0">
               <DonutChart segments={funnelSegments.length ? funnelSegments : [{ value: 1, color: C.border }]} size={96} thickness={13} />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[17px] font-bold" style={{ color: C.ink }}>{fmtNum(totalLeads)}</span>
-                <span className="text-[9px] font-medium uppercase tracking-wider" style={{ color: C.inkFaint }}>leads</span>
+                <span className="text-[17px] font-bold text-[var(--fd-ink-1)]">{fmtNum(totalLeads)}</span>
+                <span className="text-[9px] font-medium uppercase tracking-wider text-[var(--fd-ink-4)]">leads</span>
               </div>
             </div>
 
-            {/* Legend + bars */}
             <div className="flex-1 space-y-2.5">
               {STATUS_ORDER.map(s => {
                 const count = byStatus.find(x => x._id === s)?.count || 0;
-                const color = { new: '#ccc9c2', contacted: C.blue, qualified: '#f59e0b', converted: C.green, lost: C.red }[s];
+                const color = { new: C.inkGhost, contacted: C.blue, qualified: '#f59e0b', converted: C.green, lost: C.red }[s];
                 return (
                   <div key={s}>
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
-                        <span className="text-[11.5px] capitalize font-medium" style={{ color: C.inkMid }}>{s}</span>
+                        <span className="text-[11.5px] capitalize font-medium text-[var(--fd-ink-2)]">{s}</span>
                       </div>
-                      <span className="text-[11.5px] tabular-nums font-semibold" style={{ color: C.ink }}>{count}</span>
+                      <span className="text-[11.5px] tabular-nums font-semibold text-[var(--fd-ink-1)]">{count}</span>
                     </div>
                     <HBar value={count} max={totalLeads || 1} color={color} />
                   </div>
@@ -403,7 +400,7 @@ export default function ClientDashboard() {
           {/* Conversion highlight */}
           <div
             className="flex items-center justify-between rounded-xl px-4 py-3"
-            style={{ background: C.greenSoft, border: `1px solid #b8e2c9` }}
+            style={{ background: C.greenSoft, border: `1px solid ${C.green}40` }}
           >
             <div className="flex items-center gap-2">
               <Flame size={14} color={C.green} />
@@ -414,15 +411,14 @@ export default function ClientDashboard() {
         </div>
 
         {/* Social Overview */}
-        <div className="rounded-2xl p-5 flex flex-col gap-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+        <div className="fd-card rounded-2xl p-5 flex flex-col gap-4">
           <SectionHeader title="Social Media Overview" icon={Activity} linkTo="/portal/social" subtitle="Last 30 days" />
 
-          {/* 4 mini KPIs */}
           <div className="grid grid-cols-2 gap-2.5">
             {[
               { label: 'Posts', val: fmtNum(totals.totalPosts || 0), icon: Radio, color: C.blue, bg: C.blueSoft },
               { label: 'Impressions', val: fmtNum(totals.totalReach || 0), icon: Eye, color: C.purple, bg: C.purpleSoft },
-              { label: 'Likes', val: fmtNum(totals.totalLikes || 0), icon: Heart, color: '#e11d48', bg: '#fff1f2' },
+              { label: 'Likes', val: fmtNum(totals.totalLikes || 0), icon: Heart, color: '#e11d48', bg: 'rgba(225,29,72,0.1)' },
               {
                 label: 'Engagement',
                 val: engRate ? engRate.toFixed(1) + '%' : '—',
@@ -431,32 +427,30 @@ export default function ClientDashboard() {
                 bg: engColor === C.green ? C.greenSoft : engColor === C.amber ? C.amberSoft : C.redSoft,
               },
             ].map(({ label, val, icon: Icon, color, bg }) => (
-              <div key={label} className="rounded-xl p-3 flex items-center gap-3" style={{ background: '#fafaf9', border: `1px solid ${C.border}` }}>
+              <div key={label} className="rounded-xl p-3 flex items-center gap-3 bg-[var(--fd-surface-raised)] border border-[var(--fd-border)]">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
                   <Icon size={13} color={color} strokeWidth={1.8} />
                 </div>
                 <div>
-                  <div className="text-[15px] font-bold tabular-nums leading-none" style={{ color: C.ink }}>{val}</div>
-                  <div className="text-[10.5px] mt-0.5" style={{ color: C.inkFaint }}>{label}</div>
+                  <div className="text-[15px] font-bold tabular-nums leading-none text-[var(--fd-ink-1)]">{val}</div>
+                  <div className="text-[10.5px] mt-0.5 text-[var(--fd-ink-4)]">{label}</div>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Platform breakdown */}
           {byPlatform.length > 0 ? (
             <div className="space-y-2">
-              <p className="text-[10.5px] uppercase tracking-wider font-semibold" style={{ color: C.inkFaint }}>By Platform</p>
+              <p className="text-[10.5px] uppercase tracking-wider font-semibold text-[var(--fd-ink-4)]">By Platform</p>
               {byPlatform.slice(0, 4).map(p => (
                 <div key={p.platform} className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[12px] flex-shrink-0"
-                    style={{ background: '#f5f4f1' }}>
+                  <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[12px] flex-shrink-0 bg-[var(--fd-surface-sunken)]">
                     {PLATFORM_ICON[p.platform] || '📱'}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between mb-1">
-                      <span className="text-[11.5px] capitalize font-medium" style={{ color: C.inkMid }}>{p.platform}</span>
-                      <span className="text-[10.5px] tabular-nums" style={{ color: C.inkFaint }}>{fmtNum(p.reach || 0)} reach</span>
+                      <span className="text-[11.5px] capitalize font-medium text-[var(--fd-ink-2)]">{p.platform}</span>
+                      <span className="text-[10.5px] tabular-nums text-[var(--fd-ink-4)]">{fmtNum(p.reach || 0)} reach</span>
                     </div>
                     <HBar value={p.reach || 0} max={maxReach} color={PLATFORM_COLOR[p.platform] || C.blue} height={5} />
                   </div>
@@ -466,8 +460,8 @@ export default function ClientDashboard() {
           ) : (
             <div className="flex-1 flex items-center justify-center py-4">
               <div className="text-center">
-                <Instagram size={22} color={C.inkGhost} strokeWidth={1.3} className="mx-auto mb-2" />
-                <p className="text-[12px]" style={{ color: C.inkFaint }}>No social data yet</p>
+                <Instagram size={22} className="mx-auto mb-2 text-[var(--fd-ink-5)]" strokeWidth={1.3} />
+                <p className="text-[12px] text-[var(--fd-ink-4)]">No social data yet</p>
               </div>
             </div>
           )}
@@ -478,63 +472,51 @@ export default function ClientDashboard() {
       {byPlatform.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
-          {/* Engagement by platform */}
-          <div className="lg:col-span-2 rounded-2xl p-5" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <div className="lg:col-span-2 fd-card rounded-2xl p-5">
             <SectionHeader title="Engagement by Platform" icon={BarChart3} subtitle="Likes, shares & interactions" />
             <div className="mt-4 space-y-4">
-              {byPlatform.length > 0 ? byPlatform.slice(0, 5).map(p => {
-                const likesPct = maxLikes ? Math.min((p.likes || 0) / maxLikes * 100, 100) : 0;
+              {byPlatform.slice(0, 5).map(p => {
                 const er = p.engagementRate || 0;
                 const erColor = er >= 5 ? C.green : er >= 2 ? C.amber : C.inkFaint;
                 return (
                   <div key={p.platform}>
                     <div className="flex items-center gap-3 mb-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[13px] flex-shrink-0" style={{ background: '#f5f4f1' }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[13px] flex-shrink-0 bg-[var(--fd-surface-sunken)]">
                         {PLATFORM_ICON[p.platform] || '📱'}
                       </div>
-                      <span className="text-[12.5px] capitalize font-semibold flex-1" style={{ color: C.inkMid }}>{p.platform}</span>
+                      <span className="text-[12.5px] capitalize font-semibold flex-1 text-[var(--fd-ink-2)]">{p.platform}</span>
                       <span className="text-[11px] font-bold tabular-nums" style={{ color: erColor }}>{er.toFixed(1)}% eng.</span>
                     </div>
                     <div className="flex gap-2 items-center">
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[10px]" style={{ color: C.inkFaint }}>Likes</span>
-                          <span className="text-[10px] tabular-nums" style={{ color: C.inkFaint }}>{fmtNum(p.likes || 0)}</span>
+                          <span className="text-[10px] text-[var(--fd-ink-4)]">Likes</span>
+                          <span className="text-[10px] tabular-nums text-[var(--fd-ink-4)]">{fmtNum(p.likes || 0)}</span>
                         </div>
                         <HBar value={p.likes || 0} max={maxLikes} color={PLATFORM_COLOR[p.platform] || C.blue} height={7} />
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-[10px]" style={{ color: C.inkFaint }}>Posts</span>
-                          <span className="text-[10px] tabular-nums" style={{ color: C.inkFaint }}>{p.posts || 0}</span>
+                          <span className="text-[10px] text-[var(--fd-ink-4)]">Posts</span>
+                          <span className="text-[10px] tabular-nums text-[var(--fd-ink-4)]">{p.posts || 0}</span>
                         </div>
                         <HBar value={p.posts || 0} max={byPlatform.reduce((m, x) => Math.max(m, x.posts || 0), 1)} color="#a78bfa" height={7} />
                       </div>
                     </div>
                   </div>
                 );
-              }) : (
-                <div className="py-8 text-center">
-                  <BarChart3 size={24} color={C.inkGhost} strokeWidth={1.3} className="mx-auto mb-2" />
-                  <p className="text-[12px]" style={{ color: C.inkFaint }}>No platform data available</p>
-                </div>
-              )}
+              })}
             </div>
           </div>
 
-          {/* Top performing post cards */}
-          <div className="rounded-2xl p-5 flex flex-col gap-3" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
+          <div className="fd-card rounded-2xl p-5 flex flex-col gap-3">
             <SectionHeader title="Recent Posts" icon={Instagram} linkTo="/portal/social" />
             {recentPosts.length > 0 ? recentPosts.map(post => (
               <div
                 key={post._id}
-                className="flex gap-3 p-2.5 rounded-xl"
-                style={{ background: '#fafaf9', border: `1px solid ${C.border}` }}
+                className="flex gap-3 p-2.5 rounded-xl bg-[var(--fd-surface-raised)] border border-[var(--fd-border)]"
               >
-                <div
-                  className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
-                  style={{ background: '#f5f4f1' }}
-                >
+                <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0 bg-[var(--fd-surface-sunken)]">
                   {post.mediaUrls?.[0] ? (
                     <img src={post.mediaUrls[0]} alt="" className="w-full h-full object-cover" />
                   ) : (
@@ -548,21 +530,21 @@ export default function ClientDashboard() {
                       style={{ background: C.blueSoft, color: C.blue }}
                     >{post.platform}</span>
                   </div>
-                  <p className="text-[11.5px] line-clamp-2 leading-relaxed" style={{ color: C.inkMid }}>
+                  <p className="text-[11.5px] line-clamp-2 leading-relaxed text-[var(--fd-ink-2)]">
                     {post.content || 'Published post'}
                   </p>
                   <div className="flex items-center gap-3 mt-1.5">
                     {post.analytics?.likes != null && (
-                      <span className="flex items-center gap-0.5 text-[10px]" style={{ color: C.inkFaint }}>
+                      <span className="flex items-center gap-0.5 text-[10px] text-[var(--fd-ink-4)]">
                         <Heart size={9} /> {fmtNum(post.analytics.likes)}
                       </span>
                     )}
                     {post.analytics?.reach != null && (
-                      <span className="flex items-center gap-0.5 text-[10px]" style={{ color: C.inkFaint }}>
+                      <span className="flex items-center gap-0.5 text-[10px] text-[var(--fd-ink-4)]">
                         <Eye size={9} /> {fmtNum(post.analytics.reach)}
                       </span>
                     )}
-                    <span className="text-[10px] ml-auto" style={{ color: C.inkGhost }}>
+                    <span className="text-[10px] ml-auto text-[var(--fd-ink-5)]">
                       {post.publishedAt ? timeAgo(post.publishedAt) : ''}
                     </span>
                   </div>
@@ -571,8 +553,8 @@ export default function ClientDashboard() {
             )) : (
               <div className="flex-1 flex items-center justify-center py-8">
                 <div className="text-center">
-                  <Radio size={20} color={C.inkGhost} strokeWidth={1.3} className="mx-auto mb-2" />
-                  <p className="text-[12px]" style={{ color: C.inkFaint }}>No posts published yet</p>
+                  <Radio size={20} className="mx-auto mb-2 text-[var(--fd-ink-5)]" strokeWidth={1.3} />
+                  <p className="text-[12px] text-[var(--fd-ink-4)]">No posts published yet</p>
                 </div>
               </div>
             )}
@@ -584,32 +566,29 @@ export default function ClientDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         {/* Recent Leads */}
-        <div className="lg:col-span-2 rounded-2xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: C.borderLight }}>
+        <div className="lg:col-span-2 fd-card rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[var(--fd-border-subtle)]">
             <SectionHeader title="Recent Leads" icon={Users} linkTo="/portal/leads" subtitle={`${totalLeads} leads in pipeline`} />
           </div>
           {recentLeads.length > 0 ? (
             <div>
-              {/* thead */}
-              <div className="grid grid-cols-[1fr_100px_80px] gap-2 px-5 py-2" style={{ background: '#fafaf9', borderBottom: `1px solid ${C.borderLight}` }}>
+              <div className="grid grid-cols-[1fr_100px_80px] gap-2 px-5 py-2 bg-[var(--fd-surface-raised)] border-b border-[var(--fd-border-subtle)]">
                 {['Name / Source', 'Status', 'Added'].map(h => (
-                  <span key={h} className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: C.inkFaint }}>{h}</span>
+                  <span key={h} className="text-[10.5px] font-semibold uppercase tracking-wider text-[var(--fd-ink-4)]">{h}</span>
                 ))}
               </div>
-              {recentLeads.map((lead, i) => (
+              {recentLeads.map((lead) => (
                 <div
                   key={lead._id}
-                  className="grid grid-cols-[1fr_100px_80px] gap-2 items-center px-5 py-3 border-b last:border-0 transition-colors"
-                  style={{ borderColor: C.borderLight }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#fafaf9'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  className="grid grid-cols-[1fr_100px_80px] gap-2 items-center px-5 py-3 border-b last:border-0 transition-colors hover:bg-[var(--fd-table-row-hover)]"
+                  style={{ borderColor: 'var(--fd-border-subtle)' }}
                 >
                   <div className="min-w-0">
-                    <div className="text-[12.5px] font-semibold truncate" style={{ color: C.ink }}>
+                    <div className="text-[12.5px] font-semibold truncate text-[var(--fd-ink-1)]">
                       {lead.name || lead.email || 'Anonymous Lead'}
                     </div>
                     {lead.source && (
-                      <div className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: C.inkFaint }}>
+                      <div className="text-[11px] mt-0.5 flex items-center gap-1 text-[var(--fd-ink-4)]">
                         <MousePointer size={9} /> {lead.source}
                       </div>
                     )}
@@ -620,7 +599,7 @@ export default function ClientDashboard() {
                   >
                     {lead.status}
                   </span>
-                  <span className="text-[11px]" style={{ color: C.inkFaint }}>
+                  <span className="text-[11px] text-[var(--fd-ink-4)]">
                     {timeAgo(lead.createdAt)}
                   </span>
                 </div>
@@ -628,8 +607,8 @@ export default function ClientDashboard() {
             </div>
           ) : (
             <div className="py-12 text-center">
-              <Target size={24} color={C.inkGhost} strokeWidth={1.3} className="mx-auto mb-2" />
-              <p className="text-[13px]" style={{ color: C.inkFaint }}>No leads yet</p>
+              <Target size={24} className="mx-auto mb-2 text-[var(--fd-ink-5)]" strokeWidth={1.3} />
+              <p className="text-[13px] text-[var(--fd-ink-4)]">No leads yet</p>
             </div>
           )}
         </div>
@@ -639,23 +618,21 @@ export default function ClientDashboard() {
 
           {/* Account Manager */}
           {manager && (
-            <div className="rounded-2xl p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-              <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.inkFaint }}>
+            <div className="fd-card rounded-2xl p-4">
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
                 Your Account Manager
               </p>
               <div className="flex items-center gap-3 mb-4">
                 <Avatar name={manager.name} size="md" />
                 <div>
-                  <div className="text-[13.5px] font-semibold" style={{ color: C.ink }}>{manager.name}</div>
-                  <div className="text-[11.5px]" style={{ color: C.inkFaint }}>Project Manager</div>
+                  <div className="text-[13.5px] font-semibold text-[var(--fd-ink-1)]">{manager.name}</div>
+                  <div className="text-[11.5px] text-[var(--fd-ink-4)]">Project Manager</div>
                 </div>
               </div>
               <Link
                 to="/portal/chat"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12.5px] font-medium border transition-all"
-                style={{ background: C.blueSoft, color: C.blue, borderColor: '#c5d4fb' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#e3eafd'}
-                onMouseLeave={e => e.currentTarget.style.background = C.blueSoft}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12.5px] font-medium border transition-all hover:opacity-80"
+                style={{ background: C.blueSoft, color: C.blue, borderColor: `${C.blue}40` }}
               >
                 <MessageCircle size={13} />
                 Send Message
@@ -664,8 +641,8 @@ export default function ClientDashboard() {
           )}
 
           {/* Quick Actions */}
-          <div className="rounded-2xl p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-            <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.inkFaint }}>
+          <div className="fd-card rounded-2xl p-4">
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
               Quick Actions
             </p>
             <div className="space-y-1">
@@ -678,18 +655,16 @@ export default function ClientDashboard() {
                 <Link
                   key={to}
                   to={to}
-                  className="flex items-center gap-3 p-2.5 rounded-xl transition-colors"
-                  onMouseEnter={e => e.currentTarget.style.background = '#f5f4f1'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--fd-surface-raised)]"
                 >
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#f5f4f1' }}>
-                    <Icon size={13} color={C.inkFaint} strokeWidth={1.7} />
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-[var(--fd-surface-sunken)]">
+                    <Icon size={13} className="text-[var(--fd-ink-4)]" strokeWidth={1.7} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[12.5px] font-medium" style={{ color: C.inkMid }}>{label}</div>
-                    <div className="text-[11px]" style={{ color: C.inkFaint }}>{desc}</div>
+                    <div className="text-[12.5px] font-medium text-[var(--fd-ink-2)]">{label}</div>
+                    <div className="text-[11px] text-[var(--fd-ink-4)]">{desc}</div>
                   </div>
-                  <ChevronRight size={12} color={C.inkGhost} />
+                  <ChevronRight size={12} className="text-[var(--fd-ink-5)]" />
                 </Link>
               ))}
             </div>
@@ -697,15 +672,15 @@ export default function ClientDashboard() {
 
           {/* Active Services */}
           {client?.services?.length > 0 && (
-            <div className="rounded-2xl p-4" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-              <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.inkFaint }}>
+            <div className="fd-card rounded-2xl p-4">
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
                 Active Services
               </p>
               <div className="space-y-2">
                 {client.services.map(s => (
                   <div key={s} className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: C.blue }} />
-                    <span className="text-[12.5px]" style={{ color: C.inkMid }}>
+                    <span className="text-[12.5px] text-[var(--fd-ink-2)]">
                       {(SERVICE_LABELS || {})[s] || s}
                     </span>
                   </div>
@@ -717,31 +692,29 @@ export default function ClientDashboard() {
       </div>
 
       {/* ─── ROW 5: RECENT UPDATES ───────────────────────────────────────── */}
-      <div className="rounded-2xl overflow-hidden" style={{ background: C.surface, border: `1px solid ${C.border}` }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: C.borderLight }}>
+      <div className="fd-card rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[var(--fd-border-subtle)]">
           <SectionHeader title="Recent Updates" icon={Rss} linkTo="/portal/updates" />
         </div>
-        <div className="divide-y" style={{ borderColor: C.borderLight }}>
+        <div className="divide-y divide-[var(--fd-border-subtle)]">
           {!overview?.recentUpdates?.length ? (
             <div className="py-10 text-center">
-              <Rss size={22} color={C.inkGhost} strokeWidth={1.3} className="mx-auto mb-2" />
-              <p className="text-[13px]" style={{ color: C.inkFaint }}>No updates yet</p>
+              <Rss size={22} className="mx-auto mb-2 text-[var(--fd-ink-5)]" strokeWidth={1.3} />
+              <p className="text-[13px] text-[var(--fd-ink-4)]">No updates yet</p>
             </div>
           ) : (
             overview.recentUpdates.map(u => (
               <div
                 key={u._id}
-                className="flex gap-3.5 px-5 py-4 transition-colors"
-                onMouseEnter={e => e.currentTarget.style.background = '#fafaf9'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                className="flex gap-3.5 px-5 py-4 transition-colors hover:bg-[var(--fd-table-row-hover)]"
               >
                 <Avatar name={u.author?.name} size="sm" className="flex-shrink-0 mt-0.5" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold" style={{ color: C.ink }}>{u.title}</div>
-                  <p className="text-[12.5px] mt-0.5 line-clamp-2 leading-relaxed" style={{ color: C.inkMute }}>
+                  <div className="text-[13px] font-semibold text-[var(--fd-ink-1)]">{u.title}</div>
+                  <p className="text-[12.5px] mt-0.5 line-clamp-2 leading-relaxed text-[var(--fd-ink-3)]">
                     {u.content}
                   </p>
-                  <div className="text-[11px] mt-1.5 font-mono" style={{ color: C.inkGhost }}>
+                  <div className="text-[11px] mt-1.5 font-mono text-[var(--fd-ink-5)]">
                     {timeAgo(u.createdAt)}
                   </div>
                 </div>

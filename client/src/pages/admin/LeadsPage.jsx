@@ -8,13 +8,26 @@ import { PageHeader, EmptyState, Card, Spinner, StatCard } from '../../component
 import { Button, Select, Input, Modal } from '../../components/ui/index';
 import { formatDate, timeAgo } from '../../lib/utils';
 
-const STATUS_STYLE = {
-  new:       { background: '#f5f4f1', color: '#7a7770' },
+const STATUS_STYLE_LIGHT = {
+  new:       { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
   contacted: { background: '#eff0fe', color: '#3a56d4' },
   qualified: { background: '#fef7ea', color: '#92600a' },
   converted: { background: '#edf7f1', color: '#2a7d4f' },
   lost:      { background: '#fef2f2', color: '#b91c1c' },
 };
+
+const STATUS_STYLE_DARK = {
+  new:       { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
+  contacted: { background: 'rgba(79,110,240,0.2)', color: '#7896f3' },
+  qualified: { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
+  converted: { background: 'rgba(42,125,79,0.18)', color: '#4ade80' },
+  lost:      { background: 'rgba(185,28,28,0.18)', color: '#f87171' },
+};
+
+function getStatusStyle(status) {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return (isDark ? STATUS_STYLE_DARK : STATUS_STYLE_LIGHT)[status] || STATUS_STYLE_LIGHT.new;
+}
 
 export default function LeadsAdminPage() {
   const [clients, setClients] = useState([]);
@@ -136,11 +149,8 @@ export default function LeadsAdminPage() {
       {/* Source breakdown */}
       {stats?.bySource?.length > 0 && (
         <Card>
-          <div
-            className="px-5 py-3.5 border-b"
-            style={{ borderColor: '#eeece8', background: '#fafaf9' }}
-          >
-            <span className="text-[13px] font-semibold" style={{ color: '#1a1916' }}>
+          <div className="px-5 py-3.5 border-b border-[var(--fd-border)] bg-[var(--fd-surface-raised)]">
+            <span className="text-[13px] font-semibold text-[var(--fd-ink-1)]">
               Leads by Source
             </span>
           </div>
@@ -149,12 +159,12 @@ export default function LeadsAdminPage() {
               <div
                 key={s._id}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12.5px]"
-                style={{ background: '#f5f4f1', border: '1px solid #e8e5e0' }}
+                style={{ background: 'var(--fd-surface-raised)', border: '1px solid var(--fd-border)' }}
               >
-                <span className="font-medium" style={{ color: '#44423d' }}>{s._id || 'Unknown'}</span>
+                <span className="font-medium text-[var(--fd-ink-2)]">{s._id || 'Unknown'}</span>
                 <span
                   className="px-1.5 py-0.5 rounded text-[10.5px] font-bold"
-                  style={{ background: '#eff0fe', color: '#3a56d4' }}
+                  style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
                 >
                   {s.count}
                 </span>
@@ -184,24 +194,22 @@ export default function LeadsAdminPage() {
             <Card key={batch._id} className="overflow-hidden">
               {/* Batch header row */}
               <div
-                className="flex items-center justify-between px-5 py-4 cursor-pointer transition-colors"
+                className="flex items-center justify-between px-5 py-4 cursor-pointer transition-colors hover:bg-[var(--fd-table-row-hover)]"
                 onClick={() => loadBatchLeads(batch._id)}
-                onMouseEnter={e => e.currentTarget.style.background = '#fafaf9'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: '#eff0fe' }}
+                    style={{ background: 'var(--fd-sidebar-active)' }}
                   >
-                    <Target size={16} color="#3a56d4" strokeWidth={1.7} />
+                    <Target size={16} style={{ color: 'var(--fd-sidebar-link-active)' }} strokeWidth={1.7} />
                   </div>
                   <div className="min-w-0">
-                    <div className="font-semibold text-[13.5px] truncate" style={{ color: '#1a1916' }}>
+                    <div className="font-semibold text-[13.5px] truncate text-[var(--fd-ink-1)]">
                       {batch.batchLabel || 'Unnamed batch'}
                     </div>
-                    <div className="text-[11.5px] mt-0.5" style={{ color: '#a8a49e' }}>
-                      <span className="font-medium" style={{ color: '#7a7770' }}>{batch.count} leads</span>
+                    <div className="text-[11.5px] mt-0.5 text-[var(--fd-ink-4)]">
+                      <span className="font-medium text-[var(--fd-ink-3)]">{batch.count} leads</span>
                       {' · '}
                       {timeAgo(batch.createdAt)}
                       {batch.uploader?.name && ` · ${batch.uploader.name}`}
@@ -211,22 +219,19 @@ export default function LeadsAdminPage() {
                 <div className="flex items-center gap-1.5 flex-shrink-0 ml-3">
                   <button
                     onClick={e => { e.stopPropagation(); deleteBatch(batch._id); }}
-                    className="p-1.5 rounded-lg transition-colors"
-                    style={{ color: '#ccc9c2' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = '#b91c1c'; e.currentTarget.style.background = '#fef2f2'; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = '#ccc9c2'; e.currentTarget.style.background = 'transparent'; }}
+                    className="p-1.5 rounded-lg transition-colors text-[var(--fd-ink-5)] hover:text-red-500 hover:bg-red-500/10"
                   >
                     <Trash2 size={14} />
                   </button>
                   {expandedBatch === batch._id
-                    ? <ChevronUp size={15} color="#a8a49e" />
-                    : <ChevronDown size={15} color="#a8a49e" />}
+                    ? <ChevronUp size={15} style={{ color: 'var(--fd-ink-4)' }} />
+                    : <ChevronDown size={15} style={{ color: 'var(--fd-ink-4)' }} />}
                 </div>
               </div>
 
               {/* Leads table */}
               {expandedBatch === batch._id && (
-                <div className="border-t" style={{ borderColor: '#eeece8' }}>
+                <div className="border-t border-[var(--fd-border)]">
                   {/* Desktop */}
                   <div className="hidden md:block overflow-x-auto">
                     <table className="fd-table">
@@ -240,25 +245,25 @@ export default function LeadsAdminPage() {
                       <tbody>
                         {leads.map(lead => (
                           <tr key={lead._id}>
-                            <td className="font-medium text-[12.5px]" style={{ color: '#1a1916' }}>
+                            <td className="font-medium text-[12.5px] text-[var(--fd-ink-1)]">
                               {lead.name || '—'}
                             </td>
-                            <td className="text-[12px] font-mono" style={{ color: '#44423d' }}>
+                            <td className="text-[12px] font-mono text-[var(--fd-table-cell-text)]">
                               {lead.email || '—'}
                             </td>
-                            <td className="text-[12px]" style={{ color: '#44423d' }}>{lead.phone || '—'}</td>
-                            <td className="text-[12px]" style={{ color: '#44423d' }}>{lead.company || '—'}</td>
+                            <td className="text-[12px] text-[var(--fd-table-cell-text)]">{lead.phone || '—'}</td>
+                            <td className="text-[12px] text-[var(--fd-table-cell-text)]">{lead.company || '—'}</td>
                             <td>
                               {lead.source ? (
                                 <span
                                   className="px-2 py-0.5 rounded text-[10.5px] font-medium"
-                                  style={{ background: '#f5f4f1', color: '#7a7770' }}
+                                  style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
                                 >
                                   {lead.source}
                                 </span>
-                              ) : <span style={{ color: '#ccc9c2' }}>—</span>}
+                              ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>}
                             </td>
-                            <td className="text-[12px] max-w-[120px] truncate" style={{ color: '#7a7770' }}>
+                            <td className="text-[12px] max-w-[120px] truncate text-[var(--fd-ink-3)]">
                               {lead.campaign || '—'}
                             </td>
                             <td>
@@ -267,18 +272,18 @@ export default function LeadsAdminPage() {
                                 onChange={e => updateLeadStatus(lead._id, e.target.value)}
                                 className="text-[11.5px] px-2.5 py-1 rounded-lg border-0 cursor-pointer font-semibold outline-none"
                                 style={{
-                                  ...STATUS_STYLE[lead.status],
+                                  ...getStatusStyle(lead.status),
                                   fontFamily: "'Geist', system-ui",
                                 }}
                               >
                                 {['new','contacted','qualified','converted','lost'].map(s => (
-                                  <option key={s} value={s} style={{ background: '#ffffff', color: '#1a1916' }}>
+                                  <option key={s} value={s} style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}>
                                     {s.charAt(0).toUpperCase() + s.slice(1)}
                                   </option>
                                 ))}
                               </select>
                             </td>
-                            <td className="text-[11.5px] font-mono" style={{ color: '#a8a49e' }}>
+                            <td className="text-[11.5px] font-mono text-[var(--fd-ink-4)]">
                               {formatDate(lead.leadDate || lead.createdAt)}
                             </td>
                           </tr>
@@ -288,15 +293,15 @@ export default function LeadsAdminPage() {
                   </div>
 
                   {/* Mobile */}
-                  <div className="md:hidden divide-y" style={{ borderColor: '#f2f0ec' }}>
+                  <div className="md:hidden divide-y" style={{ borderColor: 'var(--fd-border-subtle)' }}>
                     {leads.map(lead => (
                       <div key={lead._id} className="p-4 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                           <div>
-                            <div className="font-semibold text-[13px]" style={{ color: '#1a1916' }}>
+                            <div className="font-semibold text-[13px] text-[var(--fd-ink-1)]">
                               {lead.name || 'Anonymous'}
                             </div>
-                            <div className="text-[11.5px] mt-0.5" style={{ color: '#7a7770' }}>
+                            <div className="text-[11.5px] mt-0.5 text-[var(--fd-ink-3)]">
                               {lead.email || lead.phone || '—'}
                             </div>
                           </div>
@@ -304,21 +309,21 @@ export default function LeadsAdminPage() {
                             value={lead.status}
                             onChange={e => updateLeadStatus(lead._id, e.target.value)}
                             className="text-[11px] px-2 py-1 rounded-lg border-0 font-semibold outline-none flex-shrink-0"
-                            style={{ ...STATUS_STYLE[lead.status], fontFamily: "'Geist', system-ui" }}
+                            style={{ ...getStatusStyle(lead.status), fontFamily: "'Geist', system-ui" }}
                           >
                             {['new','contacted','qualified','converted','lost'].map(s => (
-                              <option key={s} value={s} style={{ background: '#ffffff', color: '#1a1916' }}>
+                              <option key={s} value={s} style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}>
                                 {s.charAt(0).toUpperCase() + s.slice(1)}
                               </option>
                             ))}
                           </select>
                         </div>
-                        <div className="flex items-center gap-2 text-[11.5px]" style={{ color: '#a8a49e' }}>
+                        <div className="flex items-center gap-2 text-[11.5px] text-[var(--fd-ink-4)]">
                           {lead.company && <span>{lead.company}</span>}
                           {lead.source && (
                             <span
                               className="px-2 py-0.5 rounded text-[10.5px]"
-                              style={{ background: '#f5f4f1', color: '#7a7770' }}
+                              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
                             >
                               {lead.source}
                             </span>
@@ -354,36 +359,34 @@ export default function LeadsAdminPage() {
           {/* Info banner */}
           <div
             className="px-4 py-3 rounded-lg text-[12px] leading-relaxed"
-            style={{ background: '#eff0fe', border: '1px solid #c5d4fb', color: '#3a56d4' }}
+            style={{ background: 'var(--fd-sidebar-active)', border: '1px solid var(--fd-border-strong)', color: 'var(--fd-sidebar-link-active)' }}
           >
             <strong>Accepted columns:</strong> name, email, phone, company, location, source, campaign, notes, date
           </div>
 
           {/* Drop zone */}
           <div>
-            <label className="block text-[12px] font-medium mb-1.5" style={{ color: '#44423d' }}>
-              File <span style={{ color: '#b91c1c' }}>*</span>
+            <label className="block text-[12px] font-medium mb-1.5 text-[var(--fd-ink-2)]">
+              File <span className="text-red-500">*</span>
             </label>
             <div
               onClick={() => fileRef.current?.click()}
               className="rounded-xl p-8 text-center cursor-pointer transition-all"
               style={uploadFile
-                ? { background: '#f0f4ff', border: '2px dashed #7896f3' }
-                : { background: '#fafaf9', border: '2px dashed #e0ddd7' }
+                ? { background: 'var(--fd-sidebar-active)', border: '2px dashed var(--fd-sidebar-link-active)' }
+                : { background: 'var(--fd-surface-raised)', border: '2px dashed var(--fd-border-strong)' }
               }
-              onMouseEnter={e => !uploadFile && (e.currentTarget.style.borderColor = '#c8c4bc')}
-              onMouseLeave={e => !uploadFile && (e.currentTarget.style.borderColor = '#e0ddd7')}
             >
               <Upload
                 size={22}
                 className="mx-auto mb-3"
-                color={uploadFile ? '#4f6ef0' : '#ccc9c2'}
+                style={{ color: uploadFile ? 'var(--fd-sidebar-link-active)' : 'var(--fd-ink-5)' }}
                 strokeWidth={1.5}
               />
-              <div className="text-[13px] font-medium" style={{ color: uploadFile ? '#3a56d4' : '#44423d' }}>
+              <div className="text-[13px] font-medium" style={{ color: uploadFile ? 'var(--fd-sidebar-link-active)' : 'var(--fd-ink-2)' }}>
                 {uploadFile ? uploadFile.name : 'Click to select file'}
               </div>
-              <div className="text-[11.5px] mt-1" style={{ color: '#a8a49e' }}>
+              <div className="text-[11.5px] mt-1 text-[var(--fd-ink-4)]">
                 .xlsx, .xls, .csv — max 10 MB
               </div>
               <input

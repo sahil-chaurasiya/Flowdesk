@@ -166,7 +166,7 @@ export default function ClientLeadsPage() {
                             ))}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-[var(--fd-border)]">
                           {leads.map(lead => (
                             <tr key={lead._id} className="hover:bg-[var(--fd-surface-raised)] transition-colors">
                               <td className="px-4 py-3 font-medium text-[var(--fd-ink-1)] text-xs">{lead.name || '—'}</td>
@@ -176,7 +176,7 @@ export default function ClientLeadsPage() {
                               <td className="px-4 py-3 text-[var(--fd-ink-3)] text-xs">{lead.location || '—'}</td>
                               <td className="px-4 py-3 text-xs">
                                 {lead.source
-                                  ? <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-medium">{lead.source}</span>
+                                  ? <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium">{lead.source}</span>
                                   : '—'}
                               </td>
                               <td className="px-4 py-3">

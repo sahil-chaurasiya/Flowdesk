@@ -145,9 +145,9 @@ export function ClientReportsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
             { label: 'Total Ad Spend', value: formatCurrency(summary.totals.totalSpend), bg: 'bg-[var(--fd-surface-raised)]' },
-            { label: 'Total Revenue', value: formatCurrency(summary.totals.totalRevenue), bg: 'bg-emerald-50' },
-            { label: 'Average ROAS', value: `${summary.totals.avgROAS}x`, bg: 'bg-blue-50' },
-            { label: 'Total Leads', value: summary.totals.totalLeads?.toLocaleString(), bg: 'bg-purple-50' },
+            { label: 'Total Revenue', value: formatCurrency(summary.totals.totalRevenue), bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+            { label: 'Average ROAS', value: `${summary.totals.avgROAS}x`, bg: 'bg-blue-50 dark:bg-blue-900/20' },
+            { label: 'Total Leads', value: summary.totals.totalLeads?.toLocaleString(), bg: 'bg-purple-50 dark:bg-purple-900/20' },
           ].map(m => (
             <div key={m.label} className={`${m.bg} rounded-xl p-4 text-center`}>
               <div className="text-xs text-[var(--fd-ink-3)] mb-1">{m.label}</div>

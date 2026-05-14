@@ -9,13 +9,13 @@ import useAuthStore from '../../context/authStore';
 import { timeAgo, formatDate } from '../../lib/utils';
 
 const PLATFORM_META = {
-  instagram:      { label: 'Instagram',        icon: Instagram,  color: 'from-pink-500 to-purple-600',  bg: 'bg-pink-50',    text: 'text-pink-600' },
-  facebook:       { label: 'Facebook',         icon: Facebook,   color: 'from-blue-600 to-blue-800',    bg: 'bg-blue-50',    text: 'text-blue-700' },
+  instagram:      { label: 'Instagram',        icon: Instagram,  color: 'from-pink-500 to-purple-600',  bg: 'bg-pink-50 dark:bg-pink-900/20',    text: 'text-pink-600 dark:text-pink-400' },
+  facebook:       { label: 'Facebook',         icon: Facebook,   color: 'from-blue-600 to-blue-800',    bg: 'bg-blue-50 dark:bg-blue-900/20',    text: 'text-blue-700 dark:text-blue-400' },
   tiktok:         { label: 'TikTok',           icon: Play,       color: 'from-slate-800 to-slate-950',  bg: 'bg-[var(--fd-surface-sunken)]',  text: 'text-[var(--fd-ink-1)]' },
-  youtube:        { label: 'YouTube',          icon: Youtube,    color: 'from-red-500 to-red-700',      bg: 'bg-red-50',     text: 'text-red-600' },
-  linkedin:       { label: 'LinkedIn',         icon: Linkedin,   color: 'from-blue-700 to-blue-900',    bg: 'bg-blue-50',    text: 'text-blue-800' },
+  youtube:        { label: 'YouTube',          icon: Youtube,    color: 'from-red-500 to-red-700',      bg: 'bg-red-50 dark:bg-red-900/20',     text: 'text-red-600 dark:text-red-400' },
+  linkedin:       { label: 'LinkedIn',         icon: Linkedin,   color: 'from-blue-700 to-blue-900',    bg: 'bg-blue-50 dark:bg-blue-900/20',    text: 'text-blue-800 dark:text-blue-400' },
   twitter:        { label: 'Twitter / X',      icon: Twitter,    color: 'from-slate-700 to-slate-900',  bg: 'bg-[var(--fd-surface-raised)]',   text: 'text-[var(--fd-ink-2)]' },
-  google_business:{ label: 'Google Business',  icon: BarChart3,  color: 'from-emerald-500 to-green-600',bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  google_business:{ label: 'Google Business',  icon: BarChart3,  color: 'from-emerald-500 to-green-600',bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400' },
 };
 
 function fmtNum(n) {

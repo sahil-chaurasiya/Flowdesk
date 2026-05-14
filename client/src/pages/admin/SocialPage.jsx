@@ -10,20 +10,20 @@ import useAuthStore from '../../context/authStore';
 import { timeAgo, formatDate } from '../../lib/utils';
 
 const PLATFORM_META = {
-  instagram:       { label: 'Instagram',       icon: Instagram, color: 'from-pink-500 to-purple-600',   bg: 'bg-pink-50',    text: 'text-pink-600'    },
-  facebook:        { label: 'Facebook',        icon: Facebook,  color: 'from-blue-600 to-blue-800',     bg: 'bg-blue-50',    text: 'text-blue-700'    },
+  instagram:       { label: 'Instagram',       icon: Instagram, color: 'from-pink-500 to-purple-600',   bg: 'bg-pink-50 dark:bg-pink-900/20',    text: 'text-pink-600 dark:text-pink-400'    },
+  facebook:        { label: 'Facebook',        icon: Facebook,  color: 'from-blue-600 to-blue-800',     bg: 'bg-blue-50 dark:bg-blue-900/20',    text: 'text-blue-700 dark:text-blue-400'    },
   tiktok:          { label: 'TikTok',          icon: Play,      color: 'from-slate-800 to-slate-950',   bg: 'bg-[var(--fd-surface-sunken)]',  text: 'text-[var(--fd-ink-1)]'   },
-  youtube:         { label: 'YouTube',         icon: Youtube,   color: 'from-red-500 to-red-700',       bg: 'bg-red-50',     text: 'text-red-600'     },
-  linkedin:        { label: 'LinkedIn',        icon: Linkedin,  color: 'from-blue-700 to-blue-900',     bg: 'bg-blue-50',    text: 'text-blue-800'    },
+  youtube:         { label: 'YouTube',         icon: Youtube,   color: 'from-red-500 to-red-700',       bg: 'bg-red-50 dark:bg-red-900/20',     text: 'text-red-600 dark:text-red-400'     },
+  linkedin:        { label: 'LinkedIn',        icon: Linkedin,  color: 'from-blue-700 to-blue-900',     bg: 'bg-blue-50 dark:bg-blue-900/20',    text: 'text-blue-800 dark:text-blue-400'    },
   twitter:         { label: 'Twitter / X',     icon: Twitter,   color: 'from-slate-700 to-slate-900',   bg: 'bg-[var(--fd-surface-raised)]',   text: 'text-[var(--fd-ink-2)]'   },
-  google_business: { label: 'Google Business', icon: BarChart3, color: 'from-emerald-500 to-green-600', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+  google_business: { label: 'Google Business', icon: BarChart3, color: 'from-emerald-500 to-green-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-700 dark:text-emerald-400' },
 };
 
 const STATUS_META = {
   draft:     { label: 'Draft',     color: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]',     dot: 'bg-[var(--fd-ink-4)]'   },
-  scheduled: { label: 'Scheduled', color: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-400'   },
-  published: { label: 'Published', color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
-  failed:    { label: 'Failed',    color: 'bg-red-100 text-red-600',         dot: 'bg-red-500'     },
+  scheduled: { label: 'Scheduled', color: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',     dot: 'bg-amber-400'   },
+  published: { label: 'Published', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500' },
+  failed:    { label: 'Failed',    color: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',         dot: 'bg-red-500'     },
   archived:  { label: 'Archived',  color: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-4)]',     dot: 'bg-[var(--fd-ink-5)]'   },
 };
 
@@ -231,7 +231,7 @@ function PostModal({ post, clients, onClose, onSave }) {
 
         <div className="p-5 space-y-4">
           {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 text-red-700 dark:text-red-400 text-xs rounded-lg px-3 py-2">
               <AlertCircle size={14} className="flex-shrink-0" />
               {error}
             </div>
@@ -581,7 +581,7 @@ export default function SocialPage() {
             </div>
           ) : error ? (
             <div className="text-center py-16">
-              <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md mx-auto">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-6 max-w-md mx-auto">
                 <AlertCircle size={32} className="mx-auto mb-3 text-red-400" />
                 <p className="font-medium text-red-700">Failed to load posts</p>
                 <p className="text-sm text-red-500 mt-1">{error}</p>

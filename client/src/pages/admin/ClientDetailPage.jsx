@@ -272,7 +272,7 @@ export default function ClientDetailPage() {
                   <div className="mt-4">
                     <div className="text-xs font-medium text-[var(--fd-ink-3)] mb-2 uppercase tracking-wide">Services</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {client.services.map(s => <span key={s} className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{SERVICE_LABELS[s] || s}</span>)}
+                      {client.services.map(s => <span key={s} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">{SERVICE_LABELS[s] || s}</span>)}
                     </div>
                   </div>
                 )}
@@ -371,13 +371,13 @@ export default function ClientDetailPage() {
                   <div className="space-y-2 text-sm">
                     <div className="font-medium text-[var(--fd-ink-2)]">{overview.latestReport.title}</div>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-emerald-50 rounded-lg p-2 text-center">
+                      <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 text-center">
                         <div className="text-xs text-[var(--fd-ink-3)]">ROAS</div>
-                        <div className="font-bold text-emerald-700">{overview.latestReport.metrics?.roas?.toFixed(1)}x</div>
+                        <div className="font-bold text-emerald-700 dark:text-emerald-400">{overview.latestReport.metrics?.roas?.toFixed(1)}x</div>
                       </div>
-                      <div className="bg-blue-50 rounded-lg p-2 text-center">
+                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 text-center">
                         <div className="text-xs text-[var(--fd-ink-3)]">Leads</div>
-                        <div className="font-bold text-blue-700">{overview.latestReport.metrics?.leads}</div>
+                        <div className="font-bold text-blue-700 dark:text-blue-400">{overview.latestReport.metrics?.leads}</div>
                       </div>
                     </div>
                   </div>
@@ -397,7 +397,7 @@ export default function ClientDetailPage() {
               action={isManager ? <Button onClick={() => setShowTaskModal(true)}><Plus size={14} />Add Task</Button> : null} />
           ) : (
             <Card>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-[var(--fd-border)]">
                 {tasks.map(t => (
                   <div key={t._id} className="px-4 sm:px-5 py-3.5">
                     <div className="font-medium text-[var(--fd-ink-1)] text-sm">{t.title}</div>
@@ -424,7 +424,7 @@ export default function ClientDetailPage() {
           {updates.length === 0 ? <EmptyState icon={AlertCircle} title="No updates yet" description="Post the first update for this client." /> : (
             <div className="space-y-4">
               {updates.map(u => (
-                <Card key={u._id} className={u.isPinned ? 'border-brand-200 bg-blue-50/30' : ''}>
+                <Card key={u._id} className={u.isPinned ? 'border-brand-200 bg-blue-50/30 dark:bg-blue-900/10' : ''}>
                   <CardContent>
                     <div className="flex items-start gap-3">
                       <Avatar name={u.author?.name} size="sm" className="flex-shrink-0 mt-0.5" />
@@ -458,13 +458,13 @@ export default function ClientDetailPage() {
           google_business: <span className="text-xs font-bold text-emerald-600">G</span>,
         };
         const PLATFORM_BG = {
-          instagram: 'bg-pink-50 border-pink-100',
-          facebook: 'bg-blue-50 border-blue-100',
-          youtube: 'bg-red-50 border-red-100',
-          linkedin: 'bg-blue-50 border-blue-100',
-          twitter: 'bg-sky-50 border-sky-100',
+          instagram: 'bg-pink-50 dark:bg-pink-900/20 border-pink-100 dark:border-pink-800/30',
+          facebook: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30',
+          youtube: 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/30',
+          linkedin: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30',
+          twitter: 'bg-sky-50 dark:bg-sky-900/20 border-sky-100 dark:border-sky-800/30',
           tiktok: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]',
-          google_business: 'bg-emerald-50 border-emerald-100',
+          google_business: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30',
         };
         const totals = socialAnalytics?.totals || {};
         const byPlatform = socialAnalytics?.byPlatform || [];
@@ -515,10 +515,10 @@ export default function ClientDetailPage() {
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
-                    { label: 'Total Posts', value: totals.totalPosts || 0, icon: <BarChart2 size={16} className="text-brand-500" />, bg: 'bg-brand-50' },
-                    { label: 'Total Reach', value: (totals.totalReach || 0).toLocaleString(), icon: <Eye size={16} className="text-emerald-500" />, bg: 'bg-emerald-50' },
-                    { label: 'Total Likes', value: (totals.totalLikes || 0).toLocaleString(), icon: <Heart size={16} className="text-pink-500" />, bg: 'bg-pink-50' },
-                    { label: 'Avg Engagement', value: `${(totals.avgEngagementRate || 0).toFixed(2)}%`, icon: <TrendingUp size={16} className="text-amber-500" />, bg: 'bg-amber-50' },
+                    { label: 'Total Posts', value: totals.totalPosts || 0, icon: <BarChart2 size={16} className="text-brand-500" />, bg: 'bg-[var(--fd-surface-raised)]' },
+                    { label: 'Total Reach', value: (totals.totalReach || 0).toLocaleString(), icon: <Eye size={16} className="text-emerald-500" />, bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                    { label: 'Total Likes', value: (totals.totalLikes || 0).toLocaleString(), icon: <Heart size={16} className="text-pink-500" />, bg: 'bg-pink-50 dark:bg-pink-900/20' },
+                    { label: 'Avg Engagement', value: `${(totals.avgEngagementRate || 0).toFixed(2)}%`, icon: <TrendingUp size={16} className="text-amber-500" />, bg: 'bg-amber-50 dark:bg-amber-900/20' },
                   ].map(m => (
                     <Card key={m.label} className={m.bg}>
                       <CardContent className="pt-4">
@@ -537,7 +537,7 @@ export default function ClientDetailPage() {
                   <Card>
                     <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Performance by Platform</h3></CardHeader>
                     <CardContent>
-                      <div className="divide-y divide-slate-100">
+                      <div className="divide-y divide-[var(--fd-border)]">
                         {byPlatform.map(p => (
                           <div key={p._id} className="py-3">
                             <div className="flex items-center gap-3 mb-2">
@@ -626,7 +626,7 @@ export default function ClientDetailPage() {
               <Card>
                 <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Posts</h3></CardHeader>
                 <CardContent>
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-[var(--fd-border)]">
                     {socialPosts.map(post => (
                       <div key={post._id} className="flex items-center gap-3 py-3">
                         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
@@ -660,7 +660,7 @@ export default function ClientDetailPage() {
         <div className="space-y-4">
           {files.length === 0 ? <EmptyState icon={AlertCircle} title="No files yet" description="Upload files for this client." /> : (
             <Card>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-[var(--fd-border)]">
                 {files.map(f => (
                   <div key={f._id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
                     <div className="text-2xl flex-shrink-0">{f.mimeType?.includes('pdf') ? '📄' : f.mimeType?.includes('image') ? '🖼️' : f.mimeType?.includes('zip') ? '📦' : '📎'}</div>
@@ -695,9 +695,9 @@ export default function ClientDetailPage() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
                         { label: 'Ad Spend', value: formatCurrency(r.metrics?.adSpend), color: 'bg-[var(--fd-surface-raised)]' },
-                        { label: 'Revenue', value: formatCurrency(r.metrics?.revenue), color: 'bg-emerald-50' },
-                        { label: 'ROAS', value: `${r.metrics?.roas?.toFixed(1)}x`, color: 'bg-blue-50' },
-                        { label: 'Leads', value: r.metrics?.leads, color: 'bg-purple-50' },
+                        { label: 'Revenue', value: formatCurrency(r.metrics?.revenue), color: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                        { label: 'ROAS', value: `${r.metrics?.roas?.toFixed(1)}x`, color: 'bg-blue-50 dark:bg-blue-900/20' },
+                        { label: 'Leads', value: r.metrics?.leads, color: 'bg-purple-50 dark:bg-purple-900/20' },
                       ].map(m => (
                         <div key={m.label} className={`${m.color} rounded-lg p-3 text-center`}>
                           <div className="text-xs text-[var(--fd-ink-3)]">{m.label}</div>
@@ -766,7 +766,7 @@ export default function ClientDetailPage() {
                   <p className="text-[var(--fd-ink-4)] text-sm">No team members assigned yet</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-[var(--fd-border)]">
                   {client.teamMembers.map(m => (
                     <div key={m._id} className="flex items-center gap-3 py-3">
                       <Avatar name={m.name} size="md" />
@@ -779,7 +779,7 @@ export default function ClientDetailPage() {
                         {ROLE_LABELS[m.role] || m.role}
                       </span>
                       <button onClick={() => handleRemoveTeamMember(m._id)} disabled={savingTeam}
-                        className="p-1.5 text-[var(--fd-ink-4)] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0">
+                        className="p-1.5 text-[var(--fd-ink-4)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0">
                         <X size={14} />
                       </button>
                     </div>
@@ -789,7 +789,7 @@ export default function ClientDetailPage() {
             </CardContent>
           </Card>
 
-          <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-300">
             <strong>Access Note:</strong> Assigned team members will only see this client's tasks, social posts, and files. Removing a member immediately revokes their access.
           </div>
         </div>

@@ -267,7 +267,7 @@ export default function TeamMemberDetailPage() {
             <EmptyState icon={CheckCircle} title="No tasks assigned" description="This team member has no tasks yet." />
           ) : (
             <Card>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-[var(--fd-border)]">
                 {tasks.map(t => (
                   <div key={t._id} className="flex items-center gap-4 px-5 py-3.5">
                     <div className="flex-1 min-w-0">
@@ -351,7 +351,7 @@ export default function TeamMemberDetailPage() {
             <EmptyState icon={BarChart2} title="No social posts" description="No social posts assigned to this member." />
           ) : (
             <Card>
-              <div className="divide-y divide-slate-100">
+              <div className="divide-y divide-[var(--fd-border)]">
                 {socialPosts.map(post => (
                   <div key={post._id} className="flex items-start gap-4 px-5 py-3.5">
                     <div className="flex-1 min-w-0">

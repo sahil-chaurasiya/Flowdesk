@@ -232,7 +232,7 @@ export function FilesAdminPage() {
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-[var(--fd-ink-3)] uppercase tracking-wide">{h}</th>
                   ))}</tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[var(--fd-border)]">
                   {files.map(f => (
                     <tr key={f._id} className="hover:bg-[var(--fd-surface-raised)]">
                       <td className="px-4 py-3.5">

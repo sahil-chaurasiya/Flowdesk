@@ -28,7 +28,7 @@ export function UpdatesPage() {
   };
 
   const typeColors = {
-    general: 'bg-slate-100 text-slate-600', milestone: 'bg-emerald-100 text-emerald-700',
+    general: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]', milestone: 'bg-emerald-100 text-emerald-700',
     report: 'bg-blue-100 text-blue-700', alert: 'bg-red-100 text-red-700',
     campaign_launch: 'bg-purple-100 text-purple-700', optimization: 'bg-orange-100 text-orange-700',
     meeting_notes: 'bg-amber-100 text-amber-700'
@@ -50,15 +50,15 @@ export function UpdatesPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-slate-800">{u.title}</span>
+                          <span className="font-semibold text-[var(--fd-ink-1)]">{u.title}</span>
                           {u.isPinned && <span className="text-xs">📌</span>}
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[u.type] || 'bg-slate-100 text-slate-600'}`}>{u.type?.replace('_', ' ')}</span>
-                          {u.client && <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs">{u.client.company}</span>}
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[u.type] || 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'}`}>{u.type?.replace('_', ' ')}</span>
+                          {u.client && <span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs">{u.client.company}</span>}
                         </div>
-                        <div className="text-xs text-slate-400 mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
-                        <p className="text-sm text-slate-600 mt-2 whitespace-pre-line line-clamp-3">{u.content}</p>
+                        <div className="text-xs text-[var(--fd-ink-4)] mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
+                        <p className="text-sm text-[var(--fd-ink-2)] mt-2 whitespace-pre-line line-clamp-3">{u.content}</p>
                       </div>
-                      <button onClick={() => handleDelete(u._id)} className="text-slate-300 hover:text-red-500 transition-colors p-1 flex-shrink-0"><Trash2 size={15} /></button>
+                      <button onClick={() => handleDelete(u._id)} className="text-[var(--fd-ink-5)] hover:text-red-500 transition-colors p-1 flex-shrink-0"><Trash2 size={15} /></button>
                     </div>
                   </div>
                 </div>
@@ -81,7 +81,7 @@ export function UpdatesPage() {
           <Textarea label="Content *" value={form.content} onChange={e => setForm(p => ({ ...p, content: e.target.value }))} rows={5} />
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.isPinned} onChange={e => setForm(p => ({ ...p, isPinned: e.target.checked }))} className="rounded" />
-            <span className="text-sm text-slate-700">Pin this update</span>
+            <span className="text-sm text-[var(--fd-ink-2)]">Pin this update</span>
           </label>
         </div>
       </Modal>
@@ -123,10 +123,10 @@ export function ReportsAdminPage() {
               <CardContent>
                 <div className="flex items-start justify-between flex-wrap gap-2 mb-3">
                   <div>
-                    <div className="font-semibold text-slate-800">{r.title}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">{r.client?.company} · {formatDate(r.startDate)} – {formatDate(r.endDate)}</div>
+                    <div className="font-semibold text-[var(--fd-ink-1)]">{r.title}</div>
+                    <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{r.client?.company} · {formatDate(r.startDate)} – {formatDate(r.endDate)}</div>
                   </div>
-                  <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs capitalize">{r.period}</span>
+                  <span className="px-2.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{r.period}</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {[
@@ -137,9 +137,9 @@ export function ReportsAdminPage() {
                     { l: 'Conversions', v: r.metrics?.conversions },
                     { l: 'Clicks', v: r.metrics?.clicks?.toLocaleString() },
                   ].map(m => (
-                    <div key={m.l} className="bg-slate-50 rounded-lg p-2 text-center">
-                      <div className="text-xs text-slate-400">{m.l}</div>
-                      <div className="font-bold text-slate-800 text-sm mt-0.5">{m.v || '—'}</div>
+                    <div key={m.l} className="bg-[var(--fd-surface-raised)] rounded-lg p-2 text-center">
+                      <div className="text-xs text-[var(--fd-ink-4)]">{m.l}</div>
+                      <div className="font-bold text-[var(--fd-ink-1)] text-sm mt-0.5">{m.v || '—'}</div>
                     </div>
                   ))}
                 </div>
@@ -165,8 +165,8 @@ export function ReportsAdminPage() {
             <Input label="Start Date *" type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} />
             <Input label="End Date *" type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} />
           </div>
-          <div className="p-4 bg-slate-50 rounded-lg">
-            <div className="text-sm font-semibold text-slate-700 mb-3">Metrics</div>
+          <div className="p-4 bg-[var(--fd-surface-raised)] rounded-lg">
+            <div className="text-sm font-semibold text-[var(--fd-ink-2)] mb-3">Metrics</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <Input label="Ad Spend ($)" type="number" value={form.metrics.adSpend} onChange={e => setMetric('adSpend', e.target.value)} />
               <Input label="Revenue ($)" type="number" value={form.metrics.revenue} onChange={e => setMetric('revenue', e.target.value)} />
@@ -227,28 +227,28 @@ export function FilesAdminPage() {
           <Card className="hidden sm:block">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-[var(--fd-surface-raised)] border-b border-[var(--fd-border)]">
                   <tr>{['File', 'Client', 'Category', 'Size', 'Uploaded By', 'Date', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-[var(--fd-ink-3)] uppercase tracking-wide">{h}</th>
                   ))}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {files.map(f => (
-                    <tr key={f._id} className="hover:bg-slate-50">
+                    <tr key={f._id} className="hover:bg-[var(--fd-surface-raised)]">
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2">
                           <span className="text-xl">{getFileIcon(f.mimeType)}</span>
                           <div>
-                            <div className="font-medium text-slate-800 truncate max-w-xs">{f.name}</div>
-                            {!f.isPublic && <span className="text-xs text-slate-400">Private</span>}
+                            <div className="font-medium text-[var(--fd-ink-1)] truncate max-w-xs">{f.name}</div>
+                            {!f.isPublic && <span className="text-xs text-[var(--fd-ink-4)]">Private</span>}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-slate-600">{f.client?.company || '—'}</td>
-                      <td className="px-4 py-3.5"><span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded text-xs capitalize">{f.category}</span></td>
-                      <td className="px-4 py-3.5 text-slate-500">{formatFileSize(f.size)}</td>
-                      <td className="px-4 py-3.5 text-slate-600">{f.uploadedBy?.name || '—'}</td>
-                      <td className="px-4 py-3.5 text-slate-500 text-xs">{formatDate(f.createdAt)}</td>
+                      <td className="px-4 py-3.5 text-[var(--fd-ink-2)]">{f.client?.company || '—'}</td>
+                      <td className="px-4 py-3.5"><span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded text-xs capitalize">{f.category}</span></td>
+                      <td className="px-4 py-3.5 text-[var(--fd-ink-3)]">{formatFileSize(f.size)}</td>
+                      <td className="px-4 py-3.5 text-[var(--fd-ink-2)]">{f.uploadedBy?.name || '—'}</td>
+                      <td className="px-4 py-3.5 text-[var(--fd-ink-3)] text-xs">{formatDate(f.createdAt)}</td>
                       <td className="px-4 py-3.5">
                         <div className="flex gap-1">
                           <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline px-2">Download</a>
@@ -270,15 +270,15 @@ export function FilesAdminPage() {
                   <div className="flex items-start gap-3">
                     <span className="text-2xl flex-shrink-0">{getFileIcon(f.mimeType)}</span>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-slate-800 text-sm truncate">{f.name}</div>
-                      <div className="flex flex-wrap gap-2 mt-1 text-xs text-slate-500">
+                      <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{f.name}</div>
+                      <div className="flex flex-wrap gap-2 mt-1 text-xs text-[var(--fd-ink-3)]">
                         <span>{f.client?.company || '—'}</span>
                         <span>·</span>
-                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded capitalize">{f.category}</span>
+                        <span className="px-1.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded capitalize">{f.category}</span>
                         <span>·</span>
                         <span>{formatFileSize(f.size)}</span>
                       </div>
-                      <div className="text-xs text-slate-400 mt-0.5">{f.uploadedBy?.name} · {formatDate(f.createdAt)}</div>
+                      <div className="text-xs text-[var(--fd-ink-4)] mt-0.5">{f.uploadedBy?.name} · {formatDate(f.createdAt)}</div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
@@ -295,12 +295,12 @@ export function FilesAdminPage() {
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Upload File" size="md"
         footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button><Button loading={uploading} onClick={handleUpload} disabled={!selectedFile || !uploadForm.clientId}>Upload</Button></div>}>
         <div className="space-y-4">
-          <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-brand-400 transition-colors" onClick={() => document.getElementById('fileInput').click()}>
+          <div className="border-2 border-dashed border-[var(--fd-border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-brand-400 transition-colors" onClick={() => document.getElementById('fileInput').click()}>
             <input id="fileInput" type="file" className="hidden" onChange={e => setSelectedFile(e.target.files[0])} />
             {selectedFile ? (
-              <div className="text-sm font-medium text-slate-700">{selectedFile.name} ({formatFileSize(selectedFile.size)})</div>
+              <div className="text-sm font-medium text-[var(--fd-ink-2)]">{selectedFile.name} ({formatFileSize(selectedFile.size)})</div>
             ) : (
-              <div><Upload size={24} className="mx-auto text-slate-400 mb-2" /><div className="text-sm text-slate-500">Tap to select file (max 50MB)</div></div>
+              <div><Upload size={24} className="mx-auto text-[var(--fd-ink-4)] mb-2" /><div className="text-sm text-[var(--fd-ink-3)]">Tap to select file (max 50MB)</div></div>
             )}
           </div>
           <Select label="Client *" value={uploadForm.clientId} onChange={e => setUploadForm(p => ({ ...p, clientId: e.target.value }))}>
@@ -313,7 +313,7 @@ export function FilesAdminPage() {
           <Textarea label="Description" value={uploadForm.description} onChange={e => setUploadForm(p => ({ ...p, description: e.target.value }))} rows={2} />
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={uploadForm.isPublic} onChange={e => setUploadForm(p => ({ ...p, isPublic: e.target.checked }))} className="rounded" />
-            <span className="text-sm text-slate-700">Visible to client</span>
+            <span className="text-sm text-[var(--fd-ink-2)]">Visible to client</span>
           </label>
         </div>
       </Modal>

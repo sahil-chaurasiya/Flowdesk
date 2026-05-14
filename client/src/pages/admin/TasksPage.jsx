@@ -25,18 +25,18 @@ const CATEGORY_ROLE_HINT = {
 };
 
 const PRIORITY_STYLE = {
-  low:    { background: '#f5f4f1', color: '#7a7770' },
-  medium: { background: '#eff0fe', color: '#3a56d4' },
-  high:   { background: '#fef7ea', color: '#92600a' },
-  urgent: { background: '#fef2f2', color: '#b91c1c' },
+  low:    { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
+  medium: { background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' },
+  high:   { background: 'rgba(146,96,10,0.12)', color: '#f59e0b' },
+  urgent: { background: 'rgba(185,28,28,0.12)', color: '#ef4444' },
 };
 
 const STATUS_STYLE = {
-  pending:     { background: '#f5f4f1', color: '#7a7770' },
-  in_progress: { background: '#eff0fe', color: '#3a56d4' },
-  review:      { background: '#fdf2ff', color: '#7e22ce' },
-  completed:   { background: '#edf7f1', color: '#2a7d4f' },
-  cancelled:   { background: '#fef2f2', color: '#b91c1c' },
+  pending:     { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
+  in_progress: { background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' },
+  review:      { background: 'rgba(126,34,206,0.12)', color: '#a855f7' },
+  completed:   { background: 'rgba(42,125,79,0.12)', color: '#22c55e' },
+  cancelled:   { background: 'rgba(185,28,28,0.12)', color: '#ef4444' },
 };
 
 const STATUSES = ['pending', 'in_progress', 'review', 'completed', 'cancelled'];
@@ -151,7 +151,7 @@ export default function TasksPage() {
       {/* Filters */}
       <div className="flex flex-col gap-3">
         <div className="relative max-w-xs">
-          <Search size={13} color="#a8a49e" className="absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search size={13} color="var(--fd-ink-4)" className="absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -168,8 +168,8 @@ export default function TasksPage() {
                 onClick={() => setStatusFilter(t.value)}
                 className="px-3 py-1.5 rounded-lg text-[12px] font-medium whitespace-nowrap transition-all border flex-shrink-0"
                 style={statusFilter === t.value
-                  ? { background: '#4f6ef0', color: '#ffffff', borderColor: '#4060e0' }
-                  : { background: '#ffffff', color: '#7a7770', borderColor: '#e0ddd7' }
+                  ? { background: '#4f6ef0', color: 'var(--fd-surface)', borderColor: '#4060e0' }
+                  : { background: 'var(--fd-surface)', color: 'var(--fd-ink-3)', borderColor: 'var(--fd-border-strong)' }
                 }
               >
                 {t.label}
@@ -217,19 +217,19 @@ export default function TasksPage() {
                   return (
                     <tr
                       key={task._id}
-                      style={isOverdue ? { background: '#fffbfa' } : {}}
+                      style={isOverdue ? { background: 'var(--fd-surface-raised)' } : {}}
                     >
                       <td style={{ maxWidth: 200 }}>
-                        <div className="font-medium text-[13px] truncate" style={{ color: '#1a1916' }}>
+                        <div className="font-medium text-[13px] truncate" style={{ color: 'var(--fd-ink-1)' }}>
                           {task.title}
                         </div>
-                        <div className="text-[10.5px] mt-0.5 font-mono" style={{ color: '#a8a49e' }}>
+                        <div className="text-[10.5px] mt-0.5 font-mono" style={{ color: 'var(--fd-ink-4)' }}>
                           {timeAgo(task.createdAt)}
                         </div>
                         {task.isClientRequest && (
                           <span
                             className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 inline-block"
-                            style={{ background: '#fef7ea', color: '#92600a' }}
+                            style={{ background: 'rgba(146,96,10,0.12)', color: '#f59e0b' }}
                           >
                             Client Request
                           </span>
@@ -237,16 +237,16 @@ export default function TasksPage() {
                         {isOverdue && (
                           <span
                             className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 inline-block ml-1"
-                            style={{ background: '#fef2f2', color: '#b91c1c' }}
+                            style={{ background: 'rgba(185,28,28,0.12)', color: '#ef4444' }}
                           >
                             Overdue
                           </span>
                         )}
                       </td>
-                      <td className="text-[12.5px]" style={{ color: '#44423d' }}>
+                      <td className="text-[12.5px]" style={{ color: 'var(--fd-ink-2)' }}>
                         {task.client?.company || '—'}
                       </td>
-                      <td className="text-[12.5px]" style={{ color: '#7a7770' }}>
+                      <td className="text-[12.5px]" style={{ color: 'var(--fd-ink-3)' }}>
                         {CATEGORY_LABELS[task.category] || task.category}
                       </td>
                       <td>
@@ -254,16 +254,16 @@ export default function TasksPage() {
                           <div className="flex items-center gap-2">
                             <Avatar name={task.assignedTo.name} size="xs" />
                             <div>
-                              <div className="text-[12.5px] font-medium" style={{ color: '#44423d' }}>
+                              <div className="text-[12.5px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
                                 {task.assignedTo.name}
                               </div>
-                              <div className="text-[10.5px]" style={{ color: '#a8a49e' }}>
+                              <div className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
                                 {ROLE_LABELS[task.assignedTo.role] || ''}
                               </div>
                             </div>
                           </div>
                         ) : (
-                          <span className="text-[12.5px] font-medium" style={{ color: '#b91c1c' }}>Unassigned</span>
+                          <span className="text-[12.5px] font-medium" style={{ color: '#ef4444' }}>Unassigned</span>
                         )}
                       </td>
                       <td>
@@ -283,7 +283,7 @@ export default function TasksPage() {
                             style={{ ...ss, fontFamily: "'Geist', system-ui" }}
                           >
                             {STATUSES.map(s => (
-                              <option key={s} value={s} style={{ background: '#ffffff', color: '#1a1916' }}>
+                              <option key={s} value={s} style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}>
                                 {s.replace('_', ' ')}
                               </option>
                             ))}
@@ -299,11 +299,11 @@ export default function TasksPage() {
                       </td>
                       <td>
                         {task.deadline ? (
-                          <div className="flex items-center gap-1 text-[12px] font-mono" style={{ color: isOverdue ? '#b91c1c' : '#7a7770' }}>
+                          <div className="flex items-center gap-1 text-[12px] font-mono" style={{ color: isOverdue ? '#b91c1c' : 'var(--fd-ink-3)' }}>
                             <Clock size={11} strokeWidth={1.7} />
                             {formatDate(task.deadline)}
                           </div>
-                        ) : <span style={{ color: '#ccc9c2' }}>—</span>}
+                        ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>}
                       </td>
                       <td>
                         <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
@@ -316,15 +316,15 @@ export default function TasksPage() {
           </div>
 
           {/* Mobile */}
-          <div className="lg:hidden divide-y" style={{ borderColor: '#f2f0ec' }}>
+          <div className="lg:hidden divide-y" style={{ borderColor: 'var(--fd-border-subtle)' }}>
             {tasks.map(task => {
               const ss = STATUS_STYLE[task.status] || STATUS_STYLE.pending;
               return (
                 <div key={task._id} className="p-4 space-y-2.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-[13px]" style={{ color: '#1a1916' }}>{task.title}</div>
-                      <div className="text-[11.5px] mt-0.5" style={{ color: '#a8a49e' }}>
+                      <div className="font-semibold text-[13px]" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</div>
+                      <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
                         {task.client?.company} · {timeAgo(task.createdAt)}
                       </div>
                     </div>
@@ -345,7 +345,7 @@ export default function TasksPage() {
                         style={{ ...ss, fontFamily: "'Geist', system-ui" }}
                       >
                         {STATUSES.map(s => (
-                          <option key={s} value={s} style={{ background: '#ffffff', color: '#1a1916' }}>
+                          <option key={s} value={s} style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}>
                             {s.replace('_', ' ')}
                           </option>
                         ))}
@@ -355,17 +355,17 @@ export default function TasksPage() {
                         {task.status.replace('_', ' ')}
                       </span>
                     )}
-                    <span className="text-[11.5px]" style={{ color: '#a8a49e' }}>
+                    <span className="text-[11.5px]" style={{ color: 'var(--fd-ink-4)' }}>
                       {CATEGORY_LABELS[task.category]}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-[11.5px]" style={{ color: '#a8a49e' }}>
+                  <div className="flex items-center justify-between text-[11.5px]" style={{ color: 'var(--fd-ink-4)' }}>
                     {task.assignedTo ? (
                       <div className="flex items-center gap-1.5">
                         <Avatar name={task.assignedTo.name} size="xs" />
                         <span>{task.assignedTo.name}</span>
                       </div>
-                    ) : <span style={{ color: '#b91c1c' }}>Unassigned</span>}
+                    ) : <span style={{ color: '#ef4444' }}>Unassigned</span>}
                     {task.deadline && (
                       <div className="flex items-center gap-1 font-mono">
                         <Clock size={10} />
@@ -407,7 +407,7 @@ export default function TasksPage() {
             </Select>
           </div>
           <div>
-            <label className="block text-[12px] font-medium mb-1.5" style={{ color: '#44423d' }}>Assign To</label>
+            <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Assign To</label>
             <select value={form.assignedTo} onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))} className="fd-input">
               <option value="">Unassigned</option>
               {Object.entries(membersByRole).map(([roleLabel, roleMembers]) => (
@@ -417,8 +417,8 @@ export default function TasksPage() {
               ))}
             </select>
             {form.category && CATEGORY_ROLE_HINT[form.category] && (
-              <p className="text-[11px] mt-1" style={{ color: '#a8a49e' }}>
-                Suggested: <span style={{ color: '#3a56d4', fontWeight: 500 }}>{ROLE_LABELS[CATEGORY_ROLE_HINT[form.category]]}</span>
+              <p className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>
+                Suggested: <span style={{ color: 'var(--fd-sidebar-link-active)', fontWeight: 500 }}>{ROLE_LABELS[CATEGORY_ROLE_HINT[form.category]]}</span>
               </p>
             )}
           </div>
@@ -441,7 +441,7 @@ export default function TasksPage() {
               className="rounded"
               style={{ accentColor: '#4f6ef0' }}
             />
-            <span className="text-[13px]" style={{ color: '#44423d' }}>Visible to client portal</span>
+            <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
           </label>
         </div>
       </Modal>

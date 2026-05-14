@@ -16,9 +16,9 @@ function DateSeparator({ date }) {
     : format(d, 'MMMM d, yyyy');
   return (
     <div className="flex items-center gap-3 my-4">
-      <div className="flex-1 h-px bg-slate-200" />
-      <span className="text-xs text-slate-400 font-medium px-2">{label}</span>
-      <div className="flex-1 h-px bg-slate-200" />
+      <div className="flex-1 h-px bg-[var(--fd-border)]" />
+      <span className="text-xs text-[var(--fd-ink-4)] font-medium px-2">{label}</span>
+      <div className="flex-1 h-px bg-[var(--fd-border)]" />
     </div>
   );
 }
@@ -136,21 +136,21 @@ export default function ClientChatPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in">
+    <div className="h-[calc(100vh-8rem)] flex flex-col bg-[var(--fd-surface)] rounded-xl border border-[var(--fd-border)] shadow-sm overflow-hidden animate-fade-in">
       {/* Header */}
-      <div className="px-5 py-4 border-b border-slate-200 flex items-center gap-4 flex-shrink-0 bg-white">
+      <div className="px-5 py-4 border-b border-[var(--fd-border)] flex items-center gap-4 flex-shrink-0 bg-[var(--fd-surface)]">
         <div className="flex -space-x-2">
           {teamParticipants.slice(0, 3).map(p => (
             <Avatar key={p._id} name={p.name} size="sm" className="ring-2 ring-white" />
           ))}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-slate-800 text-sm">
+          <div className="font-semibold text-[var(--fd-ink-1)] text-sm">
             {teamParticipants.length > 0
               ? teamParticipants.map(p => p.name).join(', ')
               : 'Your Account Team'}
           </div>
-          <div className="text-xs text-slate-400">
+          <div className="text-xs text-[var(--fd-ink-4)]">
             {teamParticipants.map(p => p.jobTitle || p.role?.replace('_', ' ')).filter(Boolean).join(' · ')}
           </div>
         </div>
@@ -167,8 +167,8 @@ export default function ClientChatPage() {
             <div className="w-16 h-16 bg-brand-50 rounded-2xl flex items-center justify-center mb-4">
               <Send size={24} className="text-brand-400" />
             </div>
-            <h3 className="font-semibold text-slate-700 mb-1">Start the conversation</h3>
-            <p className="text-slate-400 text-sm max-w-xs">
+            <h3 className="font-semibold text-[var(--fd-ink-2)] mb-1">Start the conversation</h3>
+            <p className="text-[var(--fd-ink-4)] text-sm max-w-xs">
               Send a message to your account team. They typically respond within a few hours.
             </p>
           </div>
@@ -201,20 +201,20 @@ export default function ClientChatPage() {
 
                         <div className={`flex flex-col max-w-[72%] ${isMe ? 'items-end' : 'items-start'}`}>
                           {showAvatar && !isMe && (
-                            <span className="text-xs text-slate-500 mb-1 px-1 font-medium">{msg.sender?.name}</span>
+                            <span className="text-xs text-[var(--fd-ink-3)] mb-1 px-1 font-medium">{msg.sender?.name}</span>
                           )}
                           <div className={`
                             px-4 py-2.5 text-sm leading-relaxed
                             ${isMe
                               ? 'bg-brand-600 text-white rounded-2xl rounded-tr-sm'
-                              : 'bg-slate-100 text-slate-800 rounded-2xl rounded-tl-sm'
+                              : 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-1)] rounded-2xl rounded-tl-sm'
                             }
                             ${msg.isDeleted ? 'italic opacity-60' : ''}
                           `}>
                             {msg.content}
                           </div>
                           {showTimestamp && (
-                            <span className="text-xs text-slate-400 mt-1 px-1">
+                            <span className="text-xs text-[var(--fd-ink-4)] mt-1 px-1">
                               {format(typeof msg.createdAt === 'string' ? parseISO(msg.createdAt) : new Date(msg.createdAt), 'h:mm a')}
                             </span>
                           )}
@@ -230,11 +230,11 @@ export default function ClientChatPage() {
             {typing && (
               <div className="flex gap-2.5 mt-3">
                 <div className="w-8 flex-shrink-0" />
-                <div className="bg-slate-100 rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1">
-                  <span className="text-xs text-slate-500 italic mr-1">{typing} is typing</span>
+                <div className="bg-[var(--fd-surface-sunken)] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1">
+                  <span className="text-xs text-[var(--fd-ink-3)] italic mr-1">{typing} is typing</span>
                   <span className="flex gap-0.5">
                     {[0, 1, 2].map(i => (
-                      <span key={i} className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce"
+                      <span key={i} className="w-1.5 h-1.5 bg-[var(--fd-ink-4)] rounded-full animate-bounce"
                         style={{ animationDelay: `${i * 0.15}s` }} />
                     ))}
                   </span>
@@ -248,8 +248,8 @@ export default function ClientChatPage() {
       </div>
 
       {/* Input area */}
-      <div className="px-4 py-4 border-t border-slate-200 bg-white flex-shrink-0">
-        <div className="flex items-end gap-3 bg-slate-50 rounded-2xl border border-slate-200 px-4 py-3 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition-all">
+      <div className="px-4 py-4 border-t border-[var(--fd-border)] bg-[var(--fd-surface)] flex-shrink-0">
+        <div className="flex items-end gap-3 bg-[var(--fd-surface-raised)] rounded-2xl border border-[var(--fd-border)] px-4 py-3 focus-within:border-brand-400 focus-within:ring-2 focus-within:ring-brand-100 transition-all">
           <textarea
             ref={inputRef}
             value={input}
@@ -257,7 +257,7 @@ export default function ClientChatPage() {
             onKeyDown={handleKeyDown}
             placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
             rows={1}
-            className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 outline-none resize-none max-h-32 leading-relaxed"
+            className="flex-1 bg-transparent text-sm text-[var(--fd-ink-1)] placeholder-[var(--fd-input-placeholder)] outline-none resize-none max-h-32 leading-relaxed"
             style={{ minHeight: '24px' }}
             onInput={e => {
               e.target.style.height = 'auto';
@@ -275,7 +275,7 @@ export default function ClientChatPage() {
             }
           </button>
         </div>
-        <p className="text-xs text-slate-400 mt-2 text-center">
+        <p className="text-xs text-[var(--fd-ink-4)] mt-2 text-center">
           Messages are monitored by your account team · Typically replies within 2–4 hours
         </p>
       </div>

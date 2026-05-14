@@ -110,7 +110,7 @@ export default function TeamMemberDetailPage() {
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
-  if (!member) return <div className="text-slate-500 text-center py-16">Team member not found</div>;
+  if (!member) return <div className="text-[var(--fd-ink-3)] text-center py-16">Team member not found</div>;
 
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
@@ -127,21 +127,21 @@ export default function TeamMemberDetailPage() {
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex items-start gap-4">
-        <Link to="/admin/team" className="mt-1 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+        <Link to="/admin/team" className="mt-1 p-1.5 text-[var(--fd-ink-4)] hover:text-[var(--fd-ink-2)] hover:bg-[var(--fd-surface-sunken)] rounded-lg transition-colors">
           <ArrowLeft size={18} />
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
             <Avatar name={member.name} size="lg" />
             <div>
-              <h1 className="text-xl font-bold text-slate-800">{member.name}</h1>
-              <p className="text-slate-500 text-sm">{member.jobTitle || '—'} {member.department ? `· ${member.department}` : ''}</p>
+              <h1 className="text-xl font-bold text-[var(--fd-ink-1)]">{member.name}</h1>
+              <p className="text-[var(--fd-ink-3)] text-sm">{member.jobTitle || '—'} {member.department ? `· ${member.department}` : ''}</p>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${ROLE_COLORS[member.role] || 'bg-slate-100 text-slate-600'}`}>
+            <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${ROLE_COLORS[member.role] || 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'}`}>
               {ROLE_LABELS[member.role] || member.role}
             </span>
             {!member.isActive && (
-              <span className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-500">Inactive</span>
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-3)]">Inactive</span>
             )}
           </div>
         </div>
@@ -153,10 +153,10 @@ export default function TeamMemberDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      <div className="flex gap-1 border-b border-[var(--fd-border)] overflow-x-auto">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${activeTab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-[var(--fd-ink-3)] hover:text-[var(--fd-ink-2)]'}`}>
             {t.label}
           </button>
         ))}
@@ -168,15 +168,15 @@ export default function TeamMemberDetailPage() {
           <div className="lg:col-span-2 space-y-5">
             {/* Contact Info */}
             <Card>
-              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Contact Information</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Contact Information</h3></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2 text-slate-600"><Mail size={14} className="text-slate-400" />{member.email}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400" />{member.phone || '—'}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><Shield size={14} className="text-slate-400" />{member.department || '—'}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><Calendar size={14} className="text-slate-400" />Joined {formatDate(member.createdAt)}</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Mail size={14} className="text-[var(--fd-ink-4)]" />{member.email}</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)]" />{member.phone || '—'}</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Shield size={14} className="text-[var(--fd-ink-4)]" />{member.department || '—'}</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)]" />Joined {formatDate(member.createdAt)}</div>
                   {member.lastLogin && (
-                    <div className="flex items-center gap-2 text-slate-600"><Clock size={14} className="text-slate-400" />Last login {timeAgo(member.lastLogin)}</div>
+                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Clock size={14} className="text-[var(--fd-ink-4)]" />Last login {timeAgo(member.lastLogin)}</div>
                   )}
                 </div>
               </CardContent>
@@ -184,15 +184,15 @@ export default function TeamMemberDetailPage() {
 
             {/* Recent Tasks */}
             <Card>
-              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Recent Tasks</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Tasks</h3></CardHeader>
               <CardContent className="space-y-2">
                 {tasks.slice(0, 5).length === 0 ? (
-                  <p className="text-slate-400 text-sm text-center py-4">No tasks assigned</p>
+                  <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No tasks assigned</p>
                 ) : tasks.slice(0, 5).map(t => (
-                  <div key={t._id} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg">
+                  <div key={t._id} className="flex items-center gap-3 p-2.5 bg-[var(--fd-surface-raised)] rounded-lg">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-800 truncate">{t.title}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{t.client?.company || '—'}</div>
+                      <div className="text-sm font-medium text-[var(--fd-ink-1)] truncate">{t.title}</div>
+                      <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{t.client?.company || '—'}</div>
                     </div>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>
                       {t.status?.replace('_', ' ')}
@@ -211,7 +211,7 @@ export default function TeamMemberDetailPage() {
           {/* Right sidebar stats */}
           <div className="space-y-4">
             <Card>
-              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Task Stats</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Task Stats</h3></CardHeader>
               <CardContent className="space-y-3">
                 {[
                   { label: 'Pending', count: pendingTasks, color: 'bg-amber-100 text-amber-700' },
@@ -220,30 +220,30 @@ export default function TeamMemberDetailPage() {
                 ].map(s => (
                   <div key={s.label} className="flex items-center justify-between">
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${s.color}`}>{s.label}</span>
-                    <span className="font-bold text-slate-700 text-sm">{s.count}</span>
+                    <span className="font-bold text-[var(--fd-ink-2)] text-sm">{s.count}</span>
                   </div>
                 ))}
-                <div className="border-t border-slate-100 pt-2 flex items-center justify-between">
-                  <span className="text-xs text-slate-500 font-medium">Total</span>
-                  <span className="font-bold text-slate-800">{tasks.length}</span>
+                <div className="border-t border-[var(--fd-border-subtle)] pt-2 flex items-center justify-between">
+                  <span className="text-xs text-[var(--fd-ink-3)] font-medium">Total</span>
+                  <span className="font-bold text-[var(--fd-ink-1)]">{tasks.length}</span>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Assigned Clients</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Assigned Clients</h3></CardHeader>
               <CardContent>
                 {assignedClients.length === 0 ? (
-                  <p className="text-slate-400 text-sm">No clients assigned</p>
+                  <p className="text-[var(--fd-ink-4)] text-sm">No clients assigned</p>
                 ) : (
                   <div className="space-y-2">
                     {assignedClients.slice(0, 5).map(c => (
                       <Link key={c._id} to={`/admin/clients/${c._id}`}
-                        className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg transition-colors group">
+                        className="flex items-center gap-2 p-2 hover:bg-[var(--fd-surface-raised)] rounded-lg transition-colors group">
                         <Avatar name={c.company} size="sm" />
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-slate-700 truncate group-hover:text-brand-600">{c.company}</div>
-                          <div className="text-xs text-slate-400 capitalize">{c.status}</div>
+                          <div className="text-xs font-medium text-[var(--fd-ink-2)] truncate group-hover:text-brand-600">{c.company}</div>
+                          <div className="text-xs text-[var(--fd-ink-4)] capitalize">{c.status}</div>
                         </div>
                       </Link>
                     ))}
@@ -271,8 +271,8 @@ export default function TeamMemberDetailPage() {
                 {tasks.map(t => (
                   <div key={t._id} className="flex items-center gap-4 px-5 py-3.5">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-slate-800 text-sm">{t.title}</div>
-                      {t.description && <div className="text-xs text-slate-500 mt-0.5 truncate">{t.description}</div>}
+                      <div className="font-medium text-[var(--fd-ink-1)] text-sm">{t.title}</div>
+                      {t.description && <div className="text-xs text-[var(--fd-ink-3)] mt-0.5 truncate">{t.description}</div>}
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>
                           {t.status?.replace('_', ' ')}
@@ -281,7 +281,7 @@ export default function TeamMemberDetailPage() {
                           {t.priority}
                         </span>
                         {t.category && t.category !== 'other' && (
-                          <span className="text-xs text-slate-500">{CATEGORY_LABELS[t.category]}</span>
+                          <span className="text-xs text-[var(--fd-ink-3)]">{CATEGORY_LABELS[t.category]}</span>
                         )}
                         {t.client && (
                           <Link to={`/admin/clients/${t.client._id || t.client}`}
@@ -290,7 +290,7 @@ export default function TeamMemberDetailPage() {
                           </Link>
                         )}
                         {t.deadline && (
-                          <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <span className="text-xs text-[var(--fd-ink-4)] flex items-center gap-1">
                             <Clock size={11} />{formatDate(t.deadline)}
                           </span>
                         )}
@@ -318,15 +318,15 @@ export default function TeamMemberDetailPage() {
                       <div className="flex items-center gap-3 mb-3">
                         <Avatar name={c.company} size="md" />
                         <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-slate-800 truncate">{c.company}</div>
-                          <div className="text-xs text-slate-400">{c.name}</div>
+                          <div className="font-semibold text-[var(--fd-ink-1)] truncate">{c.company}</div>
+                          <div className="text-xs text-[var(--fd-ink-4)]">{c.name}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(c.status)}`}>
                           {c.status}
                         </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${PLAN_COLORS[c.plan] || 'bg-slate-100 text-slate-600'}`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${PLAN_COLORS[c.plan] || 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'}`}>
                           {PLAN_LABELS[c.plan] || c.plan}
                         </span>
                         {String(c.accountManager?._id || c.accountManager) === String(id) && (
@@ -356,12 +356,12 @@ export default function TeamMemberDetailPage() {
                   <div key={post._id} className="flex items-start gap-4 px-5 py-3.5">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-xs font-semibold text-slate-700 capitalize">{post.platform?.replace('_', ' ')}</span>
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs capitalize">{post.contentType}</span>
+                        <span className="text-xs font-semibold text-[var(--fd-ink-2)] capitalize">{post.platform?.replace('_', ' ')}</span>
+                        <span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{post.contentType}</span>
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
                           post.status === 'published' ? 'bg-emerald-100 text-emerald-700'
                           : post.status === 'scheduled' ? 'bg-blue-100 text-blue-700'
-                          : post.status === 'draft' ? 'bg-slate-100 text-slate-600'
+                          : post.status === 'draft' ? 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'
                           : 'bg-red-100 text-red-600'
                         }`}>{post.status}</span>
                         {post.client && (
@@ -370,15 +370,15 @@ export default function TeamMemberDetailPage() {
                           </Link>
                         )}
                       </div>
-                      {post.caption && <p className="text-sm text-slate-600 line-clamp-2">{post.caption}</p>}
+                      {post.caption && <p className="text-sm text-[var(--fd-ink-2)] line-clamp-2">{post.caption}</p>}
                       {post.publishedAt && (
-                        <div className="text-xs text-slate-400 mt-1">Published {timeAgo(post.publishedAt)}</div>
+                        <div className="text-xs text-[var(--fd-ink-4)] mt-1">Published {timeAgo(post.publishedAt)}</div>
                       )}
                       {post.scheduledAt && post.status === 'scheduled' && (
-                        <div className="text-xs text-slate-400 mt-1">Scheduled for {formatDate(post.scheduledAt)}</div>
+                        <div className="text-xs text-[var(--fd-ink-4)] mt-1">Scheduled for {formatDate(post.scheduledAt)}</div>
                       )}
                       {post.status === 'published' && post.metrics && (
-                        <div className="flex items-center gap-3 mt-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-3 mt-2 text-xs text-[var(--fd-ink-3)]">
                           <span>❤️ {(post.metrics.likes || 0).toLocaleString()}</span>
                           <span>💬 {(post.metrics.comments || 0).toLocaleString()}</span>
                           <span>↗️ {(post.metrics.shares || 0).toLocaleString()}</span>
@@ -427,7 +427,7 @@ export default function TeamMemberDetailPage() {
               <input type="checkbox" checked={!!editForm.isActive}
                 onChange={e => setEditForm(p => ({ ...p, isActive: e.target.checked }))}
                 className="rounded" />
-              <span className="text-sm text-slate-700">Active</span>
+              <span className="text-sm text-[var(--fd-ink-2)]">Active</span>
             </label>
           </div>
         </Modal>

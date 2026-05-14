@@ -35,9 +35,9 @@ function ConversationList({ conversations, activeId, onSelect, loading }) {
   if (!conversations.length) {
     return (
       <div className="p-8 text-center">
-        <MessageSquare size={22} color="#ccc9c2" strokeWidth={1.3} className="mx-auto mb-3" />
-        <p className="text-[13px] font-medium" style={{ color: '#44423d' }}>No conversations</p>
-        <p className="text-[11.5px] mt-0.5" style={{ color: '#a8a49e' }}>Conversations appear here</p>
+        <MessageSquare size={22} color="var(--fd-ink-5)" strokeWidth={1.3} className="mx-auto mb-3" />
+        <p className="text-[13px] font-medium text-[var(--fd-ink-2)]">No conversations</p>
+        <p className="text-[11.5px] mt-0.5 text-[var(--fd-ink-4)]">Conversations appear here</p>
       </div>
     );
   }
@@ -50,28 +50,25 @@ function ConversationList({ conversations, activeId, onSelect, loading }) {
           <button
             key={conv._id}
             onClick={() => onSelect(conv)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 text-left border-b transition-all"
-            style={{
-              borderColor: '#f2f0ec',
-              background: isActive ? '#eff0fe' : 'transparent',
-            }}
-            onMouseEnter={e => !isActive && (e.currentTarget.style.background = '#fafaf9')}
-            onMouseLeave={e => e.currentTarget.style.background = isActive ? '#eff0fe' : 'transparent'}
+            className="w-full flex items-center gap-3 px-4 py-3.5 text-left border-b border-[var(--fd-border-subtle)] transition-all"
+            style={{ background: isActive ? 'var(--fd-sidebar-active)' : 'transparent' }}
+            onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--fd-sidebar-hover)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = isActive ? 'var(--fd-sidebar-active)' : 'transparent'; }}
           >
             <Avatar name={conv.client?.company} size="sm" />
             <div className="flex-1 min-w-0">
               <div
                 className="text-[13px] font-medium truncate"
-                style={{ color: isActive ? '#3a56d4' : '#1a1916' }}
+                style={{ color: isActive ? 'var(--fd-sidebar-link-active)' : 'var(--fd-ink-1)' }}
               >
                 {conv.client?.company}
               </div>
-              <div className="text-[11px] truncate mt-0.5" style={{ color: '#a8a49e' }}>
+              <div className="text-[11px] truncate mt-0.5 text-[var(--fd-ink-4)]">
                 {conv.lastMessage?.content || 'No messages yet'}
               </div>
             </div>
             {conv.lastMessageAt && (
-              <div className="text-[10.5px] font-mono flex-shrink-0" style={{ color: '#ccc9c2' }}>
+              <div className="text-[10.5px] font-mono flex-shrink-0 text-[var(--fd-ink-5)]">
                 {timeAgo(conv.lastMessageAt)}
               </div>
             )}
@@ -121,14 +118,11 @@ function ParticipantsPanel({ conversation, currentUser, onUpdated, onClose }) {
   };
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#ffffff' }}>
-      <div
-        className="px-4 py-3.5 border-b flex items-center justify-between flex-shrink-0"
-        style={{ borderColor: '#eeece8', background: '#fafaf9' }}
-      >
+    <div className="flex flex-col h-full bg-[var(--fd-surface)]">
+      <div className="px-4 py-3.5 border-b border-[var(--fd-border)] flex items-center justify-between flex-shrink-0 bg-[var(--fd-surface-raised)]">
         <div className="flex items-center gap-2">
-          <Users size={13} color="#a8a49e" strokeWidth={1.7} />
-          <span className="font-semibold text-[13px]" style={{ color: '#1a1916' }}>
+          <Users size={13} color="var(--fd-ink-4)" strokeWidth={1.7} />
+          <span className="font-semibold text-[13px] text-[var(--fd-ink-1)]">
             Participants
           </span>
         </div>
@@ -139,23 +133,18 @@ function ParticipantsPanel({ conversation, currentUser, onUpdated, onClose }) {
         {participants.map(p => (
           <div
             key={p._id}
-            className="flex items-center gap-2.5 px-2 py-2.5 rounded-lg group"
-            onMouseEnter={e => e.currentTarget.style.background = '#fafaf9'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            className="flex items-center gap-2.5 px-2 py-2.5 rounded-lg group hover:bg-[var(--fd-surface-raised)] transition-colors"
           >
             <Avatar name={p.name} size="sm" />
             <div className="flex-1 min-w-0">
-              <div className="text-[12.5px] font-medium truncate" style={{ color: '#1a1916' }}>{p.name}</div>
-              <div className="text-[11px]" style={{ color: '#a8a49e' }}>{ROLE_LABELS[p.role] || p.role}</div>
+              <div className="text-[12.5px] font-medium truncate text-[var(--fd-ink-1)]">{p.name}</div>
+              <div className="text-[11px] text-[var(--fd-ink-4)]">{ROLE_LABELS[p.role] || p.role}</div>
             </div>
             {isManager && !clientIds.has(String(p._id)) && String(p._id) !== String(currentUser._id) && (
               <button
                 onClick={() => handleRemove(p._id)}
                 disabled={saving}
-                className="opacity-0 group-hover:opacity-100 p-1 rounded transition-all"
-                style={{ color: '#ccc9c2' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#b91c1c'}
-                onMouseLeave={e => e.currentTarget.style.color = '#ccc9c2'}
+                className="opacity-0 group-hover:opacity-100 p-1 rounded transition-all text-[var(--fd-ink-5)] hover:text-red-500"
               >
                 <X size={11} />
               </button>
@@ -165,8 +154,8 @@ function ParticipantsPanel({ conversation, currentUser, onUpdated, onClose }) {
       </div>
 
       {isManager && (
-        <div className="p-3.5 border-t space-y-2.5" style={{ borderColor: '#eeece8' }}>
-          <p className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: '#a8a49e' }}>
+        <div className="p-3.5 border-t border-[var(--fd-border)] space-y-2.5">
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider text-[var(--fd-ink-4)]">
             Add member
           </p>
           <select
@@ -259,15 +248,12 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
 
   if (!conversation) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center" style={{ background: '#fafaf9' }}>
-        <div
-          className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-          style={{ background: '#f0eeea', border: '1px solid #e8e5e0' }}
-        >
-          <MessageSquare size={24} color="#ccc9c2" strokeWidth={1.3} />
+      <div className="flex-1 flex flex-col items-center justify-center bg-[var(--fd-surface-raised)]">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 bg-[var(--fd-surface-sunken)] border border-[var(--fd-border-strong)]">
+          <MessageSquare size={24} color="var(--fd-ink-5)" strokeWidth={1.3} />
         </div>
-        <p className="text-[14px] font-semibold" style={{ color: '#44423d' }}>Select a conversation</p>
-        <p className="text-[12.5px] mt-1" style={{ color: '#a8a49e' }}>Choose a client on the left</p>
+        <p className="text-[14px] font-semibold text-[var(--fd-ink-2)]">Select a conversation</p>
+        <p className="text-[12.5px] mt-1 text-[var(--fd-ink-4)]">Choose a client on the left</p>
       </div>
     );
   }
@@ -276,10 +262,7 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
     <div className="flex-1 flex min-h-0 overflow-hidden">
       <div className="flex-1 flex flex-col min-h-0">
         {/* Chat header */}
-        <div
-          className="px-5 py-3.5 border-b flex items-center gap-3 flex-shrink-0"
-          style={{ borderColor: '#eeece8', background: '#ffffff' }}
-        >
+        <div className="px-5 py-3.5 border-b border-[var(--fd-border)] flex items-center gap-3 flex-shrink-0 bg-[var(--fd-surface)]">
           {onBack && (
             <button onClick={onBack} className="md:hidden btn-ghost p-1.5 flex-shrink-0">
               <ArrowLeft size={15} />
@@ -287,10 +270,10 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
           )}
           <Avatar name={conversation.client?.company} size="sm" />
           <div className="flex-1 min-w-0">
-            <div className="text-[13.5px] font-semibold truncate" style={{ color: '#1a1916' }}>
+            <div className="text-[13.5px] font-semibold truncate text-[var(--fd-ink-1)]">
               {conversation.client?.company}
             </div>
-            <div className="text-[11px] hidden sm:block" style={{ color: '#a8a49e' }}>
+            <div className="text-[11px] hidden sm:block text-[var(--fd-ink-4)]">
               {conversation.participants?.length} participant{conversation.participants?.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -298,8 +281,8 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
             onClick={() => setShowPanel(v => !v)}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-medium transition-all border"
             style={showPanel
-              ? { background: '#eff0fe', color: '#3a56d4', borderColor: '#c5d4fb' }
-              : { background: '#ffffff', color: '#7a7770', borderColor: '#e0ddd7' }
+              ? { background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)', borderColor: 'var(--fd-border-strong)' }
+              : { background: 'var(--fd-surface)', color: 'var(--fd-ink-3)', borderColor: 'var(--fd-border-strong)' }
             }
           >
             <Users size={12} strokeWidth={1.7} />
@@ -308,10 +291,7 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
         </div>
 
         {/* Messages */}
-        <div
-          className="flex-1 overflow-y-auto p-5 space-y-4"
-          style={{ background: '#fafaf9' }}
-        >
+        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-[var(--fd-surface-raised)]">
           {loading ? (
             <div className="flex justify-center pt-10"><Spinner /></div>
           ) : messages.map((msg, i) => {
@@ -326,30 +306,33 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
                 )}
                 <div className={`max-w-[70%] sm:max-w-[60%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                   {showAvatar && !isMe && (
-                    <div className="text-[11px] mb-1 px-1" style={{ color: '#a8a49e' }}>
+                    <div className="text-[11px] mb-1 px-1 text-[var(--fd-ink-4)]">
                       {msg.sender?.name}
                     </div>
                   )}
                   <div
                     className="px-4 py-2.5 text-[13px] leading-relaxed"
-                    style={
-                      isMe
-                        ? {
-                            background: '#4f6ef0', color: '#ffffff',
-                            borderRadius: '16px', borderBottomRightRadius: '4px',
-                            boxShadow: '0 1px 4px rgba(79,110,240,0.25)',
-                          }
-                        : {
-                            background: '#ffffff', color: '#1a1916',
-                            borderRadius: '16px', borderBottomLeftRadius: '4px',
-                            border: '1px solid #e8e5e0',
-                            boxShadow: '0 1px 2px rgba(28,25,20,0.04)',
-                          }
+                    style={isMe
+                      ? {
+                          background: '#4f6ef0',
+                          color: '#ffffff',
+                          borderRadius: '16px',
+                          borderBottomRightRadius: '4px',
+                          boxShadow: '0 1px 4px rgba(79,110,240,0.25)',
+                        }
+                      : {
+                          background: 'var(--fd-chat-received-bg)',
+                          color: 'var(--fd-chat-received-text)',
+                          borderRadius: '16px',
+                          borderBottomLeftRadius: '4px',
+                          border: '1px solid var(--fd-chat-received-border)',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                        }
                     }
                   >
                     {msg.content}
                   </div>
-                  <div className="text-[10.5px] mt-1 px-1 font-mono" style={{ color: '#ccc9c2' }}>
+                  <div className="text-[10.5px] mt-1 px-1 font-mono text-[var(--fd-ink-5)]">
                     {timeAgo(msg.createdAt)}
                   </div>
                 </div>
@@ -360,15 +343,12 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
           {typing && (
             <div className="flex gap-2.5">
               <div className="w-7" />
-              <div
-                className="px-4 py-2.5 rounded-2xl rounded-bl-sm border"
-                style={{ background: '#ffffff', border: '1px solid #e8e5e0' }}
-              >
+              <div className="px-4 py-2.5 rounded-2xl rounded-bl-sm border border-[var(--fd-chat-received-border)] bg-[var(--fd-chat-received-bg)]">
                 <div className="flex items-center gap-1">
                   {[0, 0.18, 0.36].map((d, i) => (
                     <span
                       key={i}
-                      className="w-1.5 h-1.5 rounded-full bg-[#ccc9c2] animate-bounce"
+                      className="w-1.5 h-1.5 rounded-full bg-[var(--fd-ink-4)] animate-bounce"
                       style={{ animationDelay: `${d}s` }}
                     />
                   ))}
@@ -380,10 +360,7 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
         </div>
 
         {/* Input */}
-        <div
-          className="px-4 py-3.5 border-t flex-shrink-0"
-          style={{ borderColor: '#eeece8', background: '#ffffff' }}
-        >
+        <div className="px-4 py-3.5 border-t border-[var(--fd-border)] flex-shrink-0 bg-[var(--fd-surface)]">
           <div className="flex items-center gap-2.5">
             <input
               value={input}
@@ -407,14 +384,10 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
       {showPanel && (
         <>
           <div
-            className="md:hidden fixed inset-0 z-40 backdrop-blur-sm"
-            style={{ background: 'rgba(26,25,22,0.2)' }}
+            className="md:hidden fixed inset-0 z-40 backdrop-blur-sm bg-black/20"
             onClick={() => setShowPanel(false)}
           />
-          <div
-            className="md:hidden fixed right-0 top-0 bottom-0 w-72 z-50 border-l shadow-float animate-slide-in-right"
-            style={{ borderColor: '#eeece8' }}
-          >
+          <div className="md:hidden fixed right-0 top-0 bottom-0 w-72 z-50 border-l border-[var(--fd-border)] shadow-float animate-slide-in-right">
             <ParticipantsPanel
               conversation={conversation}
               currentUser={currentUser}
@@ -422,10 +395,7 @@ function ChatWindow({ conversation: initial, currentUser, socket, onConversation
               onClose={() => setShowPanel(false)}
             />
           </div>
-          <div
-            className="hidden md:block w-60 border-l flex-shrink-0"
-            style={{ borderColor: '#eeece8' }}
-          >
+          <div className="hidden md:block w-60 border-l border-[var(--fd-border)] flex-shrink-0">
             <ParticipantsPanel
               conversation={conversation}
               currentUser={currentUser}
@@ -480,25 +450,16 @@ export default function AdminMessagesPage() {
   }, [socket]);
 
   return (
-    <div
-      className="h-[calc(100vh-7.5rem)] sm:h-[calc(100vh-8rem)] flex rounded-2xl overflow-hidden animate-fade-in"
-      style={{
-        background: '#ffffff',
-        border: '1px solid #e8e5e0',
-        boxShadow: '0 1px 2px rgba(28,25,20,0.04)',
-      }}
+    <div className="h-[calc(100vh-7.5rem)] sm:h-[calc(100vh-8rem)] flex rounded-2xl overflow-hidden animate-fade-in border border-[var(--fd-border-strong)] bg-[var(--fd-surface)]"
+      style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
     >
       {/* Sidebar */}
       <div
-        className={`w-full md:w-[260px] border-r flex flex-col flex-shrink-0 ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}
-        style={{ borderColor: '#eeece8' }}
+        className={`w-full md:w-[260px] border-r border-[var(--fd-border)] flex flex-col flex-shrink-0 ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}
       >
-        <div
-          className="px-5 py-4 border-b flex-shrink-0"
-          style={{ borderColor: '#eeece8', background: '#fafaf9' }}
-        >
-          <h2 className="text-[14px] font-semibold" style={{ color: '#1a1916' }}>Messages</h2>
-          <p className="text-[11.5px] mt-0.5" style={{ color: '#a8a49e' }}>
+        <div className="px-5 py-4 border-b border-[var(--fd-border)] flex-shrink-0 bg-[var(--fd-surface-raised)]">
+          <h2 className="text-[14px] font-semibold text-[var(--fd-ink-1)]">Messages</h2>
+          <p className="text-[11.5px] mt-0.5 text-[var(--fd-ink-4)]">
             {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
           </p>
         </div>

@@ -127,8 +127,8 @@ export default function App() {
               </Route>
 
               <Route path="/unauthorized" element={
-                <div className="flex h-screen items-center justify-center flex-col gap-3 text-slate-600">
-                  <div className="text-2xl font-bold text-slate-800">Access Denied</div>
+                <div className="flex h-screen items-center justify-center flex-col gap-3 text-[var(--fd-ink-2)]">
+                  <div className="text-2xl font-bold text-[var(--fd-ink-1)]">Access Denied</div>
                   <p>You don't have permission to view that page.</p>
                   <a href="/login" className="text-brand-600 underline text-sm">Return to login</a>
                 </div>

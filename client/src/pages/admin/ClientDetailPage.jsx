@@ -181,7 +181,7 @@ export default function ClientDetailPage() {
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
   const client = overview?.client;
-  if (!client) return <div className="text-slate-500 text-center py-16">Client not found</div>;
+  if (!client) return <div className="text-[var(--fd-ink-3)] text-center py-16">Client not found</div>;
 
   const assignedMemberIds = new Set([
     ...(client.teamMembers || []).map(m => String(m._id || m)),
@@ -207,7 +207,7 @@ export default function ClientDetailPage() {
     <div className="space-y-4 animate-fade-in">
       {/* Header — stacks on mobile */}
       <div className="flex items-start gap-3">
-        <Link to="/admin/clients" className="mt-1 p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors flex-shrink-0">
+        <Link to="/admin/clients" className="mt-1 p-1.5 text-[var(--fd-ink-4)] hover:text-[var(--fd-ink-2)] hover:bg-[var(--fd-surface-sunken)] rounded-lg transition-colors flex-shrink-0">
           <ArrowLeft size={18} />
         </Link>
         <div className="flex-1 min-w-0">
@@ -215,8 +215,8 @@ export default function ClientDetailPage() {
           <div className="flex items-start gap-3 flex-wrap">
             <Avatar name={client.company} size="md" className="flex-shrink-0" />
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-slate-800 truncate">{client.company}</h1>
-              <p className="text-slate-500 text-sm">{client.name} · {client.industry}</p>
+              <h1 className="text-lg sm:text-xl font-bold text-[var(--fd-ink-1)] truncate">{client.company}</h1>
+              <p className="text-[var(--fd-ink-3)] text-sm">{client.name} · {client.industry}</p>
             </div>
             <div className="flex flex-wrap gap-1.5 items-center">
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(client.status)}`}>{client.status}</span>
@@ -245,10 +245,10 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Tabs — horizontally scrollable */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex gap-1 border-b border-[var(--fd-border)] overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            className={`px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
+            className={`px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap flex-shrink-0 ${activeTab === t.id ? 'border-brand-600 text-brand-600' : 'border-transparent text-[var(--fd-ink-3)] hover:text-[var(--fd-ink-2)]'}`}>
             {t.label}
           </button>
         ))}
@@ -259,43 +259,43 @@ export default function ClientDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
             <Card>
-              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Client Information</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Client Information</h3></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-slate-600 min-w-0"><Mail size={14} className="text-slate-400 flex-shrink-0" /><span className="truncate">{client.email}</span></div>
-                  <div className="flex items-center gap-2 text-slate-600"><Phone size={14} className="text-slate-400 flex-shrink-0" />{client.phone || '—'}</div>
-                  <div className="flex items-center gap-2 text-slate-600 min-w-0"><Globe size={14} className="text-slate-400 flex-shrink-0" /><span className="truncate">{client.website || '—'}</span></div>
-                  <div className="flex items-center gap-2 text-slate-600"><Calendar size={14} className="text-slate-400 flex-shrink-0" />Started {formatDate(client.startDate)}</div>
-                  <div className="flex items-center gap-2 text-slate-600"><DollarSign size={14} className="text-slate-400 flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Mail size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.email}</span></div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{client.phone || '—'}</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Globe size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.website || '—'}</span></div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />Started {formatDate(client.startDate)}</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><DollarSign size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
                 </div>
                 {client.services?.length > 0 && (
                   <div className="mt-4">
-                    <div className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">Services</div>
+                    <div className="text-xs font-medium text-[var(--fd-ink-3)] mb-2 uppercase tracking-wide">Services</div>
                     <div className="flex flex-wrap gap-1.5">
                       {client.services.map(s => <span key={s} className="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{SERVICE_LABELS[s] || s}</span>)}
                     </div>
                   </div>
                 )}
-                {client.notes && <div className="mt-4 p-3 bg-slate-50 rounded-lg text-sm text-slate-600">{client.notes}</div>}
+                {client.notes && <div className="mt-4 p-3 bg-[var(--fd-surface-raised)] rounded-lg text-sm text-[var(--fd-ink-2)]">{client.notes}</div>}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-800 text-sm">Recent Updates</h3>
+                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Updates</h3>
                   <Button size="xs" variant="secondary" onClick={() => setShowUpdateModal(true)}><Plus size={12} />Add Update</Button>
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {!overview?.recentUpdates?.length ? (
-                  <p className="text-slate-400 text-sm text-center py-4">No updates yet</p>
+                  <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No updates yet</p>
                 ) : overview.recentUpdates.map(u => (
                   <div key={u._id} className="flex gap-3">
                     <Avatar name={u.author?.name} size="sm" className="flex-shrink-0 mt-0.5" />
                     <div>
-                      <div className="text-sm font-medium text-slate-800">{u.title}</div>
-                      <div className="text-xs text-slate-500 mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
+                      <div className="text-sm font-medium text-[var(--fd-ink-1)]">{u.title}</div>
+                      <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
                     </div>
                   </div>
                 ))}
@@ -305,39 +305,39 @@ export default function ClientDetailPage() {
 
           <div className="space-y-4">
             <Card>
-              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Account Manager</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Account Manager</h3></CardHeader>
               <CardContent>
                 {client.accountManager ? (
                   <div className="flex items-center gap-3">
                     <Avatar name={client.accountManager.name} size="md" />
                     <div>
-                      <div className="font-medium text-slate-800 text-sm">{client.accountManager.name}</div>
-                      <div className="text-xs text-slate-500">{client.accountManager.jobTitle}</div>
-                      <div className="text-xs text-slate-400">{client.accountManager.email}</div>
+                      <div className="font-medium text-[var(--fd-ink-1)] text-sm">{client.accountManager.name}</div>
+                      <div className="text-xs text-[var(--fd-ink-3)]">{client.accountManager.jobTitle}</div>
+                      <div className="text-xs text-[var(--fd-ink-4)]">{client.accountManager.email}</div>
                     </div>
                   </div>
-                ) : <p className="text-slate-400 text-sm">Not assigned</p>}
+                ) : <p className="text-[var(--fd-ink-4)] text-sm">Not assigned</p>}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-800 text-sm">Team</h3>
+                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Team</h3>
                   {isManager && <button onClick={() => setActiveTab('team')} className="text-xs text-brand-600 hover:underline">Manage</button>}
                 </div>
               </CardHeader>
               <CardContent>
                 {!client.teamMembers?.length ? (
-                  <p className="text-slate-400 text-sm">No team members assigned</p>
+                  <p className="text-[var(--fd-ink-4)] text-sm">No team members assigned</p>
                 ) : (
                   <div className="space-y-2">
                     {client.teamMembers.map(m => (
                       <div key={m._id} className="flex items-center gap-2">
                         <Avatar name={m.name} size="sm" />
                         <div className="min-w-0">
-                          <div className="text-xs font-medium text-slate-700 truncate">{m.name}</div>
-                          <div className="text-xs text-slate-400">{ROLE_LABELS[m.role] || m.role}</div>
+                          <div className="text-xs font-medium text-[var(--fd-ink-2)] truncate">{m.name}</div>
+                          <div className="text-xs text-[var(--fd-ink-4)]">{ROLE_LABELS[m.role] || m.role}</div>
                         </div>
                       </div>
                     ))}
@@ -349,7 +349,7 @@ export default function ClientDetailPage() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-slate-800 text-sm">Task Overview</h3>
+                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Task Overview</h3>
                   {isManager && <Button size="xs" variant="secondary" onClick={() => setShowTaskModal(true)}><Plus size={12} />Task</Button>}
                 </div>
               </CardHeader>
@@ -357,26 +357,26 @@ export default function ClientDetailPage() {
                 {overview?.taskStats?.map(ts => (
                   <div key={ts._id} className="flex items-center justify-between">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(ts._id)}`}>{ts._id?.replace('_', ' ')}</span>
-                    <span className="font-bold text-slate-700">{ts.count}</span>
+                    <span className="font-bold text-[var(--fd-ink-2)]">{ts.count}</span>
                   </div>
                 ))}
-                {!overview?.taskStats?.length && <p className="text-slate-400 text-sm text-center py-2">No tasks yet</p>}
+                {!overview?.taskStats?.length && <p className="text-[var(--fd-ink-4)] text-sm text-center py-2">No tasks yet</p>}
               </CardContent>
             </Card>
 
             {overview?.latestReport && (
               <Card>
-                <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Latest Report</h3></CardHeader>
+                <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Latest Report</h3></CardHeader>
                 <CardContent>
                   <div className="space-y-2 text-sm">
-                    <div className="font-medium text-slate-700">{overview.latestReport.title}</div>
+                    <div className="font-medium text-[var(--fd-ink-2)]">{overview.latestReport.title}</div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-emerald-50 rounded-lg p-2 text-center">
-                        <div className="text-xs text-slate-500">ROAS</div>
+                        <div className="text-xs text-[var(--fd-ink-3)]">ROAS</div>
                         <div className="font-bold text-emerald-700">{overview.latestReport.metrics?.roas?.toFixed(1)}x</div>
                       </div>
                       <div className="bg-blue-50 rounded-lg p-2 text-center">
-                        <div className="text-xs text-slate-500">Leads</div>
+                        <div className="text-xs text-[var(--fd-ink-3)]">Leads</div>
                         <div className="font-bold text-blue-700">{overview.latestReport.metrics?.leads}</div>
                       </div>
                     </div>
@@ -400,14 +400,14 @@ export default function ClientDetailPage() {
               <div className="divide-y divide-slate-100">
                 {tasks.map(t => (
                   <div key={t._id} className="px-4 sm:px-5 py-3.5">
-                    <div className="font-medium text-slate-800 text-sm">{t.title}</div>
-                    {t.description && <div className="text-xs text-slate-500 mt-0.5 truncate">{t.description}</div>}
+                    <div className="font-medium text-[var(--fd-ink-1)] text-sm">{t.title}</div>
+                    {t.description && <div className="text-xs text-[var(--fd-ink-3)] mt-0.5 truncate">{t.description}</div>}
                     <div className="flex flex-wrap items-center gap-2 mt-1.5">
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(t.priority)}`}>{t.priority}</span>
-                      {t.category && t.category !== 'other' && <span className="text-xs text-slate-500">{CATEGORY_LABELS[t.category]}</span>}
-                      {t.assignedTo && <span className="text-xs text-slate-400">→ {t.assignedTo.name}</span>}
-                      {t.deadline && <span className="text-xs text-slate-400 flex items-center gap-1"><Clock size={11} />{formatDate(t.deadline)}</span>}
+                      {t.category && t.category !== 'other' && <span className="text-xs text-[var(--fd-ink-3)]">{CATEGORY_LABELS[t.category]}</span>}
+                      {t.assignedTo && <span className="text-xs text-[var(--fd-ink-4)]">→ {t.assignedTo.name}</span>}
+                      {t.deadline && <span className="text-xs text-[var(--fd-ink-4)] flex items-center gap-1"><Clock size={11} />{formatDate(t.deadline)}</span>}
                     </div>
                   </div>
                 ))}
@@ -430,12 +430,12 @@ export default function ClientDetailPage() {
                       <Avatar name={u.author?.name} size="sm" className="flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-semibold text-slate-800 text-sm">{u.title}</span>
+                          <span className="font-semibold text-[var(--fd-ink-1)] text-sm">{u.title}</span>
                           {u.isPinned && <span className="px-2 py-0.5 bg-brand-100 text-brand-700 rounded-full text-xs">📌 Pinned</span>}
-                          <span className="px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs capitalize">{u.type?.replace('_', ' ')}</span>
+                          <span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{u.type?.replace('_', ' ')}</span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
-                        <p className="text-sm text-slate-700 mt-2 whitespace-pre-line">{u.content}</p>
+                        <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
+                        <p className="text-sm text-[var(--fd-ink-2)] mt-2 whitespace-pre-line">{u.content}</p>
                       </div>
                     </div>
                   </CardContent>
@@ -454,7 +454,7 @@ export default function ClientDetailPage() {
           youtube: <Youtube size={16} className="text-red-500" />,
           linkedin: <Linkedin size={16} className="text-blue-700" />,
           twitter: <Twitter size={16} className="text-sky-500" />,
-          tiktok: <span className="text-xs font-bold text-slate-800">TT</span>,
+          tiktok: <span className="text-xs font-bold text-[var(--fd-ink-1)]">TT</span>,
           google_business: <span className="text-xs font-bold text-emerald-600">G</span>,
         };
         const PLATFORM_BG = {
@@ -463,7 +463,7 @@ export default function ClientDetailPage() {
           youtube: 'bg-red-50 border-red-100',
           linkedin: 'bg-blue-50 border-blue-100',
           twitter: 'bg-sky-50 border-sky-100',
-          tiktok: 'bg-slate-50 border-slate-200',
+          tiktok: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]',
           google_business: 'bg-emerald-50 border-emerald-100',
         };
         const totals = socialAnalytics?.totals || {};
@@ -474,11 +474,11 @@ export default function ClientDetailPage() {
           <div className="space-y-5">
             {/* Days filter */}
             <div className="flex items-center justify-between flex-wrap gap-3">
-              <h3 className="font-semibold text-slate-800">Social Media Analytics</h3>
+              <h3 className="font-semibold text-[var(--fd-ink-1)]">Social Media Analytics</h3>
               <div className="flex gap-1">
                 {[7, 30, 90].map(d => (
                   <button key={d} onClick={() => setSocialDays(d)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${socialDays === d ? 'bg-brand-600 text-white' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${socialDays === d ? 'bg-brand-600 text-white' : 'bg-[var(--fd-surface)] border border-[var(--fd-border-strong)] text-[var(--fd-ink-2)] hover:bg-[var(--fd-surface-raised)]'}`}>
                     {d}d
                   </button>
                 ))}
@@ -487,21 +487,21 @@ export default function ClientDetailPage() {
 
             {/* Connected Accounts */}
             <Card>
-              <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Connected Accounts</h3></CardHeader>
+              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Connected Accounts</h3></CardHeader>
               <CardContent>
                 {socialAccounts.length === 0 ? (
-                  <p className="text-slate-400 text-sm text-center py-4">No social accounts connected yet</p>
+                  <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No social accounts connected yet</p>
                 ) : (
                   <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {socialAccounts.map(acc => (
-                      <div key={acc._id} className={`flex items-center gap-2.5 p-3 rounded-xl border ${PLATFORM_BG[acc.platform] || 'bg-slate-50 border-slate-200'}`}>
+                      <div key={acc._id} className={`flex items-center gap-2.5 p-3 rounded-xl border ${PLATFORM_BG[acc.platform] || 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]'}`}>
                         <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
                           {PLATFORM_ICONS[acc.platform] || <Globe size={16} />}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-slate-800 truncate">{acc.accountName}</div>
-                          <div className="text-xs text-slate-500 capitalize">{acc.platform.replace('_', ' ')}</div>
-                          {acc.followers > 0 && <div className="text-xs text-slate-400">{acc.followers.toLocaleString()} followers</div>}
+                          <div className="text-xs font-semibold text-[var(--fd-ink-1)] truncate">{acc.accountName}</div>
+                          <div className="text-xs text-[var(--fd-ink-3)] capitalize">{acc.platform.replace('_', ' ')}</div>
+                          {acc.followers > 0 && <div className="text-xs text-[var(--fd-ink-4)]">{acc.followers.toLocaleString()} followers</div>}
                         </div>
                       </div>
                     ))}
@@ -523,10 +523,10 @@ export default function ClientDetailPage() {
                     <Card key={m.label} className={m.bg}>
                       <CardContent className="pt-4">
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs text-slate-500 font-medium">{m.label}</span>
+                          <span className="text-xs text-[var(--fd-ink-3)] font-medium">{m.label}</span>
                           {m.icon}
                         </div>
-                        <div className="text-xl sm:text-2xl font-bold text-slate-800">{m.value}</div>
+                        <div className="text-xl sm:text-2xl font-bold text-[var(--fd-ink-1)]">{m.value}</div>
                       </CardContent>
                     </Card>
                   ))}
@@ -535,7 +535,7 @@ export default function ClientDetailPage() {
                 {/* By Platform — scrollable on mobile */}
                 {byPlatform.length > 0 && (
                   <Card>
-                    <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Performance by Platform</h3></CardHeader>
+                    <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Performance by Platform</h3></CardHeader>
                     <CardContent>
                       <div className="divide-y divide-slate-100">
                         {byPlatform.map(p => (
@@ -545,25 +545,25 @@ export default function ClientDetailPage() {
                                 {PLATFORM_ICONS[p._id] || <Globe size={16} />}
                               </div>
                               <div>
-                                <div className="text-sm font-medium text-slate-800 capitalize">{p._id?.replace('_', ' ')}</div>
-                                <div className="text-xs text-slate-500">{p.posts} posts</div>
+                                <div className="text-sm font-medium text-[var(--fd-ink-1)] capitalize">{p._id?.replace('_', ' ')}</div>
+                                <div className="text-xs text-[var(--fd-ink-3)]">{p.posts} posts</div>
                               </div>
                             </div>
                             <div className="grid grid-cols-4 gap-2 text-center text-xs ml-10">
-                              <div className="bg-slate-50 rounded-lg p-2">
-                                <div className="text-slate-400">Reach</div>
-                                <div className="font-semibold text-slate-700">{(p.totalReach || 0).toLocaleString()}</div>
+                              <div className="bg-[var(--fd-surface-raised)] rounded-lg p-2">
+                                <div className="text-[var(--fd-ink-4)]">Reach</div>
+                                <div className="font-semibold text-[var(--fd-ink-2)]">{(p.totalReach || 0).toLocaleString()}</div>
                               </div>
-                              <div className="bg-slate-50 rounded-lg p-2">
-                                <div className="text-slate-400">Likes</div>
-                                <div className="font-semibold text-slate-700">{(p.totalLikes || 0).toLocaleString()}</div>
+                              <div className="bg-[var(--fd-surface-raised)] rounded-lg p-2">
+                                <div className="text-[var(--fd-ink-4)]">Likes</div>
+                                <div className="font-semibold text-[var(--fd-ink-2)]">{(p.totalLikes || 0).toLocaleString()}</div>
                               </div>
-                              <div className="bg-slate-50 rounded-lg p-2">
-                                <div className="text-slate-400">Comments</div>
-                                <div className="font-semibold text-slate-700">{(p.totalComments || 0).toLocaleString()}</div>
+                              <div className="bg-[var(--fd-surface-raised)] rounded-lg p-2">
+                                <div className="text-[var(--fd-ink-4)]">Comments</div>
+                                <div className="font-semibold text-[var(--fd-ink-2)]">{(p.totalComments || 0).toLocaleString()}</div>
                               </div>
-                              <div className="bg-slate-50 rounded-lg p-2">
-                                <div className="text-slate-400">Eng.</div>
+                              <div className="bg-[var(--fd-surface-raised)] rounded-lg p-2">
+                                <div className="text-[var(--fd-ink-4)]">Eng.</div>
                                 <div className="font-semibold text-emerald-600">{(p.avgEngagementRate || 0).toFixed(2)}%</div>
                               </div>
                             </div>
@@ -577,26 +577,26 @@ export default function ClientDetailPage() {
                 {/* Top Performing Posts */}
                 {topPosts.length > 0 && (
                   <Card>
-                    <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Top Performing Posts</h3></CardHeader>
+                    <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Top Performing Posts</h3></CardHeader>
                     <CardContent>
                       <div className="space-y-3">
                         {topPosts.map(post => (
-                          <div key={post._id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl">
+                          <div key={post._id} className="flex items-start gap-3 p-3 bg-[var(--fd-surface-raised)] rounded-xl">
                             <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 mt-0.5">
                               {PLATFORM_ICONS[post.platform] || <Globe size={16} />}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <span className="text-xs font-medium text-slate-700 capitalize">{post.platform?.replace('_', ' ')}</span>
-                                <span className="px-2 py-0.5 bg-white border border-slate-200 rounded-full text-xs text-slate-500 capitalize">{post.contentType}</span>
-                                {post.publishedAt && <span className="text-xs text-slate-400">{timeAgo(post.publishedAt)}</span>}
+                                <span className="text-xs font-medium text-[var(--fd-ink-2)] capitalize">{post.platform?.replace('_', ' ')}</span>
+                                <span className="px-2 py-0.5 bg-[var(--fd-surface)] border border-[var(--fd-border)] rounded-full text-xs text-[var(--fd-ink-3)] capitalize">{post.contentType}</span>
+                                {post.publishedAt && <span className="text-xs text-[var(--fd-ink-4)]">{timeAgo(post.publishedAt)}</span>}
                               </div>
-                              {post.caption && <p className="text-xs text-slate-600 line-clamp-2">{post.caption}</p>}
+                              {post.caption && <p className="text-xs text-[var(--fd-ink-2)] line-clamp-2">{post.caption}</p>}
                               <div className="flex flex-wrap items-center gap-2 mt-2">
-                                <span className="flex items-center gap-1 text-xs text-slate-500"><Heart size={11} className="text-pink-400" />{(post.metrics?.likes || 0).toLocaleString()}</span>
-                                <span className="flex items-center gap-1 text-xs text-slate-500"><MessageCircle size={11} className="text-blue-400" />{(post.metrics?.comments || 0).toLocaleString()}</span>
-                                <span className="flex items-center gap-1 text-xs text-slate-500"><Share2 size={11} className="text-emerald-400" />{(post.metrics?.shares || 0).toLocaleString()}</span>
-                                <span className="flex items-center gap-1 text-xs text-slate-500"><Eye size={11} className="text-amber-400" />{(post.metrics?.reach || 0).toLocaleString()}</span>
+                                <span className="flex items-center gap-1 text-xs text-[var(--fd-ink-3)]"><Heart size={11} className="text-pink-400" />{(post.metrics?.likes || 0).toLocaleString()}</span>
+                                <span className="flex items-center gap-1 text-xs text-[var(--fd-ink-3)]"><MessageCircle size={11} className="text-blue-400" />{(post.metrics?.comments || 0).toLocaleString()}</span>
+                                <span className="flex items-center gap-1 text-xs text-[var(--fd-ink-3)]"><Share2 size={11} className="text-emerald-400" />{(post.metrics?.shares || 0).toLocaleString()}</span>
+                                <span className="flex items-center gap-1 text-xs text-[var(--fd-ink-3)]"><Eye size={11} className="text-amber-400" />{(post.metrics?.reach || 0).toLocaleString()}</span>
                                 {post.metrics?.engagementRate > 0 && (
                                   <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">
                                     {post.metrics.engagementRate.toFixed(2)}% eng.
@@ -614,9 +614,9 @@ export default function ClientDetailPage() {
             ) : (
               <Card>
                 <CardContent className="text-center py-12">
-                  <BarChart2 size={40} className="mx-auto text-slate-200 mb-3" />
-                  <p className="text-slate-500 font-medium">No published posts in the last {socialDays} days</p>
-                  <p className="text-slate-400 text-sm mt-1">Analytics will appear here once posts are published.</p>
+                  <BarChart2 size={40} className="mx-auto text-[var(--fd-border)] mb-3" />
+                  <p className="text-[var(--fd-ink-3)] font-medium">No published posts in the last {socialDays} days</p>
+                  <p className="text-[var(--fd-ink-4)] text-sm mt-1">Analytics will appear here once posts are published.</p>
                 </CardContent>
               </Card>
             )}
@@ -624,7 +624,7 @@ export default function ClientDetailPage() {
             {/* Recent Posts List */}
             {socialPosts.length > 0 && (
               <Card>
-                <CardHeader><h3 className="font-semibold text-slate-800 text-sm">Recent Posts</h3></CardHeader>
+                <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Posts</h3></CardHeader>
                 <CardContent>
                   <div className="divide-y divide-slate-100">
                     {socialPosts.map(post => (
@@ -633,16 +633,16 @@ export default function ClientDetailPage() {
                           {PLATFORM_ICONS[post.platform] || <Globe size={16} />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-slate-700 truncate">{post.caption || '(no caption)'}</p>
+                          <p className="text-sm text-[var(--fd-ink-2)] truncate">{post.caption || '(no caption)'}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-slate-400 capitalize">{post.contentType}</span>
-                            {post.assignedTo?.name && <><span className="text-slate-300">·</span><span className="text-xs text-slate-400">by {post.assignedTo.name}</span></>}
+                            <span className="text-xs text-[var(--fd-ink-4)] capitalize">{post.contentType}</span>
+                            {post.assignedTo?.name && <><span className="text-[var(--fd-ink-5)]">·</span><span className="text-xs text-[var(--fd-ink-4)]">by {post.assignedTo.name}</span></>}
                           </div>
                         </div>
                         <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize flex-shrink-0 ${
                           post.status === 'published' ? 'bg-emerald-100 text-emerald-700'
                           : post.status === 'scheduled' ? 'bg-blue-100 text-blue-700'
-                          : post.status === 'draft' ? 'bg-slate-100 text-slate-600'
+                          : post.status === 'draft' ? 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'
                           : 'bg-red-100 text-red-600'
                         }`}>{post.status}</span>
                       </div>
@@ -665,8 +665,8 @@ export default function ClientDetailPage() {
                   <div key={f._id} className="flex items-center gap-3 px-4 sm:px-5 py-3.5">
                     <div className="text-2xl flex-shrink-0">{f.mimeType?.includes('pdf') ? '📄' : f.mimeType?.includes('image') ? '🖼️' : f.mimeType?.includes('zip') ? '📦' : '📎'}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-slate-800 text-sm truncate">{f.name}</div>
-                      <div className="text-xs text-slate-500">{f.uploadedBy?.name} · {timeAgo(f.createdAt)}</div>
+                      <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{f.name}</div>
+                      <div className="text-xs text-[var(--fd-ink-3)]">{f.uploadedBy?.name} · {timeAgo(f.createdAt)}</div>
                     </div>
                     <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline flex-shrink-0">Download</a>
                   </div>
@@ -687,21 +687,21 @@ export default function ClientDetailPage() {
                   <CardContent>
                     <div className="flex items-start justify-between flex-wrap gap-2 mb-3">
                       <div>
-                        <div className="font-semibold text-slate-800">{r.title}</div>
-                        <div className="text-xs text-slate-500">{formatDate(r.startDate)} — {formatDate(r.endDate)}</div>
+                        <div className="font-semibold text-[var(--fd-ink-1)]">{r.title}</div>
+                        <div className="text-xs text-[var(--fd-ink-3)]">{formatDate(r.startDate)} — {formatDate(r.endDate)}</div>
                       </div>
-                      <span className="px-2.5 py-0.5 bg-slate-100 text-slate-600 rounded-full text-xs capitalize">{r.period}</span>
+                      <span className="px-2.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{r.period}</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       {[
-                        { label: 'Ad Spend', value: formatCurrency(r.metrics?.adSpend), color: 'bg-slate-50' },
+                        { label: 'Ad Spend', value: formatCurrency(r.metrics?.adSpend), color: 'bg-[var(--fd-surface-raised)]' },
                         { label: 'Revenue', value: formatCurrency(r.metrics?.revenue), color: 'bg-emerald-50' },
                         { label: 'ROAS', value: `${r.metrics?.roas?.toFixed(1)}x`, color: 'bg-blue-50' },
                         { label: 'Leads', value: r.metrics?.leads, color: 'bg-purple-50' },
                       ].map(m => (
                         <div key={m.label} className={`${m.color} rounded-lg p-3 text-center`}>
-                          <div className="text-xs text-slate-500">{m.label}</div>
-                          <div className="font-bold text-slate-800 mt-0.5">{m.value}</div>
+                          <div className="text-xs text-[var(--fd-ink-3)]">{m.label}</div>
+                          <div className="font-bold text-[var(--fd-ink-1)] mt-0.5">{m.value}</div>
                         </div>
                       ))}
                     </div>
@@ -718,8 +718,8 @@ export default function ClientDetailPage() {
         <div className="space-y-5">
           <Card>
             <CardHeader>
-              <h3 className="font-semibold text-slate-800 text-sm">Account Manager</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Primary point of contact responsible for this client</p>
+              <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Account Manager</h3>
+              <p className="text-xs text-[var(--fd-ink-4)] mt-0.5">Primary point of contact responsible for this client</p>
             </CardHeader>
             <CardContent>
               <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -727,13 +727,13 @@ export default function ClientDetailPage() {
                   <div className="flex items-center gap-3 flex-1 min-w-0">
                     <Avatar name={client.accountManager.name} size="md" />
                     <div className="min-w-0">
-                      <div className="font-medium text-slate-800 text-sm">{client.accountManager.name}</div>
-                      <div className="text-xs text-slate-500">{client.accountManager.jobTitle || ROLE_LABELS[client.accountManager.role]}</div>
-                      <div className="text-xs text-slate-400">{client.accountManager.email}</div>
+                      <div className="font-medium text-[var(--fd-ink-1)] text-sm">{client.accountManager.name}</div>
+                      <div className="text-xs text-[var(--fd-ink-3)]">{client.accountManager.jobTitle || ROLE_LABELS[client.accountManager.role]}</div>
+                      <div className="text-xs text-[var(--fd-ink-4)]">{client.accountManager.email}</div>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-slate-400 text-sm flex-1">No account manager assigned</p>
+                  <p className="text-[var(--fd-ink-4)] text-sm flex-1">No account manager assigned</p>
                 )}
                 <div className="w-full sm:w-auto sm:min-w-[220px]">
                   <Select value={client.accountManager?._id || ''} onChange={e => handleSetAccountManager(e.target.value)} disabled={savingTeam}>
@@ -751,8 +751,8 @@ export default function ClientDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
-                  <h3 className="font-semibold text-slate-800 text-sm">Team Members</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">People working on this client's account</p>
+                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Team Members</h3>
+                  <p className="text-xs text-[var(--fd-ink-4)] mt-0.5">People working on this client's account</p>
                 </div>
                 <Button size="sm" onClick={() => { setAddMemberId(''); setShowAddMemberModal(true); }}>
                   <UserPlus size={14} />Add Member
@@ -762,8 +762,8 @@ export default function ClientDetailPage() {
             <CardContent>
               {!client.teamMembers?.length ? (
                 <div className="text-center py-8">
-                  <Users size={32} className="mx-auto text-slate-200 mb-2" />
-                  <p className="text-slate-400 text-sm">No team members assigned yet</p>
+                  <Users size={32} className="mx-auto text-[var(--fd-border)] mb-2" />
+                  <p className="text-[var(--fd-ink-4)] text-sm">No team members assigned yet</p>
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100">
@@ -771,15 +771,15 @@ export default function ClientDetailPage() {
                     <div key={m._id} className="flex items-center gap-3 py-3">
                       <Avatar name={m.name} size="md" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-slate-800 text-sm">{m.name}</div>
-                        <div className="text-xs text-slate-500">{m.jobTitle || ROLE_LABELS[m.role] || m.role}</div>
-                        {m.email && <div className="text-xs text-slate-400 truncate">{m.email}</div>}
+                        <div className="font-medium text-[var(--fd-ink-1)] text-sm">{m.name}</div>
+                        <div className="text-xs text-[var(--fd-ink-3)]">{m.jobTitle || ROLE_LABELS[m.role] || m.role}</div>
+                        {m.email && <div className="text-xs text-[var(--fd-ink-4)] truncate">{m.email}</div>}
                       </div>
-                      <span className="hidden sm:inline-flex px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-medium flex-shrink-0">
+                      <span className="hidden sm:inline-flex px-2.5 py-1 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs font-medium flex-shrink-0">
                         {ROLE_LABELS[m.role] || m.role}
                       </span>
                       <button onClick={() => handleRemoveTeamMember(m._id)} disabled={savingTeam}
-                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0">
+                        className="p-1.5 text-[var(--fd-ink-4)] hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0">
                         <X size={14} />
                       </button>
                     </div>
@@ -800,14 +800,14 @@ export default function ClientDetailPage() {
         footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowAddMemberModal(false)}>Cancel</Button><Button loading={savingTeam} onClick={handleAddTeamMember} disabled={!addMemberId}>Add to Client</Button></div>}
       >
         <div className="space-y-4">
-          <p className="text-sm text-slate-600">Assign a team member to <strong>{client.company}</strong>.</p>
+          <p className="text-sm text-[var(--fd-ink-2)]">Assign a team member to <strong>{client.company}</strong>.</p>
           <Select label="Team Member" value={addMemberId} onChange={e => setAddMemberId(e.target.value)}>
             <option value="">— Select a team member —</option>
             {availableToAdd.map(m => (
               <option key={m._id} value={m._id}>{m.name} — {m.jobTitle || ROLE_LABELS[m.role] || m.role}</option>
             ))}
           </Select>
-          {availableToAdd.length === 0 && <p className="text-xs text-slate-400 text-center">All team members are already assigned.</p>}
+          {availableToAdd.length === 0 && <p className="text-xs text-[var(--fd-ink-4)] text-center">All team members are already assigned.</p>}
         </div>
       </Modal>
 
@@ -858,7 +858,7 @@ export default function ClientDetailPage() {
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={taskForm.isClientVisible} onChange={e => setTaskForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" />
-            <span className="text-sm text-slate-700">Visible to client</span>
+            <span className="text-sm text-[var(--fd-ink-2)]">Visible to client</span>
           </label>
         </div>
       </Modal>

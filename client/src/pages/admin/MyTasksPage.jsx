@@ -65,10 +65,10 @@ export default function MyTasksPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div>
-        <h1 className="text-xl font-bold text-slate-800">
+        <h1 className="text-xl font-bold text-[var(--fd-ink-1)]">
           {welcome.icon} {welcome.greeting}
         </h1>
-        {welcome.tip && <p className="text-slate-500 text-sm mt-0.5 leading-relaxed">{welcome.tip}</p>}
+        {welcome.tip && <p className="text-[var(--fd-ink-3)] text-sm mt-0.5 leading-relaxed">{welcome.tip}</p>}
       </div>
 
       {/* Stats */}
@@ -105,7 +105,7 @@ export default function MyTasksPage() {
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="font-semibold text-slate-900">{task.title}</span>
+                      <span className="font-semibold text-[var(--fd-ink-1)]">{task.title}</span>
                       {task.isClientRequest && (
                         <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Client Request</span>
                       )}
@@ -120,11 +120,11 @@ export default function MyTasksPage() {
                   </span>
                 </div>
 
-                <p className="text-sm text-slate-500 line-clamp-2 mb-3">{task.description || 'No description provided.'}</p>
+                <p className="text-sm text-[var(--fd-ink-3)] line-clamp-2 mb-3">{task.description || 'No description provided.'}</p>
 
                 {/* Meta tags */}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 mb-3">
-                  <span className="font-medium text-slate-700">{task.client?.company}</span>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--fd-ink-3)] mb-3">
+                  <span className="font-medium text-[var(--fd-ink-2)]">{task.client?.company}</span>
                   <span>{CATEGORY_LABELS[task.category] || task.category}</span>
                   <span className={`px-2 py-0.5 rounded-full font-medium ${getPriorityColor(task.priority)}`}>{task.priority}</span>
                   {task.deadline && (
@@ -147,7 +147,7 @@ export default function MyTasksPage() {
                     </Button>
                   )}
                   {task.status === 'review' && (
-                    <span className="text-xs text-slate-400 italic self-center">Awaiting PM review</span>
+                    <span className="text-xs text-[var(--fd-ink-4)] italic self-center">Awaiting PM review</span>
                   )}
                   {task.status === 'completed' && (
                     <span className="text-xs text-emerald-600 font-medium self-center">✓ Done</span>

@@ -12,19 +12,19 @@ import { timeAgo, formatDate } from '../../lib/utils';
 const PLATFORM_META = {
   instagram:       { label: 'Instagram',       icon: Instagram, color: 'from-pink-500 to-purple-600',   bg: 'bg-pink-50',    text: 'text-pink-600'    },
   facebook:        { label: 'Facebook',        icon: Facebook,  color: 'from-blue-600 to-blue-800',     bg: 'bg-blue-50',    text: 'text-blue-700'    },
-  tiktok:          { label: 'TikTok',          icon: Play,      color: 'from-slate-800 to-slate-950',   bg: 'bg-slate-100',  text: 'text-slate-800'   },
+  tiktok:          { label: 'TikTok',          icon: Play,      color: 'from-slate-800 to-slate-950',   bg: 'bg-[var(--fd-surface-sunken)]',  text: 'text-[var(--fd-ink-1)]'   },
   youtube:         { label: 'YouTube',         icon: Youtube,   color: 'from-red-500 to-red-700',       bg: 'bg-red-50',     text: 'text-red-600'     },
   linkedin:        { label: 'LinkedIn',        icon: Linkedin,  color: 'from-blue-700 to-blue-900',     bg: 'bg-blue-50',    text: 'text-blue-800'    },
-  twitter:         { label: 'Twitter / X',     icon: Twitter,   color: 'from-slate-700 to-slate-900',   bg: 'bg-slate-50',   text: 'text-slate-700'   },
+  twitter:         { label: 'Twitter / X',     icon: Twitter,   color: 'from-slate-700 to-slate-900',   bg: 'bg-[var(--fd-surface-raised)]',   text: 'text-[var(--fd-ink-2)]'   },
   google_business: { label: 'Google Business', icon: BarChart3, color: 'from-emerald-500 to-green-600', bg: 'bg-emerald-50', text: 'text-emerald-700' },
 };
 
 const STATUS_META = {
-  draft:     { label: 'Draft',     color: 'bg-slate-100 text-slate-600',     dot: 'bg-slate-400'   },
+  draft:     { label: 'Draft',     color: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]',     dot: 'bg-[var(--fd-ink-4)]'   },
   scheduled: { label: 'Scheduled', color: 'bg-amber-100 text-amber-700',     dot: 'bg-amber-400'   },
   published: { label: 'Published', color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500' },
   failed:    { label: 'Failed',    color: 'bg-red-100 text-red-600',         dot: 'bg-red-500'     },
-  archived:  { label: 'Archived',  color: 'bg-slate-100 text-slate-400',     dot: 'bg-slate-300'   },
+  archived:  { label: 'Archived',  color: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-4)]',     dot: 'bg-[var(--fd-ink-5)]'   },
 };
 
 const CLIENT_COLORS = [
@@ -66,7 +66,7 @@ function PostCard({ post, onEdit, onDelete, canEdit }) {
   const chipColor = clientColor(String(clientId));
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-md transition-all group flex flex-col">
+    <div className="bg-[var(--fd-surface)] border border-[var(--fd-border)] rounded-xl overflow-hidden hover:shadow-md transition-all group flex flex-col">
       <div className="relative h-36 sm:h-40 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden flex-shrink-0">
         {post.mediaUrls?.[0] ? (
           <img src={post.mediaUrls[0]} alt="preview" className="w-full h-full object-cover" />
@@ -88,7 +88,7 @@ function PostCard({ post, onEdit, onDelete, canEdit }) {
           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
             <button
               onClick={() => onEdit(post)}
-              className="bg-white text-slate-800 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-slate-100 flex items-center gap-1"
+              className="bg-[var(--fd-surface)] text-[var(--fd-ink-1)] px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-[var(--fd-surface-sunken)] flex items-center gap-1"
             >
               <Edit3 size={11} /> Edit
             </button>
@@ -104,7 +104,7 @@ function PostCard({ post, onEdit, onDelete, canEdit }) {
               <span className="truncate">{clientName}</span>
             </span>
           ) : (
-            <span className="text-[10px] text-slate-300 italic">No client</span>
+            <span className="text-[10px] text-[var(--fd-ink-5)] italic">No client</span>
           )}
           <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${sm.color}`}>
             <span className={`w-1.5 h-1.5 rounded-full ${sm.dot}`} />
@@ -113,10 +113,10 @@ function PostCard({ post, onEdit, onDelete, canEdit }) {
         </div>
 
         {post.caption && (
-          <p className="text-xs text-slate-600 line-clamp-2 mb-2 flex-1">{post.caption}</p>
+          <p className="text-xs text-[var(--fd-ink-2)] line-clamp-2 mb-2 flex-1">{post.caption}</p>
         )}
 
-        <p className="text-[11px] text-slate-400 mb-2">
+        <p className="text-[11px] text-[var(--fd-ink-4)] mb-2">
           {post.publishedAt
             ? `Published ${timeAgo(post.publishedAt)}`
             : post.scheduledAt
@@ -125,7 +125,7 @@ function PostCard({ post, onEdit, onDelete, canEdit }) {
         </p>
 
         {post.status === 'published' && (
-          <div className="grid grid-cols-4 gap-1 pt-2 border-t border-slate-100">
+          <div className="grid grid-cols-4 gap-1 pt-2 border-t border-[var(--fd-border-subtle)]">
             {[
               { icon: Heart, val: post.metrics?.likes },
               { icon: MessageCircle, val: post.metrics?.comments },
@@ -133,8 +133,8 @@ function PostCard({ post, onEdit, onDelete, canEdit }) {
               { icon: Eye, val: post.metrics?.views },
             ].map(({ icon: Icon, val }, i) => (
               <div key={i} className="text-center">
-                <Icon size={10} className="mx-auto text-slate-400 mb-0.5" />
-                <div className="text-[11px] font-semibold text-slate-700">{fmtNum(val)}</div>
+                <Icon size={10} className="mx-auto text-[var(--fd-ink-4)] mb-0.5" />
+                <div className="text-[11px] font-semibold text-[var(--fd-ink-2)]">{fmtNum(val)}</div>
               </div>
             ))}
           </div>
@@ -144,7 +144,7 @@ function PostCard({ post, onEdit, onDelete, canEdit }) {
           <div className="flex justify-end mt-2">
             <button
               onClick={() => onDelete(post._id)}
-              className="text-slate-300 hover:text-red-400 transition-colors"
+              className="text-[var(--fd-ink-5)] hover:text-red-400 transition-colors"
             >
               <Trash2 size={12} />
             </button>
@@ -219,12 +219,12 @@ function PostModal({ post, clients, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl max-h-[92vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-100 sticky top-0 bg-white z-10">
-          <h2 className="font-bold text-slate-800 text-base">
+      <div className="bg-[var(--fd-surface)] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--fd-border-subtle)] sticky top-0 bg-[var(--fd-surface)] z-10">
+          <h2 className="font-bold text-[var(--fd-ink-1)] text-base">
             {isEdit ? 'Edit Post' : 'New Social Post'}
           </h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100">
+          <button onClick={onClose} className="text-[var(--fd-ink-4)] hover:text-[var(--fd-ink-2)] p-1 rounded-lg hover:bg-[var(--fd-surface-sunken)]">
             <X size={18} />
           </button>
         </div>
@@ -238,7 +238,7 @@ function PostModal({ post, clients, onClose, onSave }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Client <span className="text-red-500">*</span></label>
+            <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Client <span className="text-red-500">*</span></label>
             <select className="input w-full" value={form.client} onChange={e => { handle('client', e.target.value); handle('socialAccount', ''); }}>
               <option value="">Select a client…</option>
               {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
@@ -247,13 +247,13 @@ function PostModal({ post, clients, onClose, onSave }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Platform</label>
+              <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Platform</label>
               <select className="input w-full" value={form.platform} onChange={e => { handle('platform', e.target.value); handle('socialAccount', ''); }}>
                 {PLATFORMS.map(p => <option key={p} value={p}>{PLATFORM_META[p].label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Content Type</label>
+              <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Content Type</label>
               <select className="input w-full" value={form.contentType} onChange={e => handle('contentType', e.target.value)}>
                 {CONTENT_TYPES.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
               </select>
@@ -262,7 +262,7 @@ function PostModal({ post, clients, onClose, onSave }) {
 
           {form.client && platformAccounts.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Social Account <span className="text-slate-400 font-normal">(optional)</span></label>
+              <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Social Account <span className="text-[var(--fd-ink-4)] font-normal">(optional)</span></label>
               <select className="input w-full" value={form.socialAccount || ''} onChange={e => handle('socialAccount', e.target.value)}>
                 <option value="">Select account…</option>
                 {platformAccounts.map(a => <option key={a._id} value={a._id}>{a.accountName}{a.followers ? ` · ${fmtNum(a.followers)} followers` : ''}</option>)}
@@ -271,29 +271,29 @@ function PostModal({ post, clients, onClose, onSave }) {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Caption</label>
+            <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Caption</label>
             <textarea className="input w-full h-24 resize-none" value={form.caption} onChange={e => handle('caption', e.target.value)} placeholder="Write your caption…" />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Hashtags <span className="text-slate-400 font-normal">(space-separated)</span></label>
+            <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Hashtags <span className="text-[var(--fd-ink-4)] font-normal">(space-separated)</span></label>
             <input className="input w-full text-xs" value={form.hashtags} onChange={e => handle('hashtags', e.target.value)} placeholder="#skincare #summer #bloom" />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Media URLs <span className="text-slate-400 font-normal">(one per line)</span></label>
+            <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Media URLs <span className="text-[var(--fd-ink-4)] font-normal">(one per line)</span></label>
             <textarea className="input w-full h-16 resize-none text-xs font-mono" value={Array.isArray(form.mediaUrls) ? form.mediaUrls.join('\n') : ''} onChange={e => handle('mediaUrls', e.target.value.split('\n').filter(Boolean))} placeholder="https://…" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Status</label>
+              <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Status</label>
               <select className="input w-full" value={form.status} onChange={e => handle('status', e.target.value)}>
                 {Object.entries(STATUS_META).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">
                 {form.status === 'published' ? 'Published At' : 'Scheduled At'}
               </label>
               <input type="datetime-local" className="input w-full text-xs" value={form.scheduledAt || ''} onChange={e => handle('scheduledAt', e.target.value)} />
@@ -301,21 +301,21 @@ function PostModal({ post, clients, onClose, onSave }) {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">Internal Notes <span className="text-slate-400 font-normal">(not visible to client)</span></label>
+            <label className="block text-xs font-semibold text-[var(--fd-ink-2)] mb-1">Internal Notes <span className="text-[var(--fd-ink-4)] font-normal">(not visible to client)</span></label>
             <textarea className="input w-full h-16 resize-none text-xs" value={form.notes || ''} onChange={e => handle('notes', e.target.value)} placeholder="e.g. Pending approval — coordinate with product team." />
           </div>
 
           {isEdit && (
-            <div className="border border-slate-100 rounded-xl overflow-hidden">
-              <button onClick={() => setMetricsMode(!metricsMode)} className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors">
+            <div className="border border-[var(--fd-border-subtle)] rounded-xl overflow-hidden">
+              <button onClick={() => setMetricsMode(!metricsMode)} className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-[var(--fd-ink-2)] hover:bg-[var(--fd-surface-raised)] transition-colors">
                 <span className="flex items-center gap-1.5"><BarChart3 size={13} /> Update Metrics</span>
-                <span className="text-slate-400 text-[10px]">{metricsMode ? '▲ hide' : '▼ expand'}</span>
+                <span className="text-[var(--fd-ink-4)] text-[10px]">{metricsMode ? '▲ hide' : '▼ expand'}</span>
               </button>
               {metricsMode && (
-                <div className="p-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-4 border-t border-[var(--fd-border-subtle)] grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {['likes', 'comments', 'shares', 'saves', 'views', 'reach', 'impressions', 'clicks'].map(k => (
                     <div key={k}>
-                      <label className="block text-[10px] text-slate-500 mb-0.5 capitalize">{k}</label>
+                      <label className="block text-[10px] text-[var(--fd-ink-3)] mb-0.5 capitalize">{k}</label>
                       <input type="number" className="input w-full text-xs" min={0} value={form.metrics?.[k] || ''} onChange={e => handleMetric(k, e.target.value)} />
                     </div>
                   ))}
@@ -327,14 +327,14 @@ function PostModal({ post, clients, onClose, onSave }) {
           <label className="flex items-center gap-2.5 cursor-pointer select-none">
             <div className="relative flex-shrink-0">
               <input type="checkbox" className="sr-only" checked={!!form.isClientVisible} onChange={e => handle('isClientVisible', e.target.checked)} />
-              <div className={`w-9 h-5 rounded-full transition-colors ${form.isClientVisible ? 'bg-brand-600' : 'bg-slate-200'}`} />
-              <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isClientVisible ? 'translate-x-4' : ''}`} />
+              <div className={`w-9 h-5 rounded-full transition-colors ${form.isClientVisible ? 'bg-brand-600' : 'bg-[var(--fd-border)]'}`} />
+              <div className={`absolute top-0.5 left-0.5 w-4 h-4 bg-[var(--fd-surface)] rounded-full shadow transition-transform ${form.isClientVisible ? 'translate-x-4' : ''}`} />
             </div>
-            <span className="text-xs text-slate-600">Visible to client in their portal</span>
+            <span className="text-xs text-[var(--fd-ink-2)]">Visible to client in their portal</span>
           </label>
         </div>
 
-        <div className="flex gap-3 p-5 border-t border-slate-100 sticky bottom-0 bg-white">
+        <div className="flex gap-3 p-5 border-t border-[var(--fd-border-subtle)] sticky bottom-0 bg-[var(--fd-surface)]">
           <button onClick={onClose} className="btn-secondary flex-1">Cancel</button>
           <button onClick={submit} disabled={saving} className="btn-primary flex-1">
             {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Post'}
@@ -356,12 +356,12 @@ function AnalyticsSummary({ analytics }) {
         { label: 'Total Likes', val: fmtNum(t.totalLikes), icon: Heart },
         { label: 'Avg Engagement', val: t.avgEngagementRate ? t.avgEngagementRate.toFixed(1) + '%' : '—', icon: ArrowUpRight },
       ].map(({ label, val, icon: Icon }) => (
-        <div key={label} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div key={label} className="bg-[var(--fd-surface)] border border-[var(--fd-border)] rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-slate-500 font-medium">{label}</span>
-            <Icon size={14} className="text-slate-400" />
+            <span className="text-xs text-[var(--fd-ink-3)] font-medium">{label}</span>
+            <Icon size={14} className="text-[var(--fd-ink-4)]" />
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-slate-800">{val}</div>
+          <div className="text-xl sm:text-2xl font-bold text-[var(--fd-ink-1)]">{val}</div>
         </div>
       ))}
     </div>
@@ -428,8 +428,8 @@ export default function SocialPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg sm:text-xl font-bold text-slate-800">Social Media</h1>
-          <p className="text-slate-500 text-sm mt-0.5 hidden sm:block">
+          <h1 className="text-lg sm:text-xl font-bold text-[var(--fd-ink-1)]">Social Media</h1>
+          <p className="text-[var(--fd-ink-3)] text-sm mt-0.5 hidden sm:block">
             Manage content · track performance · schedule posts
           </p>
         </div>
@@ -441,7 +441,7 @@ export default function SocialPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 bg-[var(--fd-surface-sunken)] rounded-lg p-1 w-fit">
         {[
           { key: 'posts', label: 'Posts', icon: BarChart3 },
           { key: 'analytics', label: 'Analytics', icon: TrendingUp },
@@ -450,7 +450,7 @@ export default function SocialPage() {
             key={key}
             onClick={() => setTab(key)}
             className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-all
-              ${tab === key ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
+              ${tab === key ? 'bg-[var(--fd-surface)] shadow-sm text-[var(--fd-ink-1)]' : 'text-[var(--fd-ink-3)] hover:text-[var(--fd-ink-2)]'}`}
           >
             <Icon size={14} />{label}
           </button>
@@ -458,20 +458,20 @@ export default function SocialPage() {
       </div>
 
       {/* Filters — collapsible on mobile */}
-      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="bg-[var(--fd-surface)] border border-[var(--fd-border)] rounded-xl overflow-hidden">
         <button
           className="w-full flex items-center justify-between px-4 py-3 sm:hidden"
           onClick={() => setShowFilters(v => !v)}
         >
-          <span className="flex items-center gap-2 text-sm font-medium text-slate-700">
-            <Filter size={14} className="text-slate-400" />
+          <span className="flex items-center gap-2 text-sm font-medium text-[var(--fd-ink-2)]">
+            <Filter size={14} className="text-[var(--fd-ink-4)]" />
             Filters {hasFilters && <span className="bg-brand-100 text-brand-700 text-xs px-1.5 py-0.5 rounded-full">{Object.values(filters).filter(Boolean).length}</span>}
           </span>
-          <span className="text-slate-400 text-xs">{showFilters ? '▲' : '▼'}</span>
+          <span className="text-[var(--fd-ink-4)] text-xs">{showFilters ? '▲' : '▼'}</span>
         </button>
 
         <div className={`${showFilters ? 'block' : 'hidden'} sm:block px-4 py-3 flex flex-col sm:flex-row sm:flex-wrap gap-2 items-start sm:items-center`}>
-          <Filter size={14} className="text-slate-400 flex-shrink-0 hidden sm:block" />
+          <Filter size={14} className="text-[var(--fd-ink-4)] flex-shrink-0 hidden sm:block" />
           <select className="input text-xs py-1.5 w-full sm:w-auto sm:min-w-[160px]" value={filters.clientId} onChange={e => setFilter('clientId', e.target.value)}>
             <option value="">All Clients</option>
             {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
@@ -489,11 +489,11 @@ export default function SocialPage() {
             {CONTENT_TYPES.map(t => <option key={t} value={t} className="capitalize">{t}</option>)}
           </select>
           {hasFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-slate-500 hover:text-red-500 transition-colors w-full sm:w-auto">
+            <button onClick={clearFilters} className="flex items-center gap-1 text-xs text-[var(--fd-ink-3)] hover:text-red-500 transition-colors w-full sm:w-auto">
               <X size={12} /> Clear filters
             </button>
           )}
-          <span className="ml-auto text-xs text-slate-400 font-medium hidden sm:block">
+          <span className="ml-auto text-xs text-[var(--fd-ink-4)] font-medium hidden sm:block">
             {loading ? '…' : `${posts.length} post${posts.length !== 1 ? 's' : ''}`}
           </span>
         </div>
@@ -516,7 +516,7 @@ export default function SocialPage() {
             </span>
           )}
           {filters.status && (
-            <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full">
+            <span className="inline-flex items-center gap-1.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] text-xs font-medium px-2.5 py-1 rounded-full">
               {STATUS_META[filters.status]?.label}
               <button onClick={() => setFilter('status', '')} className="ml-0.5 hover:opacity-70"><X size={10} /></button>
             </span>
@@ -535,8 +535,8 @@ export default function SocialPage() {
         <div className="space-y-6">
           <AnalyticsSummary analytics={analytics} />
           {analytics?.byPlatform?.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5">
-              <h3 className="font-semibold text-slate-800 mb-4 text-sm">Performance by Platform</h3>
+            <div className="bg-[var(--fd-surface)] border border-[var(--fd-border)] rounded-xl p-5">
+              <h3 className="font-semibold text-[var(--fd-ink-1)] mb-4 text-sm">Performance by Platform</h3>
               <div className="space-y-3">
                 {analytics.byPlatform.map(p => {
                   const pm = PLATFORM_META[p._id] || {};
@@ -548,10 +548,10 @@ export default function SocialPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between text-sm flex-wrap gap-1">
-                          <span className="font-medium text-slate-700">{pm.label}</span>
-                          <span className="text-slate-500 text-xs">{p.posts} posts · {p.avgEngagementRate?.toFixed(1)}% eng.</span>
+                          <span className="font-medium text-[var(--fd-ink-2)]">{pm.label}</span>
+                          <span className="text-[var(--fd-ink-3)] text-xs">{p.posts} posts · {p.avgEngagementRate?.toFixed(1)}% eng.</span>
                         </div>
-                        <div className="flex gap-3 text-xs text-slate-500 mt-0.5">
+                        <div className="flex gap-3 text-xs text-[var(--fd-ink-3)] mt-0.5">
                           <span>❤️ {fmtNum(p.totalLikes)}</span>
                           <span>💬 {fmtNum(p.totalComments)}</span>
                           <span>👁 {fmtNum(p.totalReach)}</span>
@@ -564,7 +564,7 @@ export default function SocialPage() {
             </div>
           )}
           {!analytics && (
-            <div className="text-center py-12 text-slate-400">
+            <div className="text-center py-12 text-[var(--fd-ink-4)]">
               <TrendingUp size={36} className="mx-auto mb-3 opacity-30" />
               <p className="text-sm">No analytics data for this period.</p>
             </div>
@@ -589,9 +589,9 @@ export default function SocialPage() {
               </div>
             </div>
           ) : posts.length === 0 ? (
-            <div className="text-center py-20 text-slate-400">
+            <div className="text-center py-20 text-[var(--fd-ink-4)]">
               <BarChart3 size={40} className="mx-auto mb-3 opacity-30" />
-              <p className="font-medium text-slate-500">No posts found</p>
+              <p className="font-medium text-[var(--fd-ink-3)]">No posts found</p>
               <p className="text-sm mt-1">{hasFilters ? 'Try adjusting your filters.' : 'Create your first social post above.'}</p>
             </div>
           ) : (

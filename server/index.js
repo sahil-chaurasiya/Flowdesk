@@ -11,17 +11,27 @@ const connectDB = require('./config/database');
 const { initSocket } = require('./config/socket');
 const { errorHandler } = require('./middleware/error');
 
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const clientRoutes = require('./routes/clients');
-const taskRoutes = require('./routes/tasks');
-const updateRoutes = require('./routes/updates');
-const messageRoutes = require('./routes/messages');
-const fileRoutes = require('./routes/files');
-const reportRoutes = require('./routes/reports');
+// ── Existing routes (DO NOT REMOVE) ──────────────────────────────────────────
+const authRoutes         = require('./routes/auth');
+const userRoutes         = require('./routes/users');
+const clientRoutes       = require('./routes/clients');
+const taskRoutes         = require('./routes/tasks');
+const updateRoutes       = require('./routes/updates');
+const messageRoutes      = require('./routes/messages');
+const fileRoutes         = require('./routes/files');
+const reportRoutes       = require('./routes/reports');
 const notificationRoutes = require('./routes/notifications');
+const leadsRouter        = require('./routes/leads');
+const dashboardRouter    = require('./routes/dashboard');
+const socialRouter       = require('./routes/social');
+const { router: eventsRouter, emitEvent } = require('./routes/events');
 
-const app = express();
+// ── NEW routes ────────────────────────────────────────────────────────────────
+const activityRouter  = require('./routes/activity');
+const calendarRouter  = require('./routes/calendar');
+const searchRouter    = require('./routes/search');
+
+const app    = express();
 const server = http.createServer(app);
 
 // Init Socket.io
@@ -36,22 +46,14 @@ app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
-
-// // Rate Limiting
-// const limiter = rateLimit({
-//   windowMs: 15 * 60 * 1000,
-//   max: 200,
-//   message: { success: false, message: 'Too many requests, please try again later.' }
-// });
-// app.use('/api/', limiter);
 
 // Auth-specific stricter limit
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
-  message: { success: false, message: 'Too many login attempts, please try again later.' }
+  message: { success: false, message: 'Too many login attempts, please try again later.' },
 });
 
 // Body Parser
@@ -66,15 +68,12 @@ if (process.env.NODE_ENV === 'development') {
 // Static files for local uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes
-const leadsRouter     = require('./routes/leads');
-const dashboardRouter = require('./routes/dashboard');
-const socialRouter    = require('./routes/social');
-const { router: eventsRouter, emitEvent } = require('./routes/events');
-
 // Make emitEvent available globally for other routes
 app.locals.emitEvent = emitEvent;
 
+// ── Mount routes ──────────────────────────────────────────────────────────────
+
+// Existing
 app.use('/api/auth',          authLimiter, authRoutes);
 app.use('/api/users',         userRoutes);
 app.use('/api/clients',       clientRoutes);
@@ -89,9 +88,14 @@ app.use('/api/dashboard',     dashboardRouter);
 app.use('/api/social',        socialRouter);
 app.use('/api/events',        eventsRouter);
 
+// New
+app.use('/api/activity',  activityRouter);
+app.use('/api/calendar',  calendarRouter);
+app.use('/api/search',    searchRouter);
+
 // Health Check
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'To Fly Media API is running', timestamp: new Date() });
+  res.json({ success: true, message: 'FlowDesk API is running', timestamp: new Date() });
 });
 
 // 404 Handler
@@ -104,7 +108,7 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`🚀 To Fly Media Server running on port ${PORT}`);
+  console.log(`🚀 FlowDesk Server running on port ${PORT}`);
   console.log(`📡 Environment: ${process.env.NODE_ENV}`);
 });
 

@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { sendTokenResponse, generateAccessToken } = require('../utils/jwt');
 const { protect } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
+const { logActivity } = require('../utils/activityLog');
 
 // @route POST /api/auth/login
 router.post('/login', asyncHandler(async (req, res) => {
@@ -24,6 +25,10 @@ router.post('/login', asyncHandler(async (req, res) => {
 
   user.lastLogin = new Date();
   await user.save({ validateBeforeSave: false });
+
+  // Attach user to req so logActivity works (protect middleware not yet run)
+  req.user = user;
+  logActivity({ req, action: 'auth.login', entity: { type: 'user', id: user._id, name: user.name } });
 
   sendTokenResponse(user, 200, res);
 }));
@@ -53,6 +58,7 @@ router.post('/refresh', asyncHandler(async (req, res) => {
 
 // @route POST /api/auth/logout
 router.post('/logout', protect, asyncHandler(async (req, res) => {
+  logActivity({ req, action: 'auth.logout', entity: { type: 'user', id: req.user._id, name: req.user.name } });
   await User.findByIdAndUpdate(req.user._id, { $set: { refreshTokens: [] } });
   res.json({ success: true, message: 'Logged out successfully' });
 }));
@@ -79,6 +85,8 @@ router.put('/change-password', protect, asyncHandler(async (req, res) => {
   user.password = newPassword;
   await user.save();
 
+  logActivity({ req, action: 'auth.password_changed', entity: { type: 'user', id: user._id, name: user.name } });
+
   res.json({ success: true, message: 'Password changed successfully' });
 }));
 
@@ -89,6 +97,9 @@ router.put('/profile', protect, asyncHandler(async (req, res) => {
   allowed.forEach(field => { if (req.body[field] !== undefined) updates[field] = req.body[field]; });
 
   const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
+
+  logActivity({ req, action: 'settings.updated', entity: { type: 'user', id: user._id, name: user.name }, meta: { fields: Object.keys(updates) } });
+
   res.json({ success: true, user });
 }));
 

@@ -525,9 +525,113 @@
   /* Animation helpers */
   .animate-fade-in { animation: fade-in 0.2s ease-out both; }
   .animate-fade-up { animation: fade-up 0.3s ease-out both; }
+  .animate-scale-in { animation: scale-in 0.18s ease-out both; }
+  .animate-slide-in { animation: slide-in 0.28s cubic-bezier(0.32,0.72,0,1); }
 
   /* ── Theme transition — smooth switching ──────────────────────────────── */
   .fd-transition {
     transition: background-color 0.2s ease, border-color 0.2s ease, color 0.15s ease;
+  }
+
+  /* ── Kanban drag-over highlight ───────────────────────────────────────── */
+  .kanban-drop-over {
+    outline: 2px dashed #4f6ef0;
+    outline-offset: -2px;
+  }
+
+  /* ── Global search overlay ────────────────────────────────────────────── */
+  .search-overlay-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+  }
+
+  /* ── Calendar grid overrides ──────────────────────────────────────────── */
+  .calendar-cell {
+    min-height: 96px;
+    padding: 6px;
+    border-right: 1px solid var(--fd-border-subtle);
+    border-bottom: 1px solid var(--fd-border-subtle);
+    cursor: pointer;
+    transition: background 0.1s ease;
+  }
+  .calendar-cell:hover { background: var(--fd-table-row-hover); }
+  .calendar-cell-today .calendar-day-num {
+    background: #4f6ef0;
+    color: #ffffff;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── Command palette keyboard hint ───────────────────────────────────── */
+  kbd {
+    font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 1px 4px;
+  }
+
+  /* ── Scrollbar styling (webkit) ───────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--fd-border-strong);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--fd-ink-5); }
+
+  /* ── Progress bar ─────────────────────────────────────────────────────── */
+  .fd-progress-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--fd-surface-sunken);
+    overflow: hidden;
+  }
+  .fd-progress-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+
+  /* ── Funnel bar labels ────────────────────────────────────────────────── */
+  .funnel-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--fd-ink-3);
+  }
+
+  /* ── Activity log action badge ────────────────────────────────────────── */
+  .action-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--fd-surface-sunken);
+    color: var(--fd-ink-3);
+    font-family: ui-monospace, monospace;
+  }
+
+  /* ── Settings section card ────────────────────────────────────────────── */
+  .settings-section {
+    background: var(--fd-surface);
+    border: 1px solid var(--fd-border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  /* ── Export dropdown ──────────────────────────────────────────────────── */
+  .export-dropdown {
+    background: var(--fd-surface);
+    border: 1px solid var(--fd-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+    overflow: hidden;
+    min-width: 160px;
   }
 }

@@ -4,12 +4,14 @@ import {
   LayoutDashboard, Users, CheckSquare, MessageSquare,
   BarChart3, Upload, Bell, LogOut, ChevronLeft,
   ChevronRight, Menu, X, Rss, Building2, Target,
-  ListChecks, Instagram, Sun, Moon,
+  ListChecks, Instagram, Sun, Moon, Search,
+  Kanban, Calendar, Activity, Settings,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../shared/NotificationPanel';
+import GlobalSearch from '../shared/GlobalSearch';
 import { getInitials } from '../../lib/utils';
 
 const ROLE_LABELS = {
@@ -23,23 +25,40 @@ const ROLE_LABELS = {
 };
 
 const navItems = [
-  { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/clients',   icon: Building2,      label: 'Clients',    managerOnly: true },
-  { to: '/admin/tasks',     icon: CheckSquare,    label: 'All Tasks',  managerOnly: true },
-  { to: '/admin/my-tasks',  icon: ListChecks,     label: 'My Tasks',   teamOnly: true },
-  { to: '/admin/leads',     icon: Target,         label: 'Leads',      managerOnly: true },
-  { to: '/admin/updates',   icon: Rss,            label: 'Updates' },
-  { to: '/admin/social',    icon: Instagram,      label: 'Social Media' },
-  { to: '/admin/reports',   icon: BarChart3,      label: 'Reports' },
-  { to: '/admin/files',     icon: Upload,         label: 'Files' },
-  { to: '/admin/messages',  icon: MessageSquare,  label: 'Messages' },
-  { to: '/admin/team',      icon: Users,          label: 'Team',       adminOnly: true },
+  { to: '/admin/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/clients',    icon: Building2,       label: 'Clients',      managerOnly: true },
+  { to: '/admin/tasks',      icon: CheckSquare,     label: 'All Tasks',    managerOnly: true },
+  { to: '/admin/kanban',     icon: Kanban,          label: 'Kanban',       managerOnly: true },
+  { to: '/admin/my-tasks',   icon: ListChecks,      label: 'My Tasks',     teamOnly: true },
+  { to: '/admin/leads',      icon: Target,          label: 'Leads',        managerOnly: true },
+  { to: '/admin/calendar',   icon: Calendar,        label: 'Calendar' },
+  { to: '/admin/updates',    icon: Rss,             label: 'Updates' },
+  { to: '/admin/social',     icon: Instagram,       label: 'Social Media' },
+  { to: '/admin/reports',    icon: BarChart3,       label: 'Reports' },
+  { to: '/admin/files',      icon: Upload,          label: 'Files' },
+  { to: '/admin/messages',   icon: MessageSquare,   label: 'Messages' },
+  { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
+  { to: '/admin/activity',   icon: Activity,        label: 'Activity',     adminOnly: true },
+  { to: '/admin/settings',   icon: Settings,        label: 'Settings' },
 ];
 
 const NAV_SECTIONS = [
-  { label: 'Workspace', keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/my-tasks', '/admin/leads'] },
-  { label: 'Delivery',  keys: ['/admin/updates', '/admin/social', '/admin/reports', '/admin/files'] },
-  { label: 'Connect',   keys: ['/admin/messages', '/admin/team'] },
+  {
+    label: 'Workspace',
+    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/leads'],
+  },
+  {
+    label: 'Delivery',
+    keys: ['/admin/calendar', '/admin/updates', '/admin/social', '/admin/reports', '/admin/files'],
+  },
+  {
+    label: 'Connect',
+    keys: ['/admin/messages', '/admin/team'],
+  },
+  {
+    label: 'System',
+    keys: ['/admin/activity', '/admin/settings'],
+  },
 ];
 
 const TEAM_ROLES = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
@@ -49,21 +68,25 @@ export default function AdminLayout() {
   const { socket } = useSocket();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed]   = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
+  // Resize listener
   useEffect(() => {
     const onResize = () => { if (window.innerWidth >= 768) setMobileOpen(false); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  // Body scroll lock on mobile
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
+  // Socket notifications
   useEffect(() => {
     if (!socket) return;
     const handler = (notif) => {
@@ -73,11 +96,23 @@ export default function AdminLayout() {
     return () => socket.off('notification', handler);
   }, [socket, user?.notifications, updateUser]);
 
+  // ⌘K / Ctrl+K shortcut
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setSearchOpen(s => !s);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   const handleLogout = async () => { await logout(); navigate('/login'); };
 
-  const isAdmin    = user?.role === 'admin';
-  const isManager  = ['admin', 'manager'].includes(user?.role);
-  const isTeam     = TEAM_ROLES.includes(user?.role);
+  const isAdmin   = user?.role === 'admin';
+  const isManager = ['admin', 'manager'].includes(user?.role);
+  const isTeam    = TEAM_ROLES.includes(user?.role);
 
   const filteredNav = navItems.filter(item => {
     if (item.adminOnly)   return isAdmin;
@@ -96,7 +131,6 @@ export default function AdminLayout() {
         className={`flex items-center gap-2.5 px-4 h-[58px] flex-shrink-0 ${collapsed && !isMobile ? 'justify-center' : ''}`}
         style={{ borderBottom: '1px solid var(--fd-sidebar-border)' }}
       >
-        {/* Logomark */}
         <div
           className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-[#4f6ef0]"
           style={{ boxShadow: '0 1px 3px rgba(79,110,240,0.35)' }}
@@ -119,8 +153,32 @@ export default function AdminLayout() {
         )}
       </div>
 
+      {/* Search bar in sidebar */}
+      {(!collapsed || isMobile) && (
+        <div className="px-2.5 pt-2.5 pb-1">
+          <button
+            onClick={() => { setSearchOpen(true); if (isMobile) setMobileOpen(false); }}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-colors"
+            style={{
+              background: 'var(--fd-sidebar-hover)',
+              border: '1px solid var(--fd-sidebar-border)',
+              color: 'var(--fd-ink-4)',
+            }}
+          >
+            <Search size={13} />
+            <span className="flex-1 text-left">Search…</span>
+            <kbd
+              className="text-[10px] px-1 rounded font-mono"
+              style={{ background: 'var(--fd-sidebar-border)', color: 'var(--fd-ink-5)' }}
+            >
+              ⌘K
+            </kbd>
+          </button>
+        </div>
+      )}
+
       {/* Nav */}
-      <nav className="flex-1 px-2.5 py-3 overflow-y-auto">
+      <nav className="flex-1 px-2.5 py-2 overflow-y-auto">
         {NAV_SECTIONS.map(section => {
           const items = filteredNav.filter(item => section.keys.includes(item.to));
           if (!items.length) return null;
@@ -178,7 +236,6 @@ export default function AdminLayout() {
         <button
           onClick={handleLogout}
           className={`sidebar-link mt-0.5 w-full ${collapsed && !isMobile ? 'justify-center' : ''}`}
-          style={{ '--hover-color': '#ef4444', '--hover-bg': 'rgba(239,68,68,0.1)' }}
           onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = isDark ? 'rgba(239,68,68,0.12)' : '#fef2f2'; }}
           onMouseLeave={e => { e.currentTarget.style.color = ''; e.currentTarget.style.background = ''; }}
         >
@@ -266,15 +323,31 @@ export default function AdminLayout() {
 
           <div className="flex-1" />
 
-          {/* Right */}
+          {/* Right controls */}
           <div className="flex items-center gap-1">
+
+            {/* Search trigger (desktop) */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="hidden md:flex items-center gap-2 btn-ghost px-3 py-1.5 text-[12px]"
+              aria-label="Search"
+              title="Search (⌘K)"
+            >
+              <Search size={14} />
+              <span style={{ color: 'var(--fd-ink-4)' }}>Search</span>
+              <kbd
+                className="text-[10px] px-1 rounded font-mono"
+                style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-5)', border: '1px solid var(--fd-border)' }}
+              >
+                ⌘K
+              </kbd>
+            </button>
 
             {/* Dark mode toggle */}
             <button
               onClick={toggleTheme}
               className="btn-ghost p-2"
               aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              title={isDark ? 'Light mode' : 'Dark mode'}
             >
               {isDark
                 ? <Sun size={16} strokeWidth={1.7} />
@@ -307,6 +380,9 @@ export default function AdminLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Global search overlay */}
+      <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

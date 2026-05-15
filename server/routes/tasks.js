@@ -6,14 +6,12 @@ const User = require('../models/User');
 const { protect, authorize, TEAM_ROLES } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { createNotification } = require('../utils/notifications');
+const { logActivity } = require('../utils/activityLog');
 
-const NON_CLIENT_ROLES = [...TEAM_ROLES]; // all internal roles
+const NON_CLIENT_ROLES = [...TEAM_ROLES];
 const MANAGER_ROLES = ['admin', 'manager'];
 
 // @route GET /api/tasks
-// Admin/manager → all tasks (with optional filters)
-// Team member   → only their assigned tasks
-// Client        → not allowed
 router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
   const {
     status, priority, category, client: clientId,
@@ -23,18 +21,17 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   const isManager = MANAGER_ROLES.includes(req.user.role);
   const query = {};
 
-  // Team members only see their own tasks
   if (!isManager) {
     query.assignedTo = req.user._id;
   } else {
-    if (clientId) query.client = clientId;
-    if (assignedTo) query.assignedTo = assignedTo;
+    if (clientId)    query.client     = clientId;
+    if (assignedTo)  query.assignedTo = assignedTo;
   }
 
-  if (status) query.status = status;
+  if (status)   query.status   = status;
   if (priority) query.priority = priority;
   if (category) query.category = category;
-  if (search) query.title = { $regex: search, $options: 'i' };
+  if (search)   query.title    = { $regex: search, $options: 'i' };
 
   const total = await Task.countDocuments(query);
   const tasks = await Task.find(query)
@@ -66,6 +63,13 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
     });
   }
 
+  logActivity({
+    req,
+    action: 'task.created',
+    entity: { type: 'task', id: task._id, name: task.title },
+    meta: { client: populated.client?.company, assignedTo: populated.assignedTo?.name },
+  });
+
   res.status(201).json({ success: true, task: populated });
 }));
 
@@ -76,15 +80,12 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
 
   const isManager = MANAGER_ROLES.includes(req.user.role);
 
-  // Team members can only update status/actualHours on their own tasks
   if (!isManager) {
     if (String(existing.assignedTo) !== String(req.user._id)) {
       return res.status(403).json({ success: false, message: 'You can only update tasks assigned to you' });
     }
     const allowed = ['status', 'actualHours', 'comments'];
-    Object.keys(req.body).forEach(key => {
-      if (!allowed.includes(key)) delete req.body[key];
-    });
+    Object.keys(req.body).forEach(key => { if (!allowed.includes(key)) delete req.body[key]; });
   }
 
   const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
@@ -92,7 +93,30 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
     .populate('assignedTo', 'name avatar role jobTitle')
     .populate('createdBy', 'name');
 
-  // Notify manager when team member sends task for review
+  // Log status change
+  if (req.body.status && req.body.status !== existing.status) {
+    logActivity({
+      req,
+      action: 'task.status_changed',
+      entity: { type: 'task', id: task._id, name: task.title },
+      meta: { from: existing.status, to: req.body.status },
+    });
+  } else if (req.body.assignedTo && String(req.body.assignedTo) !== String(existing.assignedTo)) {
+    logActivity({
+      req,
+      action: 'task.assigned',
+      entity: { type: 'task', id: task._id, name: task.title },
+      meta: { assignedTo: task.assignedTo?.name },
+    });
+  } else {
+    logActivity({
+      req,
+      action: 'task.updated',
+      entity: { type: 'task', id: task._id, name: task.title },
+    });
+  }
+
+  // Notify manager when team sends for review
   if (req.body.status === 'review' && existing.status !== 'review') {
     const managers = await User.find({ role: { $in: MANAGER_ROLES } }).select('_id');
     for (const mgr of managers) {
@@ -103,11 +127,9 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
         link: '/admin/tasks'
       });
     }
-    // Emit automation event
     try { req.app.locals.emitEvent?.('task.review_requested', { taskId: task._id, title: task.title, client: task.client?.company, reviewedBy: req.user.name }); } catch {}
   }
 
-  // Emit task.completed event
   if (req.body.status === 'completed' && existing.status !== 'completed') {
     try { req.app.locals.emitEvent?.('task.completed', { taskId: task._id, title: task.title, client: task.client?.company, completedBy: req.user.name }); } catch {}
   }
@@ -115,15 +137,21 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
   res.json({ success: true, task });
 }));
 
-// @route DELETE /api/tasks/:id  (admin/manager only)
+// @route DELETE /api/tasks/:id
 router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const task = await Task.findByIdAndDelete(req.params.id);
   if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
+
+  logActivity({
+    req,
+    action: 'task.deleted',
+    entity: { type: 'task', id: task._id, name: task.title },
+  });
+
   res.json({ success: true, message: 'Task deleted' });
 }));
 
-// @route GET /api/tasks/stats  (admin/manager)
-// NOTE: must be declared before /:id to avoid route shadowing
+// @route GET /api/tasks/stats
 router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const { clientId } = req.query;
   const match = clientId ? { client: require('mongoose').Types.ObjectId.createFromHexString(clientId) } : {};
@@ -148,6 +176,12 @@ router.post('/:id/comments', protect, authorize(...NON_CLIENT_ROLES), asyncHandl
     { $push: { comments: { user: req.user._id, text: text.trim() } } },
     { new: true }
   ).populate('comments.user', 'name avatar role');
+
+  logActivity({
+    req,
+    action: 'task.commented',
+    entity: { type: 'task', id: task._id, name: task.title },
+  });
 
   res.json({ success: true, task });
 }));

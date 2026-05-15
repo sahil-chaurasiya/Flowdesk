@@ -114,10 +114,16 @@ router.get('/analytics/tasks', protect, authorize('admin', 'manager'), asyncHand
 // @route GET /api/dashboard/analytics/leads
 // Lead funnel + conversion analytics
 router.get('/analytics/leads', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const mongoose = require('mongoose');
   const { clientId } = req.query;
-  const match = clientId
-    ? { client: require('mongoose').Types.ObjectId.createFromHexString(clientId) }
-    : {};
+
+  // Safely build match filter — avoid ObjectId cast errors
+  let match = {};
+  if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
+    match = { client: new mongoose.Types.ObjectId(clientId) };
+  }
+
+  const since12Weeks = new Date(Date.now() - 84 * 24 * 3600 * 1000);
 
   const [byStatus, byQuality, bySource, trend] = await Promise.all([
     Lead.aggregate([
@@ -134,11 +140,24 @@ router.get('/analytics/leads', protect, authorize('admin', 'manager'), asyncHand
       { $sort: { count: -1 } },
       { $limit: 8 }
     ]),
-    // Upload trend (last 12 weeks)
+    // Upload trend (last 12 weeks) — use %Y-%m-%d grouped by week via $week arithmetic
+    // Use %Y-%m-%d with day-of-week truncation for broad MongoDB compatibility
     Lead.aggregate([
-      { $match: { ...match, createdAt: { $gte: new Date(Date.now() - 84 * 24 * 3600 * 1000) } } },
-      { $group: {
-          _id: { $dateToString: { format: '%Y-%W', date: '$createdAt' } },
+      { $match: { ...match, createdAt: { $gte: since12Weeks } } },
+      {
+        $group: {
+          _id: {
+            $dateToString: {
+              format: '%Y-%m-%d',
+              date: {
+                $dateSubtract: {
+                  startDate: '$createdAt',
+                  unit: 'day',
+                  amount: { $mod: [{ $dayOfWeek: '$createdAt' }, 7] }
+                }
+              }
+            }
+          },
           count: { $sum: 1 }
         }
       },

@@ -1,91 +1,155 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Search, Filter, RefreshCw, User, CheckSquare, Target, Building2, File, LogIn, LogOut, Settings } from 'lucide-react';
+import {
+  Activity, Search, RefreshCw, User, CheckSquare, Target,
+  Building2, File, LogIn, LogOut, Settings, ChevronDown,
+} from 'lucide-react';
 import api from '../../lib/api';
 import { timeAgo } from '../../lib/utils';
-import { Button, Input } from '../../components/ui/index';
+import { Button } from '../../components/ui/index';
 import { Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 
+// ─── Action Metadata ──────────────────────────────────────────────────────────
 const ACTION_META = {
-  'auth.login':           { icon: LogIn,      color: '#22c55e', label: 'Login' },
-  'auth.logout':          { icon: LogOut,     color: '#ef4444', label: 'Logout' },
-  'auth.password_changed':{ icon: Settings,   color: '#f59e0b', label: 'Password Changed' },
-  'user.created':         { icon: User,       color: '#4f6ef0', label: 'User Created' },
-  'user.updated':         { icon: User,       color: '#4f6ef0', label: 'User Updated' },
-  'user.deactivated':     { icon: User,       color: '#ef4444', label: 'User Deactivated' },
-  'task.created':         { icon: CheckSquare,color: '#4f6ef0', label: 'Task Created' },
-  'task.updated':         { icon: CheckSquare,color: '#f59e0b', label: 'Task Updated' },
-  'task.status_changed':  { icon: CheckSquare,color: '#a855f7', label: 'Task Status Changed' },
-  'task.assigned':        { icon: CheckSquare,color: '#4f6ef0', label: 'Task Assigned' },
-  'task.deleted':         { icon: CheckSquare,color: '#ef4444', label: 'Task Deleted' },
-  'lead.uploaded':        { icon: Target,     color: '#22c55e', label: 'Leads Uploaded' },
-  'lead.status_changed':  { icon: Target,     color: '#f59e0b', label: 'Lead Updated' },
-  'lead.deleted':         { icon: Target,     color: '#ef4444', label: 'Lead Deleted' },
-  'client.created':       { icon: Building2,  color: '#4f6ef0', label: 'Client Created' },
-  'client.updated':       { icon: Building2,  color: '#f59e0b', label: 'Client Updated' },
-  'file.uploaded':        { icon: File,       color: '#22c55e', label: 'File Uploaded' },
-  'settings.updated':     { icon: Settings,   color: '#4f6ef0', label: 'Settings Updated' },
+  'auth.login':            { icon: LogIn,       color: '#22c55e',  label: 'Signed in' },
+  'auth.logout':           { icon: LogOut,      color: '#94a3b8',  label: 'Signed out' },
+  'auth.password_changed': { icon: Settings,    color: '#f59e0b',  label: 'Password changed' },
+  'user.created':          { icon: User,        color: '#4f6ef0',  label: 'User created' },
+  'user.updated':          { icon: User,        color: '#4f6ef0',  label: 'User updated' },
+  'user.deactivated':      { icon: User,        color: '#ef4444',  label: 'User deactivated' },
+  'task.created':          { icon: CheckSquare, color: '#4f6ef0',  label: 'Task created' },
+  'task.updated':          { icon: CheckSquare, color: '#f59e0b',  label: 'Task updated' },
+  'task.status_changed':   { icon: CheckSquare, color: '#a855f7',  label: 'Status changed' },
+  'task.assigned':         { icon: CheckSquare, color: '#4f6ef0',  label: 'Task assigned' },
+  'task.deleted':          { icon: CheckSquare, color: '#ef4444',  label: 'Task deleted' },
+  'lead.uploaded':         { icon: Target,      color: '#22c55e',  label: 'Leads uploaded' },
+  'lead.status_changed':   { icon: Target,      color: '#f59e0b',  label: 'Lead updated' },
+  'lead.deleted':          { icon: Target,      color: '#ef4444',  label: 'Lead deleted' },
+  'client.created':        { icon: Building2,   color: '#4f6ef0',  label: 'Client created' },
+  'client.updated':        { icon: Building2,   color: '#f59e0b',  label: 'Client updated' },
+  'file.uploaded':         { icon: File,        color: '#22c55e',  label: 'File uploaded' },
+  'settings.updated':      { icon: Settings,    color: '#4f6ef0',  label: 'Settings updated' },
 };
 
 function getActionMeta(action) {
   return ACTION_META[action] || { icon: Activity, color: '#a8a49e', label: action };
 }
 
-function LogRow({ log }) {
-  const meta  = getActionMeta(log.action);
-  const Icon  = meta.icon;
+const ACTION_GROUPS = [
+  { value: '',         label: 'All',      icon: Activity },
+  { value: 'auth',    label: 'Auth',     icon: LogIn },
+  { value: 'task',    label: 'Tasks',    icon: CheckSquare },
+  { value: 'lead',    label: 'Leads',    icon: Target },
+  { value: 'client',  label: 'Clients',  icon: Building2 },
+  { value: 'file',    label: 'Files',    icon: File },
+  { value: 'settings',label: 'Settings', icon: Settings },
+];
 
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+function StatCard({ label, value, color }) {
   return (
     <div
-      className="flex items-start gap-3 px-5 py-3.5 border-b last:border-0 hover:bg-[var(--fd-table-row-hover)] transition-colors"
-      style={{ borderColor: 'var(--fd-table-row-border)' }}
+      className="rounded-2xl p-4 flex flex-col gap-1"
+      style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
     >
-      {/* Icon */}
-      <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-        style={{ background: `${meta.color}18` }}
-      >
-        <Icon size={13} style={{ color: meta.color }} />
+      <div className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'var(--fd-ink-4)' }}>
+        {label}
       </div>
-
-      {/* Main */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>
-            {meta.label}
-          </span>
-          {log.entity?.name && (
-            <span
-              className="text-[11px] px-1.5 py-0.5 rounded truncate max-w-[200px]"
-              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
-            >
-              {log.entity.name}
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap" style={{ color: 'var(--fd-ink-4)', fontSize: 11 }}>
-          <span className="font-medium" style={{ color: 'var(--fd-ink-3)' }}>
-            {log.actor?.name || log.actorName || 'System'}
-          </span>
-          <span>·</span>
-          <span>{log.actorRole?.replace(/_/g, ' ')}</span>
-          {log.ip && (
-            <>
-              <span>·</span>
-              <span className="font-mono">{log.ip}</span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Time */}
-      <div className="text-[11px] flex-shrink-0 mt-0.5" style={{ color: 'var(--fd-ink-5)' }}>
-        {timeAgo(log.createdAt)}
+      <div className="text-[26px] font-black tracking-tight leading-none" style={{ color: color || 'var(--fd-ink-1)' }}>
+        {typeof value === 'number' ? value.toLocaleString() : value}
       </div>
     </div>
   );
 }
 
+// ─── Log Row ──────────────────────────────────────────────────────────────────
+function LogRow({ log, isLast }) {
+  const meta  = getActionMeta(log.action);
+  const Icon  = meta.icon;
+
+  // Get initials from actor name
+  const name = log.actor?.name || log.actorName || 'System';
+  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+  return (
+    <div className="flex gap-4 group">
+      {/* Timeline spine */}
+      <div className="flex flex-col items-center flex-shrink-0" style={{ width: 32 }}>
+        <div
+          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ring-4 ring-[var(--fd-canvas)] z-10"
+          style={{ background: `${meta.color}18`, border: `1.5px solid ${meta.color}30` }}
+        >
+          <Icon size={13} style={{ color: meta.color }} />
+        </div>
+        {!isLast && (
+          <div
+            className="w-px flex-1 mt-1"
+            style={{ background: 'var(--fd-border-subtle)', minHeight: 20 }}
+          />
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 pb-5">
+        <div
+          className="rounded-xl px-4 py-3 transition-colors group-hover:border-[var(--fd-border-strong)]"
+          style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2.5 flex-wrap min-w-0">
+              {/* Actor avatar */}
+              <div
+                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-black"
+                style={{ background: `${meta.color}20`, color: meta.color }}
+              >
+                {initials}
+              </div>
+
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>
+                    {name}
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+                    style={{ background: `${meta.color}12`, color: meta.color }}
+                  >
+                    <Icon size={9} />
+                    {meta.label}
+                  </span>
+                  {log.entity?.name && (
+                    <span
+                      className="text-[11px] px-2 py-0.5 rounded-full font-medium truncate max-w-[180px]"
+                      style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
+                    >
+                      {log.entity.name}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap" style={{ fontSize: 11, color: 'var(--fd-ink-4)' }}>
+                  {log.actorRole && (
+                    <span>{log.actorRole.replace(/_/g, ' ')}</span>
+                  )}
+                  {log.ip && (
+                    <>
+                      <span>·</span>
+                      <span className="font-mono text-[10.5px]">{log.ip}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <time className="text-[11px] flex-shrink-0 font-medium" style={{ color: 'var(--fd-ink-5)' }}>
+              {timeAgo(log.createdAt)}
+            </time>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ActivityPage() {
   const [logs, setLogs]       = useState([]);
   const [total, setTotal]     = useState(0);
@@ -93,14 +157,14 @@ export default function ActivityPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch]   = useState('');
   const [filter, setFilter]   = useState('');
+  const LIMIT = 40;
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ page, limit: 40 });
+      const params = new URLSearchParams({ page, limit: LIMIT });
       if (search) params.append('search', search);
       if (filter) params.append('action', filter);
-
       const { data } = await api.get(`/activity?${params}`);
       setLogs(data.logs || []);
       setTotal(data.total || 0);
@@ -111,36 +175,45 @@ export default function ActivityPage() {
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
 
-  const ACTION_GROUPS = [
-    { value: '',     label: 'All activity' },
-    { value: 'auth', label: 'Auth' },
-    { value: 'task', label: 'Tasks' },
-    { value: 'lead', label: 'Leads' },
-    { value: 'client', label: 'Clients' },
-    { value: 'file', label: 'Files' },
-    { value: 'settings', label: 'Settings' },
-  ];
+  // Compute quick stats from current page
+  const authCount   = logs.filter(l => l.action?.startsWith('auth')).length;
+  const taskCount   = logs.filter(l => l.action?.startsWith('task')).length;
+  const leadCount   = logs.filter(l => l.action?.startsWith('lead')).length;
+  const clientCount = logs.filter(l => l.action?.startsWith('client')).length;
+
+  const totalPages  = Math.ceil(total / LIMIT);
+  const start       = (page - 1) * LIMIT + 1;
+  const end         = Math.min(page * LIMIT, total);
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
+    <div className="animate-fade-in space-y-6">
+      {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[22px] font-bold tracking-[-0.02em]" style={{ color: 'var(--fd-ink-1)' }}>
             Activity Log
           </h1>
-          <p className="text-[13px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>
-            {total.toLocaleString()} total events · audit trail for all team actions
+          <p className="text-[13px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+            Audit trail for all team actions
           </p>
         </div>
-        <Button variant="secondary" size="sm" onClick={fetchLogs}>
-          <RefreshCw size={13} />
+        <Button variant="secondary" size="sm" onClick={fetchLogs} disabled={loading}>
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           Refresh
         </Button>
       </div>
 
-      {/* Filters */}
+      {/* ── Stats strip ── */}
+      <div className="grid grid-cols-4 gap-3">
+        <StatCard label="Total events" value={total} color="#4f6ef0" />
+        <StatCard label="Auth events" value={authCount} color="#22c55e" />
+        <StatCard label="Task events" value={taskCount} color="#a855f7" />
+        <StatCard label="Lead events" value={leadCount} color="#f59e0b" />
+      </div>
+
+      {/* ── Filters ── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+        {/* Search */}
         <div className="relative flex-1 max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fd-ink-4)' }} />
           <input
@@ -151,49 +224,85 @@ export default function ActivityPage() {
           />
         </div>
 
+        {/* Category pills */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          {ACTION_GROUPS.map(g => (
-            <button
-              key={g.value}
-              onClick={() => { setFilter(g.value); setPage(1); }}
-              className="text-[11.5px] font-medium px-3 py-1.5 rounded-lg transition-all"
-              style={
-                filter === g.value
-                  ? { background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }
-                  : { background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-3)' }
-              }
-            >
-              {g.label}
-            </button>
-          ))}
+          {ACTION_GROUPS.map(g => {
+            const GIcon = g.icon;
+            const active = filter === g.value;
+            return (
+              <button
+                key={g.value}
+                onClick={() => { setFilter(g.value); setPage(1); }}
+                className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold px-3 py-1.5 rounded-full transition-all"
+                style={
+                  active
+                    ? { background: '#4f6ef0', color: '#fff', boxShadow: '0 2px 8px rgba(79,110,240,0.3)' }
+                    : { background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-3)' }
+                }
+              >
+                <GIcon size={11} />
+                {g.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Log list */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
-      >
+      {/* ── Timeline ── */}
+      <div>
         {loading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-20">
             <Spinner size="lg" />
           </div>
         ) : logs.length === 0 ? (
-          <EmptyState icon={Activity} title="No activity found" description="Try adjusting your filters or search query." />
+          <div
+            className="rounded-2xl"
+            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
+          >
+            <EmptyState icon={Activity} title="No activity found" description="Try adjusting your filters or search query." />
+          </div>
         ) : (
-          logs.map(log => <LogRow key={log._id} log={log} />)
+          <div className="pl-0">
+            {logs.map((log, i) => (
+              <LogRow key={log._id} log={log} isLast={i === logs.length - 1} />
+            ))}
+          </div>
         )}
       </div>
 
-      {/* Pagination */}
-      {!loading && total > 40 && (
-        <div className="flex items-center justify-between text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
-          <span>Showing {Math.min((page - 1) * 40 + 1, total)}–{Math.min(page * 40, total)} of {total}</span>
-          <div className="flex gap-2">
+      {/* ── Pagination ── */}
+      {!loading && total > LIMIT && (
+        <div
+          className="flex items-center justify-between px-4 py-3 rounded-xl"
+          style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
+        >
+          <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-4)' }}>
+            Showing {start}–{end} of {total.toLocaleString()} events
+          </span>
+          <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
               Previous
             </Button>
-            <Button variant="secondary" size="sm" disabled={page * 40 >= total} onClick={() => setPage(p => p + 1)}>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                const p = Math.max(1, Math.min(page - 2, totalPages - 4)) + i;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className="w-8 h-8 rounded-lg text-[12px] font-semibold transition-all"
+                    style={
+                      p === page
+                        ? { background: '#4f6ef0', color: '#fff' }
+                        : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }
+                    }
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+            <Button variant="secondary" size="sm" disabled={page * LIMIT >= total} onClick={() => setPage(p => p + 1)}>
               Next
             </Button>
           </div>

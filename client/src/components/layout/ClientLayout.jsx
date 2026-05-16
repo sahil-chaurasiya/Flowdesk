@@ -10,6 +10,8 @@ import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import { getInitials } from '../../lib/utils';
+// ── AI Assistant ──────────────────────────────────────────────────────────────
+import AIAssistant from '../ai/AIAssistant';
 
 const navItems = [
   { to: '/portal/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -231,6 +233,9 @@ export default function ClientLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* ── AI Assistant (client-scoped — only sees their own data) ──────── */}
+      <AIAssistant />
     </div>
   );
 }

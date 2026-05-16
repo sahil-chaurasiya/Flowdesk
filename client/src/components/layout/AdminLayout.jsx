@@ -13,6 +13,8 @@ import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import GlobalSearch from '../shared/GlobalSearch';
 import { getInitials } from '../../lib/utils';
+// ── AI Assistant ──────────────────────────────────────────────────────────────
+import AIAssistant from '../ai/AIAssistant';
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -80,13 +82,13 @@ export default function AdminLayout() {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
-  // Body scroll lock on mobile
+  // Prevent body scroll when mobile drawer is open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [mobileOpen]);
 
-  // Socket notifications
+  // Real-time notifications
   useEffect(() => {
     if (!socket) return;
     const handler = (notif) => {
@@ -96,12 +98,12 @@ export default function AdminLayout() {
     return () => socket.off('notification', handler);
   }, [socket, user?.notifications, updateUser]);
 
-  // ⌘K / Ctrl+K shortcut
+  // Keyboard shortcut for search
   useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        setSearchOpen(s => !s);
+        setSearchOpen(true);
       }
     };
     window.addEventListener('keydown', handler);
@@ -109,139 +111,126 @@ export default function AdminLayout() {
   }, []);
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
+  const unread = user?.notifications?.filter(n => !n.read).length || 0;
 
-  const isAdmin   = user?.role === 'admin';
-  const isManager = ['admin', 'manager'].includes(user?.role);
-  const isTeam    = TEAM_ROLES.includes(user?.role);
+  const isManager  = ['admin', 'manager'].includes(user?.role);
+  const isAdmin    = user?.role === 'admin';
+  const isTeamOnly = TEAM_ROLES.includes(user?.role);
 
-  const filteredNav = navItems.filter(item => {
-    if (item.adminOnly)   return isAdmin;
-    if (item.managerOnly) return isManager;
-    if (item.teamOnly)    return isTeam;
+  const filteredNavItems = navItems.filter(item => {
+    if (item.adminOnly   && !isAdmin)   return false;
+    if (item.managerOnly && !isManager) return false;
+    if (item.teamOnly    && !isTeamOnly) return false;
     return true;
   });
-
-  const unread = user?.notifications?.filter(n => !n.read).length || 0;
 
   const SidebarContent = ({ isMobile = false }) => (
     <div className="flex flex-col h-full" style={{ background: 'var(--fd-sidebar-bg)' }}>
 
-      {/* Logo */}
+      {/* Logo / Brand */}
       <div
-        className={`flex items-center gap-2.5 px-4 h-[58px] flex-shrink-0 ${collapsed && !isMobile ? 'justify-center' : ''}`}
-        style={{ borderBottom: '1px solid var(--fd-sidebar-border)' }}
+        className="flex items-center gap-3 px-4"
+        style={{
+          height: '56px',
+          borderBottom: '1px solid var(--fd-sidebar-border)',
+          flexShrink: 0,
+        }}
       >
-        <div
-          className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-[#4f6ef0]"
-          style={{ boxShadow: '0 1px 3px rgba(79,110,240,0.35)' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M4.5 8H9.5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: '#4f6ef0' }}>
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+            <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </div>
         {(!collapsed || isMobile) && (
-          <div className="flex-1 min-w-0">
-            <div className="text-[13.5px] font-semibold leading-none tracking-[-0.01em]" style={{ color: 'var(--fd-ink-1)' }}>Flowdesk</div>
-            <div className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>{ROLE_LABELS[user?.role] || 'Team Portal'}</div>
-          </div>
+          <span className="text-[14px] font-bold tracking-tight" style={{ color: 'var(--fd-ink-1)' }}>
+            FlowDesk
+          </span>
         )}
         {isMobile && (
-          <button onClick={() => setMobileOpen(false)} className="btn-ghost p-1.5 ml-auto">
-            <X size={15} />
+          <button className="ml-auto btn-ghost p-1" onClick={() => setMobileOpen(false)}>
+            <X size={16} />
           </button>
         )}
       </div>
 
-      {/* Search bar in sidebar */}
-      {(!collapsed || isMobile) && (
-        <div className="px-2.5 pt-2.5 pb-1">
-          <button
-            onClick={() => { setSearchOpen(true); if (isMobile) setMobileOpen(false); }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-[12px] transition-colors"
-            style={{
-              background: 'var(--fd-sidebar-hover)',
-              border: '1px solid var(--fd-sidebar-border)',
-              color: 'var(--fd-ink-4)',
-            }}
-          >
-            <Search size={13} />
-            <span className="flex-1 text-left">Search…</span>
-            <kbd
-              className="text-[10px] px-1 rounded font-mono"
-              style={{ background: 'var(--fd-sidebar-border)', color: 'var(--fd-ink-5)' }}
-            >
-              ⌘K
-            </kbd>
-          </button>
-        </div>
-      )}
-
-      {/* Nav */}
-      <nav className="flex-1 px-2.5 py-2 overflow-y-auto">
-        {NAV_SECTIONS.map(section => {
-          const items = filteredNav.filter(item => section.keys.includes(item.to));
-          if (!items.length) return null;
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-3 px-2" style={{ scrollbarWidth: 'none' }}>
+        {NAV_SECTIONS.map((section) => {
+          const sectionItems = filteredNavItems.filter(item => section.keys.includes(item.to));
+          if (sectionItems.length === 0) return null;
           return (
-            <div key={section.label} className="mb-3 last:mb-0">
+            <div key={section.label} className="mb-4">
               {(!collapsed || isMobile) && (
-                <div className="px-2 mb-1 pt-1">
-                  <span
-                    className="text-[10px] font-semibold uppercase tracking-widest"
-                    style={{ color: 'var(--fd-sidebar-section)' }}
-                  >
-                    {section.label}
-                  </span>
+                <div
+                  className="px-3 mb-1 text-[10px] font-semibold uppercase tracking-widest"
+                  style={{ color: 'var(--fd-ink-5)' }}
+                >
+                  {section.label}
                 </div>
               )}
-              <div className="space-y-0.5">
-                {items.map(({ to, icon: Icon, label }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    className={({ isActive }) =>
-                      `sidebar-link ${isActive ? 'active' : ''} ${collapsed && !isMobile ? 'justify-center' : ''}`
-                    }
-                    title={collapsed && !isMobile ? label : undefined}
-                    onClick={() => setMobileOpen(false)}
-                  >
-                    <div className="icon-wrap">
-                      <Icon size={15} strokeWidth={1.7} />
-                    </div>
-                    {(!collapsed || isMobile) && <span>{label}</span>}
-                  </NavLink>
-                ))}
-              </div>
+              {sectionItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => isMobile && setMobileOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2 rounded-lg mb-0.5 text-[13px] font-medium transition-all duration-150 ${
+                      isActive
+                        ? 'text-[#4f6ef0]'
+                        : 'hover:text-[var(--fd-ink-1)]'
+                    }`
+                  }
+                  style={({ isActive }) => ({
+                    background: isActive ? 'var(--fd-sidebar-active-bg)' : 'transparent',
+                    color: isActive ? '#4f6ef0' : 'var(--fd-ink-3)',
+                  })}
+                  title={collapsed && !isMobile ? item.label : undefined}
+                >
+                  <item.icon size={16} strokeWidth={1.8} className="flex-shrink-0" />
+                  {(!collapsed || isMobile) && <span>{item.label}</span>}
+                </NavLink>
+              ))}
             </div>
           );
         })}
       </nav>
 
-      {/* User footer */}
-      <div className="p-2.5 flex-shrink-0" style={{ borderTop: '1px solid var(--fd-sidebar-border)' }}>
-        <div className={`flex items-center gap-2.5 px-2 py-2 rounded-lg ${collapsed && !isMobile ? 'justify-center' : ''}`}>
+      {/* User profile */}
+      <div
+        className="px-3 py-3"
+        style={{ borderTop: '1px solid var(--fd-sidebar-border)', flexShrink: 0 }}
+      >
+        <div className={`flex items-center gap-3 ${collapsed && !isMobile ? 'justify-center' : ''}`}>
           <div
-            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-semibold flex-shrink-0"
-            style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+            style={{ background: '#4f6ef0' }}
           >
-            {getInitials(user?.name)}
+            {user?.avatar
+              ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
+              : getInitials(user?.name || 'U')
+            }
           </div>
           {(!collapsed || isMobile) && (
             <div className="flex-1 min-w-0">
-              <div className="text-[12.5px] font-medium truncate leading-none" style={{ color: 'var(--fd-ink-1)' }}>{user?.name}</div>
-              <div className="text-[10.5px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>{user?.email}</div>
+              <div className="text-[12px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                {user?.name}
+              </div>
+              <div className="text-[10.5px] truncate" style={{ color: 'var(--fd-ink-4)' }}>
+                {ROLE_LABELS[user?.role] || user?.role}
+              </div>
             </div>
           )}
+          {(!collapsed || isMobile) && (
+            <button
+              onClick={handleLogout}
+              className="btn-ghost p-1.5 flex-shrink-0"
+              title="Sign out"
+            >
+              <LogOut size={14} style={{ color: 'var(--fd-ink-4)' }} />
+            </button>
+          )}
         </div>
-        <button
-          onClick={handleLogout}
-          className={`sidebar-link mt-0.5 w-full ${collapsed && !isMobile ? 'justify-center' : ''}`}
-          onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = isDark ? 'rgba(239,68,68,0.12)' : '#fef2f2'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = ''; e.currentTarget.style.background = ''; }}
-        >
-          <div className="icon-wrap"><LogOut size={14} strokeWidth={1.7} /></div>
-          {(!collapsed || isMobile) && <span>Sign out</span>}
-        </button>
       </div>
     </div>
   );
@@ -249,63 +238,63 @@ export default function AdminLayout() {
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: 'var(--fd-canvas)' }}>
 
-      {/* Desktop sidebar */}
+      {/* ── Desktop Sidebar ─────────────────────────────────────────────── */}
       <aside
-        className={`hidden md:flex flex-col transition-all duration-250 ease-in-out flex-shrink-0 relative ${collapsed ? 'w-[52px]' : 'w-[216px]'}`}
-        style={{ background: 'var(--fd-sidebar-bg)', borderRight: '1px solid var(--fd-sidebar-border)' }}
+        className="hidden md:flex flex-col flex-shrink-0 transition-all duration-200"
+        style={{
+          width: collapsed ? '60px' : '220px',
+          borderRight: '1px solid var(--fd-sidebar-border)',
+          position: 'relative',
+        }}
       >
         <SidebarContent />
+
         {/* Collapse toggle */}
         <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-[70px] flex items-center justify-center transition-all z-10"
+          onClick={() => setCollapsed(v => !v)}
+          className="absolute -right-3 top-16 z-10 w-6 h-6 rounded-full flex items-center justify-center shadow-md"
           style={{
-            width: '22px', height: '22px',
             background: 'var(--fd-surface)',
-            border: '1px solid var(--fd-border-strong)',
-            borderRadius: '50%',
-            color: 'var(--fd-ink-4)',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+            border: '1px solid var(--fd-border)',
+            color: 'var(--fd-ink-3)',
           }}
         >
-          {collapsed ? <ChevronRight size={11} strokeWidth={2.5} /> : <ChevronLeft size={11} strokeWidth={2.5} />}
+          {collapsed ? <ChevronRight size={11} /> : <ChevronLeft size={11} />}
         </button>
       </aside>
 
-      {/* Mobile overlay */}
+      {/* ── Mobile Drawer Overlay ────────────────────────────────────────── */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden flex">
           <div
-            className="absolute inset-0 backdrop-blur-sm"
-            style={{ background: 'rgba(0,0,0,0.35)' }}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
           />
           <aside
-            className="absolute left-0 top-0 bottom-0 w-72 max-w-[85vw] z-50 animate-slide-in"
-            style={{
-              background: 'var(--fd-sidebar-bg)',
-              borderRight: '1px solid var(--fd-sidebar-border)',
-              boxShadow: '0 20px 60px -8px rgba(0,0,0,0.3)',
-            }}
+            className="relative z-10 flex flex-col"
+            style={{ width: '240px', background: 'var(--fd-sidebar-bg)' }}
           >
             <SidebarContent isMobile />
           </aside>
         </div>
       )}
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* ── Main content ─────────────────────────────────────────────────── */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-        {/* Topbar */}
+        {/* Header */}
         <header
-          className="h-[58px] flex items-center justify-between px-5 flex-shrink-0 gap-3"
+          className="flex items-center gap-2 px-4 flex-shrink-0"
           style={{
+            height: '56px',
+            borderBottom: '1px solid var(--fd-border)',
             background: 'var(--fd-header-bg)',
-            borderBottom: '1px solid var(--fd-header-border)',
           }}
         >
+          {/* Mobile menu */}
           <button
-            className="md:hidden btn-ghost p-1.5 flex-shrink-0"
+            className="md:hidden btn-ghost p-2"
+            aria-label="Open menu"
             onClick={() => setMobileOpen(true)}
           >
             <Menu size={17} />
@@ -381,8 +370,11 @@ export default function AdminLayout() {
         </main>
       </div>
 
-      {/* Global search overlay */}
+      {/* ── Global Search ────────────────────────────────────────────────── */}
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* ── AI Assistant (floating, role-scoped) ─────────────────────────── */}
+      <AIAssistant />
     </div>
   );
 }

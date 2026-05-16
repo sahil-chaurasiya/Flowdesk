@@ -26,10 +26,13 @@ const dashboardRouter    = require('./routes/dashboard');
 const socialRouter       = require('./routes/social');
 const { router: eventsRouter, emitEvent } = require('./routes/events');
 
-// ── NEW routes ────────────────────────────────────────────────────────────────
+// ── Existing new routes ───────────────────────────────────────────────────────
 const activityRouter  = require('./routes/activity');
 const calendarRouter  = require('./routes/calendar');
 const searchRouter    = require('./routes/search');
+
+// ── AI Assistant route ────────────────────────────────────────────────────────
+const aiRouter = require('./routes/ai');
 
 const app    = express();
 const server = http.createServer(app);
@@ -88,10 +91,15 @@ app.use('/api/dashboard',     dashboardRouter);
 app.use('/api/social',        socialRouter);
 app.use('/api/events',        eventsRouter);
 
-// New
+// New (pre-existing)
 app.use('/api/activity',  activityRouter);
 app.use('/api/calendar',  calendarRouter);
 app.use('/api/search',    searchRouter);
+
+// ── AI Assistant ──────────────────────────────────────────────────────────────
+// All AI requests require JWT auth. Context is built server-side — the frontend
+// has zero control over what data the AI receives.
+app.use('/api/ai', aiRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {
@@ -110,6 +118,7 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 FlowDesk Server running on port ${PORT}`);
   console.log(`📡 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🤖 AI Assistant: ${process.env.GROQ_API_KEY ? 'enabled' : 'GROQ_API_KEY not set — AI disabled'}`);
 });
 
 module.exports = { app, server };

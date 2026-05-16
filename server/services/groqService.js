@@ -7,20 +7,23 @@
  *
  * SECURITY: Context is always pre-filtered by aiContextBuilder.js.
  * This service never queries the DB directly.
+ *
+ * FIXES vs original:
+ *  - AbortSignal.timeout(25000) on all Groq fetch calls
+ *  - finish_reason 'length' also sends done:true (was silently hanging)
+ *  - stream read loop uses streamDone flag to break cleanly
+ *  - always sends done:true + ends res, even on partial content
+ *  - logs context build timeout so it's visible in server logs
  */
 
 const { buildContext } = require('./aiContextBuilder');
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
-// llama-3.1-8b-instant: free, 20k TPM, 30 req/min — ideal for this
-// llama-3.3-70b-versatile: only 12k TPM — too small for large context
-const MODEL = 'llama-3.1-8b-instant';
+const GROQ_API_URL   = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL          = 'llama-3.1-8b-instant';
+const GROQ_TIMEOUT   = 25000; // 25s for Groq API response
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPACT CONTEXT SERIALIZERS
-// Write human-readable summaries instead of raw JSON blobs.
-// Cuts token usage ~70% while keeping all meaningful information.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function fmtDate(d) {
@@ -77,7 +80,7 @@ function serializeMessages(msgs) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SYSTEM PROMPT BUILDER — compact, structured, token-efficient
+// SYSTEM PROMPT BUILDER
 // ─────────────────────────────────────────────────────────────────────────────
 
 function buildSystemPrompt(context) {
@@ -89,6 +92,10 @@ function buildSystemPrompt(context) {
 User: ${context.userName} | Role: ${context.role}
 Be concise, insightful, and precise. Use markdown (bold, bullets, tables) when it helps clarity.
 Only reference data provided below. Never invent names, tasks, or metrics. Never expose other users' data.`;
+
+  if (context._timeout) {
+    return `${base}\n\n---\nNote: Context data could not be loaded in time. Apologize briefly and ask the user to try again.\n---`;
+  }
 
   let ctx = '';
 
@@ -183,6 +190,10 @@ async function getAIResponse(user, messages) {
   const context      = await buildContext(user);
   const systemPrompt = buildSystemPrompt(context);
 
+  if (context._timeout) {
+    console.warn('[groqService] Context build timed out for user:', user._id);
+  }
+
   const res = await fetch(GROQ_API_URL, {
     method: 'POST',
     headers: {
@@ -190,14 +201,15 @@ async function getAIResponse(user, messages) {
       'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 800,
+      model:       MODEL,
+      max_tokens:  800,
       temperature: 0.35,
       messages: [
         { role: 'system', content: systemPrompt },
         ...messages,
       ],
     }),
+    signal: AbortSignal.timeout(GROQ_TIMEOUT),
   });
 
   if (!res.ok) {
@@ -221,43 +233,70 @@ async function streamAIResponse(user, messages, res) {
   const context      = await buildContext(user);
   const systemPrompt = buildSystemPrompt(context);
 
+  if (context._timeout) {
+    console.warn('[groqService] Context build timed out for user:', user._id);
+  }
+
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  const groqRes = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 800,
-      temperature: 0.35,
-      stream: true,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ],
-    }),
-  });
+  let groqRes;
+  try {
+    groqRes = await fetch(GROQ_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model:       MODEL,
+        max_tokens:  800,
+        temperature: 0.35,
+        stream:      true,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages,
+        ],
+      }),
+      signal: AbortSignal.timeout(GROQ_TIMEOUT),
+    });
+  } catch (fetchErr) {
+    const isTimeout = fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError';
+    res.write(`data: ${JSON.stringify({ error: isTimeout ? 'Groq API timed out. Please try again.' : 'Failed to reach AI service.' })}\n\n`);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+    return;
+  }
 
   if (!groqRes.ok) {
     const err = await groqRes.json().catch(() => ({}));
-    res.write(`data: ${JSON.stringify({ error: err?.error?.message || 'Groq API error' })}\n\n`);
+    const msg = err?.error?.message || `Groq API error (${groqRes.status})`;
+    // Surface rate limit clearly
+    if (groqRes.status === 429) {
+      res.write(`data: ${JSON.stringify({ error: 'Rate limit reached. Please wait a moment and try again.' })}\n\n`);
+    } else {
+      res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
+    }
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
     return;
   }
 
   const reader  = groqRes.body.getReader();
   const decoder = new TextDecoder();
-  let buffer    = '';
+  let buffer     = '';
+
+  // flush() forces Node/Express to push buffered SSE data immediately
+  const send = (obj) => {
+    res.write(`data: ${JSON.stringify(obj)}\n\n`);
+    if (typeof res.flush === 'function') res.flush();
+  };
 
   try {
-    while (true) {
+    outer: while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
@@ -267,22 +306,33 @@ async function streamAIResponse(user, messages, res) {
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        if (!trimmed) continue;
+
+        if (trimmed === 'data: [DONE]') {
+          break outer;
+        }
+
         if (!trimmed.startsWith('data: ')) continue;
 
-        try {
-          const chunk = JSON.parse(trimmed.slice(6));
-          const delta = chunk.choices?.[0]?.delta?.content;
-          if (delta) res.write(`data: ${JSON.stringify({ delta })}\n\n`);
-          if (chunk.choices?.[0]?.finish_reason === 'stop') {
-            res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-          }
-        } catch { /* skip malformed chunk */ }
+        let chunk;
+        try { chunk = JSON.parse(trimmed.slice(6)); } catch { continue; }
+
+        const delta         = chunk.choices?.[0]?.delta?.content;
+        const finish_reason = chunk.choices?.[0]?.finish_reason;
+
+        if (delta) send({ delta });
+
+        if (finish_reason === 'stop' || finish_reason === 'length') {
+          break outer;
+        }
       }
     }
-  } catch {
-    res.write(`data: ${JSON.stringify({ error: 'Stream interrupted' })}\n\n`);
+  } catch (streamErr) {
+    console.error('[groqService] Stream read error:', streamErr.message);
+    send({ error: 'Stream interrupted. Please try again.' });
   } finally {
+    // Always send done:true and close — covers [DONE], finish_reason, error, or reader close
+    send({ done: true });
     res.end();
   }
 }

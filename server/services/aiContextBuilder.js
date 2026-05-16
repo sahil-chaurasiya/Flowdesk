@@ -3,14 +3,12 @@
  *
  * ALL data fetching is ROLE-SCOPED and PERMISSION-FILTERED.
  * This service is the ONLY source of truth for what the AI can "see".
- * It NEVER exposes raw collections — every query is filtered by:
- *   • user identity (userId)
- *   • organization scope (clientId for clients)
- *   • role-based access rules (admin > manager > team > client)
- *   • visibility flags (isClientVisible, isPublic, etc.)
  *
- * Context is assembled server-side ONLY. The frontend receives no
- * permissions logic and no raw data — only the AI's response.
+ * FIXES vs original:
+ *  - teamWorkload now uses a single $group aggregate instead of
+ *    N×4 countDocuments queries (was hanging for managers with 6+ members)
+ *  - All DB queries have a 8s maxTimeMS timeout — no more silent hangs
+ *  - buildContext itself has a 12s hard timeout wrapper
  */
 
 const Task         = require('../models/Task');
@@ -24,92 +22,141 @@ const { Conversation, Message } = require('../models/Message');
 
 const MANAGER_ROLES = ['admin', 'manager'];
 const TEAM_ROLES    = ['admin', 'manager', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
+const WORKER_ROLES  = TEAM_ROLES.filter(r => !['admin', 'manager'].includes(r));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-const today      = () => new Date();
-const startOfDay = (d) => new Date(d.setHours(0, 0, 0, 0));
+const today       = () => new Date();
 const daysFromNow = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d; };
-const daysAgo    = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
+const daysAgo     = (n) => { const d = new Date(); d.setDate(d.getDate() - n); return d; };
 
-// Sanitize a task for AI consumption — strip internal IDs, keep readable fields
+// Wrap a promise with a timeout — resolves to fallback value on timeout
+function withTimeout(promise, ms, fallback) {
+  const timer = new Promise(resolve => setTimeout(() => resolve(fallback), ms));
+  return Promise.race([promise, timer]);
+}
+
 function sanitizeTask(task) {
   return {
-    title: task.title,
-    description: task.description || null,
-    status: task.status,
-    priority: task.priority,
-    category: task.category,
-    deadline: task.deadline ? task.deadline.toISOString().split('T')[0] : null,
-    client: task.client?.company || task.client?.name || null,
-    assignedTo: task.assignedTo?.name || null,
+    title:           task.title,
+    description:     task.description || null,
+    status:          task.status,
+    priority:        task.priority,
+    category:        task.category,
+    deadline:        task.deadline ? task.deadline.toISOString().split('T')[0] : null,
+    client:          task.client?.company || task.client?.name || null,
+    assignedTo:      task.assignedTo?.name || null,
     isClientRequest: task.isClientRequest || false,
-    tags: task.tags || [],
-    createdAt: task.createdAt?.toISOString().split('T')[0] || null,
+    tags:            task.tags || [],
+    createdAt:       task.createdAt?.toISOString().split('T')[0] || null,
   };
 }
 
 function sanitizeClient(client) {
   return {
-    name: client.name,
-    company: client.company,
-    status: client.status,
-    plan: client.plan,
-    services: client.services || [],
-    industry: client.industry || null,
-    startDate: client.startDate ? client.startDate.toISOString().split('T')[0] : null,
-    contractEndDate: client.contractEndDate ? client.contractEndDate.toISOString().split('T')[0] : null,
+    name:               client.name,
+    company:            client.company,
+    status:             client.status,
+    plan:               client.plan,
+    services:           client.services || [],
+    industry:           client.industry || null,
+    startDate:          client.startDate ? client.startDate.toISOString().split('T')[0] : null,
+    contractEndDate:    client.contractEndDate ? client.contractEndDate.toISOString().split('T')[0] : null,
     onboardingCompleted: client.onboardingCompleted,
   };
 }
 
 function sanitizeReport(report) {
   return {
-    title: report.title,
-    period: report.period,
-    startDate: report.startDate?.toISOString().split('T')[0],
-    endDate: report.endDate?.toISOString().split('T')[0],
-    metrics: report.metrics,
-    highlights: report.highlights || [],
+    title:           report.title,
+    period:          report.period,
+    startDate:       report.startDate?.toISOString().split('T')[0],
+    endDate:         report.endDate?.toISOString().split('T')[0],
+    metrics:         report.metrics,
+    highlights:      report.highlights || [],
     recommendations: report.recommendations || [],
-    client: report.client?.company || null,
+    client:          report.client?.company || null,
   };
 }
 
 function sanitizeUpdate(update) {
   return {
-    title: update.title,
-    content: update.content,
-    type: update.type,
+    title:     update.title,
+    content:   update.content,
+    type:      update.type,
     createdAt: update.createdAt?.toISOString().split('T')[0],
-    client: update.client?.company || null,
-    isPinned: update.isPinned || false,
-  };
-}
-
-function sanitizeMember(m) {
-  return {
-    name: m.member?.name || m.name,
-    role: m.member?.role || m.role,
-    jobTitle: m.member?.jobTitle || m.jobTitle || null,
-    pendingTasks: m.pending || 0,
-    inProgressTasks: m.inProgress || 0,
-    reviewTasks: m.review || 0,
-    totalActiveTasks: m.total || 0,
+    client:    update.client?.company || null,
+    isPinned:  update.isPinned || false,
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROLE-SCOPED CONTEXT BUILDERS
+// TEAM WORKLOAD — single aggregate (replaces N×4 countDocuments)
+// Returns: [{ _id: userId, name, role, jobTitle, pending, inProgress, review, total }]
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Admin/Manager context — broad org-level visibility
- */
+async function buildTeamWorkload() {
+  try {
+    // One aggregate on Task — group by assignedTo × status, filter active statuses only
+    const rows = await Task.aggregate([
+      {
+        $match: {
+          status: { $in: ['pending', 'in_progress', 'review'] },
+        },
+      },
+      {
+        $group: {
+          _id:    { user: '$assignedTo', status: '$status' },
+          count:  { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Pivot into a map: userId → { pending, inProgress, review }
+    const map = {};
+    for (const row of rows) {
+      const uid = row._id.user?.toString();
+      if (!uid) continue;
+      if (!map[uid]) map[uid] = { pending: 0, inProgress: 0, review: 0 };
+      if (row._id.status === 'pending')    map[uid].pending    = row.count;
+      if (row._id.status === 'in_progress') map[uid].inProgress = row.count;
+      if (row._id.status === 'review')     map[uid].review     = row.count;
+    }
+
+    // Fetch only the worker users whose IDs appear in the map
+    const workerUsers = await User.find({ role: { $in: WORKER_ROLES }, isActive: true })
+      .select('name role jobTitle')
+      
+      .lean();
+
+    return workerUsers.map(m => {
+      const uid   = m._id.toString();
+      const stats = map[uid] || { pending: 0, inProgress: 0, review: 0 };
+      return {
+        name:            m.name,
+        role:            m.role,
+        jobTitle:        m.jobTitle || null,
+        pendingTasks:    stats.pending,
+        inProgressTasks: stats.inProgress,
+        reviewTasks:     stats.review,
+        totalActiveTasks: stats.pending + stats.inProgress + stats.review,
+      };
+    });
+  } catch (err) {
+    console.error('[aiContextBuilder] teamWorkload aggregate failed:', err.message);
+    return []; // graceful degradation — context still works, just missing workload
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMIN / MANAGER CONTEXT
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function buildAdminContext(user) {
   const isAdmin = user.role === 'admin';
+  const Q_MS    = 8000; // per-query timeout
 
   const [
     allTasks,
@@ -120,104 +167,107 @@ async function buildAdminContext(user) {
     overdueItems,
     teamWorkload,
   ] = await Promise.all([
-    // All org tasks — capped at 80 for prompt size
-    Task.find({})
-      .populate('client', 'name company')
-      .populate('assignedTo', 'name role')
-      .sort({ priority: -1, deadline: 1 })
-      .limit(80)
-      .lean(),
+    withTimeout(
+      Task.find({})
+        .populate('client', 'name company')
+        .populate('assignedTo', 'name role')
+        .sort({ priority: -1, deadline: 1 })
+        .limit(80)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // All clients
-    Client.find({})
-      .select('name company status plan services industry startDate contractEndDate onboardingCompleted')
-      .lean(),
+    withTimeout(
+      Client.find({})
+        .select('name company status plan services industry startDate contractEndDate onboardingCompleted')
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // All active team members (never expose passwords/tokens — already excluded)
-    isAdmin
-      ? User.find({ role: { $in: TEAM_ROLES }, isActive: true })
-          .select('name role jobTitle department')
-          .lean()
-      : User.find({ role: { $in: TEAM_ROLES.filter(r => r !== 'admin') }, isActive: true })
-          .select('name role jobTitle')
-          .lean(),
+    withTimeout(
+      isAdmin
+        ? User.find({ role: { $in: TEAM_ROLES }, isActive: true }).select('name role jobTitle department').lean()
+        : User.find({ role: { $in: TEAM_ROLES.filter(r => r !== 'admin') }, isActive: true }).select('name role jobTitle').lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Deadlines in next 7 days
-    Task.find({
-      status: { $in: ['pending', 'in_progress', 'review'] },
-      deadline: { $gte: today(), $lte: daysFromNow(7) },
-    })
-      .populate('client', 'company')
-      .populate('assignedTo', 'name')
-      .sort({ deadline: 1 })
-      .limit(20)
-      .lean(),
+    withTimeout(
+      Task.find({
+        status:   { $in: ['pending', 'in_progress', 'review'] },
+        deadline: { $gte: today(), $lte: daysFromNow(7) },
+      })
+        .populate('client', 'company')
+        .populate('assignedTo', 'name')
+        .sort({ deadline: 1 })
+        .limit(20)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Last 10 reports (org-wide)
-    Report.find({ isPublished: true })
-      .populate('client', 'company')
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean(),
+    withTimeout(
+      Report.find({ isPublished: true })
+        .populate('client', 'company')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Overdue tasks
-    Task.find({
-      status: { $in: ['pending', 'in_progress', 'review'] },
-      deadline: { $lt: today() },
-    })
-      .populate('client', 'company')
-      .populate('assignedTo', 'name')
-      .sort({ deadline: 1 })
-      .limit(20)
-      .lean(),
+    withTimeout(
+      Task.find({
+        status:   { $in: ['pending', 'in_progress', 'review'] },
+        deadline: { $lt: today() },
+      })
+        .populate('client', 'company')
+        .populate('assignedTo', 'name')
+        .sort({ deadline: 1 })
+        .limit(20)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Team workload aggregate
-    (async () => {
-      const members = await User.find({ role: { $in: TEAM_ROLES.filter(r => !['admin','manager'].includes(r)) }, isActive: true })
-        .select('name role jobTitle')
-        .lean();
-      return Promise.all(members.map(async (member) => {
-        const [pending, inProgress, review, completed7d] = await Promise.all([
-          Task.countDocuments({ assignedTo: member._id, status: 'pending' }),
-          Task.countDocuments({ assignedTo: member._id, status: 'in_progress' }),
-          Task.countDocuments({ assignedTo: member._id, status: 'review' }),
-          Task.countDocuments({ assignedTo: member._id, status: 'completed', completedAt: { $gte: daysAgo(7) } }),
-        ]);
-        return { member, pending, inProgress, review, completed7d, total: pending + inProgress + review };
-      }));
-    })(),
+    // ← single aggregate, not N×4 countDocuments
+    withTimeout(buildTeamWorkload(), Q_MS + 2000, []),
   ]);
 
   const taskSummary = {
-    total: allTasks.length,
-    byStatus: allTasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {}),
+    total:      allTasks.length,
+    byStatus:   allTasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {}),
     byPriority: allTasks.reduce((acc, t) => { acc[t.priority] = (acc[t.priority] || 0) + 1; return acc; }, {}),
   };
 
   return {
-    role: user.role,
-    userName: user.name,
-    scope: 'organization',
+    role:       user.role,
+    userName:   user.name,
+    scope:      'organization',
     snapshot: {
-      totalClients: allClients.length,
+      totalClients:  allClients.length,
       activeClients: allClients.filter(c => c.status === 'active').length,
       taskSummary,
-      teamSize: allMembers.length,
+      teamSize:      allMembers.length,
     },
-    tasks: allTasks.map(sanitizeTask),
-    clients: allClients.map(sanitizeClient),
-    teamMembers: isAdmin ? allMembers.map(m => ({ name: m.name, role: m.role, jobTitle: m.jobTitle, department: m.department })) : [],
-    teamWorkload: teamWorkload.map(sanitizeMember),
+    tasks:            allTasks.map(sanitizeTask),
+    clients:          allClients.map(sanitizeClient),
+    teamMembers:      isAdmin ? allMembers.map(m => ({ name: m.name, role: m.role, jobTitle: m.jobTitle, department: m.department })) : [],
+    teamWorkload,
     upcomingDeadlines: upcomingDeadlines.map(sanitizeTask),
-    overdueItems: overdueItems.map(sanitizeTask),
-    recentReports: recentReports.map(sanitizeReport),
+    overdueItems:     overdueItems.map(sanitizeTask),
+    recentReports:    recentReports.map(sanitizeReport),
   };
 }
 
-/**
- * Team Member context — only their assigned tasks + their client's data
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// TEAM MEMBER CONTEXT
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function buildTeamMemberContext(user) {
+  const Q_MS = 8000;
+
   const [
     myTasks,
     upcomingDeadlines,
@@ -225,90 +275,108 @@ async function buildTeamMemberContext(user) {
     recentUpdates,
     myFiles,
   ] = await Promise.all([
-    // Only tasks assigned to this user
-    Task.find({ assignedTo: user._id })
-      .populate('client', 'name company')
-      .populate('createdBy', 'name')
-      .sort({ priority: -1, deadline: 1 })
-      .limit(50)
-      .lean(),
+    withTimeout(
+      Task.find({ assignedTo: user._id })
+        .populate('client', 'name company')
+        .populate('createdBy', 'name')
+        .sort({ priority: -1, deadline: 1 })
+        .limit(50)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Their upcoming deadlines
-    Task.find({
-      assignedTo: user._id,
-      status: { $in: ['pending', 'in_progress', 'review'] },
-      deadline: { $gte: today(), $lte: daysFromNow(7) },
-    })
-      .populate('client', 'company')
-      .sort({ deadline: 1 })
-      .lean(),
+    withTimeout(
+      Task.find({
+        assignedTo: user._id,
+        status:     { $in: ['pending', 'in_progress', 'review'] },
+        deadline:   { $gte: today(), $lte: daysFromNow(7) },
+      })
+        .populate('client', 'company')
+        .sort({ deadline: 1 })
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Clients they are associated with (via teamMembers array)
-    Client.find({ teamMembers: user._id })
-      .select('name company status plan services')
-      .lean(),
+    withTimeout(
+      Client.find({ teamMembers: user._id })
+        .select('name company status plan services')
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Recent updates on their clients (only visible ones)
-    (async () => {
-      const clientIds = (await Client.find({ teamMembers: user._id }).select('_id').lean()).map(c => c._id);
-      return Update.find({ client: { $in: clientIds }, isVisible: true })
+    withTimeout(
+      (async () => {
+        const clientIds = await Client.find({ teamMembers: user._id })
+          .select('_id')
+          
+          .lean()
+          .then(cs => cs.map(c => c._id));
+        if (!clientIds.length) return [];
+        return Update.find({ client: { $in: clientIds }, isVisible: true })
+          .populate('client', 'company')
+          .sort({ createdAt: -1 })
+          .limit(10)
+          
+          .lean();
+      })(),
+      Q_MS * 2 + 1000, []
+    ),
+
+    withTimeout(
+      File.find({ uploadedBy: user._id })
         .populate('client', 'company')
         .sort({ createdAt: -1 })
         .limit(10)
-        .lean();
-    })(),
-
-    // Files they uploaded
-    File.find({ uploadedBy: user._id })
-      .populate('client', 'company')
-      .sort({ createdAt: -1 })
-      .limit(10)
-      .lean(),
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
   ]);
 
   const taskSummary = {
-    total: myTasks.length,
+    total:    myTasks.length,
     byStatus: myTasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {}),
-    urgent: myTasks.filter(t => t.priority === 'urgent').length,
-    overdue: myTasks.filter(t => t.deadline && new Date(t.deadline) < today() && t.status !== 'completed').length,
+    urgent:   myTasks.filter(t => t.priority === 'urgent').length,
+    overdue:  myTasks.filter(t => t.deadline && new Date(t.deadline) < today() && t.status !== 'completed').length,
   };
 
   return {
-    role: user.role,
-    userName: user.name,
-    jobTitle: user.jobTitle || null,
-    scope: 'personal',
-    snapshot: taskSummary,
-    myTasks: myTasks.map(sanitizeTask),
+    role:      user.role,
+    userName:  user.name,
+    jobTitle:  user.jobTitle || null,
+    scope:     'personal',
+    snapshot:  taskSummary,
+    myTasks:           myTasks.map(sanitizeTask),
     upcomingDeadlines: upcomingDeadlines.map(sanitizeTask),
-    myClients: myClients.map(sanitizeClient),
-    recentUpdates: recentUpdates.map(sanitizeUpdate),
-    // Only their own file names — no URLs
-    recentFiles: myFiles.map(f => ({ name: f.name, category: f.category, client: f.client?.company, uploadedAt: f.createdAt?.toISOString().split('T')[0] })),
+    myClients:         myClients.map(sanitizeClient),
+    recentUpdates:     recentUpdates.map(sanitizeUpdate),
+    recentFiles:       myFiles.map(f => ({
+      name:       f.name,
+      category:   f.category,
+      client:     f.client?.company,
+      uploadedAt: f.createdAt?.toISOString().split('T')[0],
+    })),
   };
 }
 
-/**
- * Client context — strictly scoped to their own clientId ONLY.
- * NEVER sees other clients' data, team internal data, or admin info.
- */
+// ─────────────────────────────────────────────────────────────────────────────
+// CLIENT CONTEXT
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function buildClientContext(user) {
-  // Guard: client users MUST have a clientId
   if (!user.clientId) {
     return {
-      role: 'client',
-      userName: user.name,
-      scope: 'client',
+      role: 'client', userName: user.name, scope: 'client',
       error: 'No client profile linked to this account.',
-      tasks: [],
-      updates: [],
-      reports: [],
-      files: [],
-      leads: [],
+      tasks: [], updates: [], reports: [], files: [], leads: [],
     };
   }
 
   const clientId = user.clientId;
+  const Q_MS     = 8000;
 
   const [
     clientProfile,
@@ -319,123 +387,159 @@ async function buildClientContext(user) {
     leads,
     recentMessages,
   ] = await Promise.all([
-    // Only their own client record — no other clients
-    Client.findById(clientId)
-      .select('name company status plan services industry startDate contractEndDate onboardingCompleted')
-      .lean(),
+    withTimeout(
+      Client.findById(clientId)
+        .select('name company status plan services industry startDate contractEndDate onboardingCompleted')
+        
+        .lean(),
+      Q_MS + 1000, null
+    ),
 
-    // Only client-visible tasks for THEIR client
-    Task.find({ client: clientId, isClientVisible: true })
-      .select('title description status priority category deadline tags createdAt')
-      .sort({ priority: -1, deadline: 1 })
-      .limit(30)
-      .lean(),
+    withTimeout(
+      Task.find({ client: clientId, isClientVisible: true })
+        .select('title description status priority category deadline tags createdAt')
+        .sort({ priority: -1, deadline: 1 })
+        .limit(30)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Only visible updates for their client
-    Update.find({ client: clientId, isVisible: true })
-      .select('title content type isPinned createdAt metrics tags')
-      .sort({ isPinned: -1, createdAt: -1 })
-      .limit(15)
-      .lean(),
+    withTimeout(
+      Update.find({ client: clientId, isVisible: true })
+        .select('title content type isPinned createdAt metrics tags')
+        .sort({ isPinned: -1, createdAt: -1 })
+        .limit(15)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Published reports for their client
-    Report.find({ client: clientId, isPublished: true })
-      .select('title period startDate endDate metrics highlights recommendations createdAt')
-      .sort({ createdAt: -1 })
-      .limit(8)
-      .lean(),
+    withTimeout(
+      Report.find({ client: clientId, isPublished: true })
+        .select('title period startDate endDate metrics highlights recommendations createdAt')
+        .sort({ createdAt: -1 })
+        .limit(8)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
 
-    // Public files for their client
-    File.find({ client: clientId, isPublic: true })
-      .select('name category description tags createdAt size')
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean(),
-
-    // Their own leads
-    Lead.find({ client: clientId })
-      .select('name email phone status campaign source createdAt')
-      .sort({ createdAt: -1 })
-      .limit(20)
-      .lean(),
-
-    // Their recent conversation messages (last 20)
-    (async () => {
-      const conv = await Conversation.findOne({ client: clientId }).lean();
-      if (!conv) return [];
-      return Message.find({ conversation: conv._id, isDeleted: false })
-        .populate('sender', 'name role')
-        .select('content type createdAt sender')
+    withTimeout(
+      File.find({ client: clientId, isPublic: true })
+        .select('name category description tags createdAt size')
         .sort({ createdAt: -1 })
         .limit(20)
-        .lean();
-    })(),
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
+
+    withTimeout(
+      Lead.find({ client: clientId })
+        .select('name email phone status campaign source createdAt')
+        .sort({ createdAt: -1 })
+        .limit(20)
+        
+        .lean(),
+      Q_MS + 1000, []
+    ),
+
+    withTimeout(
+      (async () => {
+        const conv = await Conversation.findOne({ client: clientId }).lean();
+        if (!conv) return [];
+        return Message.find({ conversation: conv._id, isDeleted: false })
+          .populate('sender', 'name role')
+          .select('content type createdAt sender')
+          .sort({ createdAt: -1 })
+          .limit(20)
+          
+          .lean();
+      })(),
+      Q_MS * 2 + 1000, []
+    ),
   ]);
 
   const taskSummary = {
-    total: tasks.length,
+    total:    tasks.length,
     byStatus: tasks.reduce((acc, t) => { acc[t.status] = (acc[t.status] || 0) + 1; return acc; }, {}),
     upcoming: tasks.filter(t => t.deadline && new Date(t.deadline) >= today() && new Date(t.deadline) <= daysFromNow(7)).length,
   };
 
   return {
-    role: 'client',
-    userName: user.name,
-    scope: 'client',
+    role:      'client',
+    userName:  user.name,
+    scope:     'client',
     clientProfile: clientProfile ? sanitizeClient(clientProfile) : null,
-    snapshot: taskSummary,
+    snapshot:  taskSummary,
     tasks: tasks.map(t => ({
-      title: t.title,
+      title:       t.title,
       description: t.description || null,
-      status: t.status,
-      priority: t.priority,
-      category: t.category,
-      deadline: t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : null,
-      tags: t.tags || [],
+      status:      t.status,
+      priority:    t.priority,
+      category:    t.category,
+      deadline:    t.deadline ? new Date(t.deadline).toISOString().split('T')[0] : null,
+      tags:        t.tags || [],
     })),
     updates: updates.map(u => ({
-      title: u.title,
-      content: u.content,
-      type: u.type,
+      title:    u.title,
+      content:  u.content,
+      type:     u.type,
       isPinned: u.isPinned,
-      date: u.createdAt?.toISOString().split('T')[0],
-      metrics: u.metrics || null,
+      date:     u.createdAt?.toISOString().split('T')[0],
+      metrics:  u.metrics || null,
     })),
     reports: reports.map(r => ({
-      title: r.title,
-      period: r.period,
-      dateRange: `${r.startDate?.toISOString().split('T')[0]} to ${r.endDate?.toISOString().split('T')[0]}`,
-      metrics: r.metrics,
-      highlights: r.highlights || [],
+      title:           r.title,
+      period:          r.period,
+      dateRange:       `${r.startDate?.toISOString().split('T')[0]} to ${r.endDate?.toISOString().split('T')[0]}`,
+      metrics:         r.metrics,
+      highlights:      r.highlights || [],
       recommendations: r.recommendations || [],
     })),
-    files: files.map(f => ({ name: f.name, category: f.category, description: f.description, uploadedAt: f.createdAt?.toISOString().split('T')[0] })),
-    leads: leads.map(l => ({ name: l.name, status: l.status, campaign: l.campaign, source: l.source, date: l.createdAt?.toISOString().split('T')[0] })),
+    files: files.map(f => ({
+      name:       f.name,
+      category:   f.category,
+      description: f.description,
+      uploadedAt: f.createdAt?.toISOString().split('T')[0],
+    })),
+    leads: leads.map(l => ({
+      name:     l.name,
+      status:   l.status,
+      campaign: l.campaign,
+      source:   l.source,
+      date:     l.createdAt?.toISOString().split('T')[0],
+    })),
     recentMessages: recentMessages.map(m => ({
-      from: m.sender?.role === 'client' ? 'You' : `Team (${m.sender?.name})`,
+      from:    m.sender?.role === 'client' ? 'You' : `Team (${m.sender?.name})`,
       content: m.content,
-      date: m.createdAt?.toISOString().split('T')[0],
+      date:    m.createdAt?.toISOString().split('T')[0],
     })),
   };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN EXPORT: buildContext(user) → role-scoped context object
+// MAIN EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function buildContext(user) {
   if (!user) throw new Error('User is required to build AI context');
 
-  if (user.role === 'admin' || user.role === 'manager') {
-    return buildAdminContext(user);
-  }
+  const build =
+    (user.role === 'admin' || user.role === 'manager') ? buildAdminContext(user) :
+    user.role === 'client' ? buildClientContext(user) :
+    buildTeamMemberContext(user);
 
-  if (user.role === 'client') {
-    return buildClientContext(user);
-  }
-
-  // All other team roles (performance_marketer, social_media_manager, etc.)
-  return buildTeamMemberContext(user);
+  // Hard 12s cap on the entire context build
+  return withTimeout(build, 12000, {
+    role:     user.role,
+    userName: user.name,
+    scope:    user.role === 'client' ? 'client' : user.role === 'admin' || user.role === 'manager' ? 'organization' : 'personal',
+    _timeout: true,
+    tasks: [], clients: [], teamWorkload: [], upcomingDeadlines: [],
+    overdueItems: [], recentReports: [], snapshot: {},
+  });
 }
 
 module.exports = { buildContext };

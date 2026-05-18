@@ -1,4 +1,5 @@
 import React, { useState, createContext, useContext } from 'react';
+import ReactDOM from 'react-dom';
 import { X, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 
 function cn(...classes) { return classes.filter(Boolean).join(' '); }
@@ -198,21 +199,36 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer })
     xl: 'max-w-4xl',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  const modal = (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '1rem',
+      }}
+    >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 backdrop-blur-sm"
-        style={{ background: 'rgba(0,0,0,0.35)' }}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.35)',
+          backdropFilter: 'blur(4px)',
+        }}
         onClick={onClose}
       />
       {/* Panel */}
       <div
         className={cn(
-          'relative w-full max-h-[90vh] flex flex-col rounded-2xl animate-scale-in',
+          'relative w-full flex flex-col rounded-2xl animate-scale-in',
           sizes[size]
         )}
         style={{
+          maxHeight: '90vh',
           background: 'var(--fd-modal-bg)',
           border: '1px solid var(--fd-modal-border)',
           boxShadow: '0 20px 60px -8px rgba(0,0,0,0.25), 0 4px 16px -2px rgba(0,0,0,0.12)',
@@ -244,6 +260,8 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', footer })
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(modal, document.body);
 }
 
 // ─── Toast ───────────────────────────────────────────────────────────────────

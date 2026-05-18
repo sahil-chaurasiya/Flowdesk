@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, Zap } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 
 const DEMO_ACCOUNTS = [
-  { role: 'Project Manager',        email: 'manager@toflymedia.com',  pw: 'Manager123!',    accent: '#3a56d4' },
-  { role: 'Performance Marketer',   email: 'marketer@toflymedia.com', pw: 'Marketer123!',   accent: '#92600a' },
-  { role: 'Video Editor',           email: 'editor@toflymedia.com',   pw: 'Video123!',      accent: '#7e22ce' },
-  { role: 'Client',                 email: 'client@toflymedia.com',   pw: 'Client123!',     accent: '#2a7d4f' },
+  { role: 'Project Manager',      email: 'manager@toflymedia.com',  pw: 'Manager123!',   accent: '#6e8ef5', bg: 'rgba(110,142,245,0.08)',  border: 'rgba(110,142,245,0.2)'  },
+  { role: 'Performance Marketer', email: 'marketer@toflymedia.com', pw: 'Marketer123!',  accent: '#f5a623', bg: 'rgba(245,166,35,0.08)',   border: 'rgba(245,166,35,0.2)'   },
+  { role: 'Video Editor',         email: 'editor@toflymedia.com',   pw: 'Editor123!',     accent: '#b06ef5', bg: 'rgba(176,110,245,0.08)',  border: 'rgba(176,110,245,0.2)'  },
+  { role: 'Client',               email: 'client@toflymedia.com',   pw: 'Client123!',    accent: '#3ec99a', bg: 'rgba(62,201,154,0.08)',   border: 'rgba(62,201,154,0.2)'   },
 ];
 
 export default function LoginPage() {
@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeDemo, setActiveDemo] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -33,136 +34,102 @@ export default function LoginPage() {
     }
   };
 
+  const handleDemo = (d, i) => {
+    setActiveDemo(i);
+    setForm({ email: d.email, password: d.pw });
+    setError('');
+  };
+
   return (
-    <div className="min-h-screen flex" style={{ background: 'var(--fd-canvas)' }}>
+    <>
+      <style>{`
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse-ring {
+          0%   { box-shadow: 0 0 0 0 rgba(110,142,245,0.5); }
+          70%  { box-shadow: 0 0 0 8px rgba(110,142,245,0); }
+          100% { box-shadow: 0 0 0 0 rgba(110,142,245,0);  }
+        }
+        .lp-wrap       { animation: fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) both; }
+        .lp-card       { animation: fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) 0.06s both; }
+        .lp-demo       { animation: fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) 0.12s both; }
+        .logo-pulse    { animation: pulse-ring 2.4s ease-in-out infinite; }
+        .demo-btn .arr { transition: transform 0.15s ease; }
+        .demo-btn:hover .arr { transform: translateX(3px); }
+        .fd-input-lg {
+          width: 100%;
+          background: var(--fd-input-bg);
+          border: 1px solid var(--fd-input-border);
+          border-radius: 10px;
+          padding: 11px 14px;
+          font-size: 0.875rem;
+          font-family: 'Geist', system-ui, sans-serif;
+          color: var(--fd-input-text);
+          transition: border-color 0.15s, box-shadow 0.15s;
+          outline: none;
+          box-sizing: border-box;
+        }
+        .fd-input-lg::placeholder { color: var(--fd-input-placeholder); }
+        .fd-input-lg:focus {
+          border-color: #7896f3;
+          box-shadow: 0 0 0 3px rgba(79,110,240,0.15);
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.7s linear infinite; }
+      `}</style>
 
-      {/* ── Left — Brand panel ─────────────────────────────────────────── */}
-      <div
-        className="hidden lg:flex lg:w-[52%] xl:w-[55%] flex-col justify-between p-14 xl:p-16 relative overflow-hidden"
-        style={{ background: '#1a1916' }}
-      >
-        {/* Subtle grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              'linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)',
-            backgroundSize: '60px 60px',
-          }}
-        />
+      <div className="lp-wrap" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-        {/* Top — Logo */}
-        <div className="relative z-10 flex items-center gap-3">
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '2px' }}>
           <div
-            className="w-9 h-9 rounded-lg flex items-center justify-center"
-            style={{ background: '#4f6ef0', boxShadow: '0 2px 8px rgba(79,110,240,0.4)' }}
+            className="logo-pulse"
+            style={{
+              width: '34px', height: '34px', borderRadius: '9px',
+              background: 'linear-gradient(135deg, #4f6ef0 0%, #7896f3 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}
           >
-            <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
-              <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M4.5 8H9.5" stroke="white" strokeWidth="1.4" strokeLinecap="round"/>
             </svg>
           </div>
-          <span
-            className="text-[15px] font-semibold tracking-[-0.01em]"
-            style={{ color: '#f7f6f3' }}
-          >
+          <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--fd-ink-1)', letterSpacing: '-0.01em' }}>
             Flowdesk
           </span>
         </div>
 
-        {/* Middle — Hero */}
-        <div className="relative z-10 max-w-[480px]">
-          {/* Eyebrow */}
-          <div
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full mb-8 text-[11px] font-medium"
-            style={{
-              background: 'rgba(79,110,240,0.15)',
-              border: '1px solid rgba(79,110,240,0.25)',
-              color: '#a0b8f8',
-            }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#7896f3]" />
-            Agency Operations Platform
-          </div>
-
-          <h1
-            className="text-[42px] xl:text-[50px] font-bold leading-[1.08] tracking-[-0.03em] mb-5"
-            style={{ color: '#f7f6f3' }}
-          >
-            Operate with<br />
-            <span style={{ color: '#7896f3' }}>clarity.</span>
-          </h1>
-
-          <p className="text-[15px] leading-[1.7]" style={{ color: '#7a7770' }}>
-            One platform for campaigns, clients, content,
-            and delivery. Built for agencies that run on process.
-          </p>
-
-          {/* Feature list */}
-          <div className="mt-10 space-y-3">
-            {[
-              'Real-time client collaboration',
-              'Task and project management',
-              'Lead tracking and pipeline',
-              'Social media content delivery',
-              'Analytics and reporting',
-            ].map(f => (
-              <div key={f} className="flex items-center gap-3">
-                <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
-                  style={{ background: 'rgba(79,110,240,0.2)' }}>
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                    <path d="M1.5 4L3.5 6L6.5 2" stroke="#7896f3" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </div>
-                <span className="text-[13px]" style={{ color: '#5a5752' }}>{f}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bottom */}
-        <div className="relative z-10">
-          <p className="text-[11px]" style={{ color: '#3a3835' }}>
-            © {new Date().getFullYear()} To Fly Media. All rights reserved.
-          </p>
-        </div>
-      </div>
-
-      {/* ── Right — Sign in form ────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-16 xl:px-20 py-12">
-
-        {/* Mobile logo */}
-        <div className="flex items-center gap-2.5 mb-10 lg:hidden">
-          <div className="w-8 h-8 rounded-lg bg-[#4f6ef0] flex items-center justify-center">
-            <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-              <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </div>
-          <span className="text-[14px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>Flowdesk</span>
-        </div>
-
-        <div className="w-full max-w-[360px] mx-auto">
-
-          {/* Heading */}
-          <div className="mb-8">
-            <h2
-              className="text-[26px] font-bold tracking-[-0.02em]"
-              style={{ color: 'var(--fd-ink-1)' }}
-            >
-              Sign in
-            </h2>
-            <p className="text-[13px] mt-1.5" style={{ color: 'var(--fd-ink-3)' }}>
-              Access your workspace
+        {/* Sign in card */}
+        <div
+          className="lp-card"
+          style={{
+            background: 'var(--fd-surface)',
+            border: '1px solid var(--fd-border)',
+            borderRadius: '16px',
+            padding: '26px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div style={{ marginBottom: '20px' }}>
+            <h1 style={{ fontSize: '21px', fontWeight: 700, color: 'var(--fd-ink-1)', letterSpacing: '-0.02em', margin: '0 0 4px' }}>
+              Welcome back
+            </h1>
+            <p style={{ fontSize: '13px', color: 'var(--fd-ink-3)', margin: 0 }}>
+              Sign in to your workspace
             </p>
           </div>
 
-          {/* Error */}
           {error && (
-            <div
-              className="flex items-center gap-2.5 px-4 py-3 rounded-lg mb-4 text-[12.5px]"
-              style={{ background: 'rgba(185,28,28,0.1)', border: '1px solid rgba(185,28,28,0.25)', color: '#f87171' }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="flex-shrink-0">
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '10px 13px', borderRadius: '8px', marginBottom: '14px',
+              background: 'rgba(185,28,28,0.08)', border: '1px solid rgba(185,28,28,0.2)',
+              color: '#f87171', fontSize: '12.5px',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
                 <circle cx="7" cy="7" r="6" stroke="currentColor" strokeWidth="1.5"/>
                 <path d="M7 4v3.5M7 9.5v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
@@ -170,42 +137,35 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '13px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--fd-ink-2)', marginBottom: '6px', letterSpacing: '0.01em' }}>
                 Email address
               </label>
               <input
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+                type="email" autoComplete="email" value={form.email} required
+                onChange={e => { setForm(p => ({ ...p, email: e.target.value })); setActiveDemo(null); }}
                 placeholder="you@toflymedia.com"
-                className="fd-input"
-                required
+                className="fd-input-lg"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--fd-ink-2)', marginBottom: '6px', letterSpacing: '0.01em' }}>
                 Password
               </label>
-              <div className="relative">
+              <div style={{ position: 'relative' }}>
                 <input
-                  type={showPw ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={form.password}
-                  onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                  type={showPw ? 'text' : 'password'} autoComplete="current-password"
+                  value={form.password} required
+                  onChange={e => { setForm(p => ({ ...p, password: e.target.value })); setActiveDemo(null); }}
                   placeholder="••••••••"
-                  className="fd-input pr-10"
-                  required
+                  className="fd-input-lg"
+                  style={{ paddingRight: '40px' }}
                 />
                 <button
-                  type="button"
-                  onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: 'var(--fd-ink-4)' }}
+                  type="button" onClick={() => setShowPw(p => !p)}
+                  style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--fd-ink-4)', display: 'flex', padding: '2px' }}
                 >
                   {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -213,70 +173,72 @@ export default function LoginPage() {
             </div>
 
             <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full mt-2"
-              style={{ padding: '11px 20px', fontSize: '13.5px' }}
+              type="submit" disabled={loading}
+              className="btn-primary"
+              style={{ width: '100%', padding: '11px 20px', fontSize: '14px', fontWeight: 600, borderRadius: '10px', justifyContent: 'center' }}
             >
-              {loading ? (
-                <div
-                  className="w-4 h-4 rounded-full animate-spin"
-                  style={{ border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#ffffff' }}
-                />
-              ) : (
-                <>Continue <ArrowRight size={14} /></>
-              )}
+              {loading
+                ? <div className="spin" style={{ width: '16px', height: '16px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
+                : <>Sign in <ArrowRight size={14} /></>
+              }
             </button>
           </form>
-
-          {/* Demo accounts */}
-          <div className="mt-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 h-px" style={{ background: 'var(--fd-border)' }} />
-              <span className="text-[11px] font-medium" style={{ color: 'var(--fd-ink-4)' }}>Demo accounts</span>
-              <div className="flex-1 h-px" style={{ background: 'var(--fd-border)' }} />
-            </div>
-
-            <div
-              className="rounded-xl overflow-hidden"
-              style={{ border: '1px solid var(--fd-border-strong)' }}
-            >
-              {DEMO_ACCOUNTS.map((d, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setForm({ email: d.email, password: d.pw })}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left transition-colors group hover:bg-[var(--fd-surface-raised)]"
-                  style={{
-                    borderBottom: i < DEMO_ACCOUNTS.length - 1 ? '1px solid var(--fd-border-subtle)' : 'none',
-                    background: 'transparent',
-                  }}
-                >
-                  <div>
-                    <div
-                      className="text-[11.5px] font-semibold"
-                      style={{ color: d.accent }}
-                    >
-                      {d.role}
-                    </div>
-                    <div className="text-[11px] font-mono mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
-                      {d.email}
-                    </div>
-                  </div>
-                  <ArrowRight size={12} style={{ color: 'var(--fd-ink-5)' }} />
-                </button>
-              ))}
-              <div
-                className="px-4 py-2 flex items-center gap-1.5"
-                style={{ background: 'var(--fd-surface-raised)', borderTop: '1px solid var(--fd-border-subtle)' }}
-              >
-                <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>All passwords:</span>
-                <code className="text-[10.5px] font-mono" style={{ color: 'var(--fd-ink-2)' }}>*Role*123!</code>
-              </div>
-            </div>
-          </div>
         </div>
+
+        {/* Demo accounts */}
+        <div
+          className="lp-demo"
+          style={{
+            background: 'var(--fd-surface)',
+            border: '1px solid var(--fd-border)',
+            borderRadius: '16px',
+            padding: '18px 22px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+            <Zap size={11} style={{ color: 'var(--fd-ink-4)' }} />
+            <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--fd-ink-4)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>
+              Quick login
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '7px' }}>
+            {DEMO_ACCOUNTS.map((d, i) => (
+              <button
+                key={i} type="button"
+                className="demo-btn"
+                onClick={() => handleDemo(d, i)}
+                style={{
+                  background: activeDemo === i ? d.bg : 'var(--fd-surface-raised)',
+                  border: `1px solid ${activeDemo === i ? d.border : 'var(--fd-border)'}`,
+                  borderRadius: '10px', padding: '10px 11px',
+                  textAlign: 'left', cursor: 'pointer',
+                  transition: 'all 0.14s ease',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px',
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 600, color: d.accent, marginBottom: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {d.role}
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--fd-ink-4)', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {d.email.split('@')[0]}
+                  </div>
+                </div>
+                <ArrowRight size={11} className="arr" style={{ color: 'var(--fd-ink-5)', flexShrink: 0 }} />
+              </button>
+            ))}
+          </div>
+
+          {activeDemo !== null && (
+            <p style={{ marginTop: '10px', fontSize: '11.5px', color: 'var(--fd-ink-4)', textAlign: 'center', margin: '10px 0 0' }}>
+              Credentials filled — hit <strong style={{ color: 'var(--fd-ink-2)' }}>Sign in</strong> ↑
+            </p>
+          )}
+        </div>
+
       </div>
-    </div>
+    </>
   );
 }

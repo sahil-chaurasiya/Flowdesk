@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid');
+const mongoose = require('mongoose');
 const Lead = require('../models/Lead');
 const Client = require('../models/Client');
 const { protect, authorize } = require('../middleware/auth');
@@ -53,11 +54,32 @@ function mapColumns(headers) {
   return map;
 }
 
+// Helper: return the set of client IDs a manager/admin is scoped to.
+// Admins get null (= no restriction); managers get only their assigned clients.
+async function getScopedClientIds(user) {
+  if (user.role === 'admin') return null; // null = no restriction
+  const clients = await Client.find({
+    $or: [{ accountManager: user._id }, { teamMembers: user._id }],
+  }).select('_id');
+  return clients.map(c => c._id);
+}
+
 // @route POST /api/leads/upload
 router.post('/upload', protect, authorize('admin', 'manager'), upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
   const { clientId, batchLabel, source, campaign } = req.body;
   if (!clientId) return res.status(400).json({ success: false, message: 'clientId is required' });
+
+  // Managers: verify they have access to the target client
+  if (req.user.role === 'manager') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to upload leads for this client' });
+      }
+    }
+  }
 
   const client = await Client.findById(clientId);
   if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
@@ -141,7 +163,20 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client') {
     query.client = req.user.clientId;
   } else if (['admin', 'manager'].includes(req.user.role)) {
-    if (clientId) query.client = clientId;
+    const scopedClientIds = await getScopedClientIds(req.user);
+
+    if (clientId) {
+      // Verify manager has access to this specific client
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        if (!hasAccess) return res.json({ success: true, leads: [], total: 0, page: 1, pages: 0 });
+      }
+      query.client = clientId;
+    } else if (scopedClientIds) {
+      // No filter: scope to managed clients only (admin gets all)
+      query.client = { $in: scopedClientIds };
+    }
+    // Admin with no filter: no restriction needed
   } else {
     return res.status(403).json({ success: false, message: 'Not authorized to view leads' });
   }
@@ -163,12 +198,26 @@ router.get('/', protect, asyncHandler(async (req, res) => {
 // @route GET /api/leads/batches
 router.get('/batches', protect, asyncHandler(async (req, res) => {
   const { clientId } = req.query;
-  const matchClient = req.user.role === 'client' ? req.user.clientId : clientId;
+
+  let matchClient;
+  if (req.user.role === 'client') {
+    matchClient = req.user.clientId;
+  } else {
+    // Validate manager has access to requested client
+    if (clientId && req.user.role === 'manager') {
+      const scopedClientIds = await getScopedClientIds(req.user);
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        if (!hasAccess) return res.status(403).json({ success: false, message: 'Not authorized' });
+      }
+    }
+    matchClient = clientId;
+  }
 
   if (!matchClient) return res.status(400).json({ success: false, message: 'clientId is required' });
 
   const batches = await Lead.aggregate([
-    { $match: { client: require('mongoose').Types.ObjectId.createFromHexString(String(matchClient)) } },
+    { $match: { client: mongoose.Types.ObjectId.createFromHexString(String(matchClient)) } },
     { $group: {
         _id: '$batchId',
         batchLabel: { $first: '$batchLabel' },
@@ -193,10 +242,23 @@ router.get('/batches', protect, asyncHandler(async (req, res) => {
 // @route GET /api/leads/stats
 router.get('/stats', protect, asyncHandler(async (req, res) => {
   const { clientId } = req.query;
-  const matchClient = req.user.role === 'client' ? req.user.clientId : (clientId || null);
+
+  let matchClient;
+  if (req.user.role === 'client') {
+    matchClient = req.user.clientId;
+  } else {
+    if (clientId && req.user.role === 'manager') {
+      const scopedClientIds = await getScopedClientIds(req.user);
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        if (!hasAccess) return res.status(403).json({ success: false, message: 'Not authorized' });
+      }
+    }
+    matchClient = clientId || null;
+  }
+
   if (!matchClient) return res.status(400).json({ success: false, message: 'clientId required' });
 
-  const mongoose = require('mongoose');
   const oid = mongoose.Types.ObjectId.createFromHexString(String(matchClient));
 
   const [total, byStatus, bySource] = await Promise.all([
@@ -221,6 +283,17 @@ router.put('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (r
   const existing = await Lead.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Lead not found' });
 
+  // Managers: verify they have access to this lead's client
+  if (req.user.role === 'manager') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to edit this lead' });
+      }
+    }
+  }
+
   const lead = await Lead.findByIdAndUpdate(req.params.id, req.body, { new: true });
 
   if (req.body.status && req.body.status !== existing.status) {
@@ -237,6 +310,20 @@ router.put('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (r
 
 // @route DELETE /api/leads/batch/:batchId
 router.delete('/batch/:batchId', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  // Managers: verify they own at least one lead in this batch (i.e., the batch belongs to their client)
+  if (req.user.role === 'manager') {
+    const sampleLead = await Lead.findOne({ batchId: req.params.batchId });
+    if (sampleLead) {
+      const scopedClientIds = await getScopedClientIds(req.user);
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(sampleLead.client));
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, message: 'Not authorised to delete this batch' });
+        }
+      }
+    }
+  }
+
   const result = await Lead.deleteMany({ batchId: req.params.batchId });
 
   logActivity({

@@ -1,15 +1,13 @@
 /**
  * useAI — FlowDesk AI Assistant Hook
  *
- * Manages conversation history, streaming SSE responses,
- * and rate limit state. Works for all roles.
- *
- * Fixes:
- *  - 30s total request timeout (aborts if server never responds)
- *  - 15s stall timeout (aborts if chunks stop mid-stream)
- *  - chunk.error properly breaks the outer read loop
- *  - chunk.done properly resolves isStreaming AND message.streaming
- *  - cleanup always runs in finally, no stuck states
+ * FIXES in this version:
+ *  - Stall timer now only resets on actual content chunks, NOT on every raw read
+ *    (previously empty SSE keep-alives were resetting the timer, masking real stalls)
+ *  - AbortError handling: always cleans up streaming state whether partial or full abort
+ *  - chunk.error breaks cleanly without one extra reader.read() iteration
+ *  - `error` state reference in finally replaced with a local flag to avoid stale closure
+ *  - connectTimer cleared immediately after first byte, not only in catch
  */
 
 import { useState, useCallback, useRef } from 'react';
@@ -18,8 +16,8 @@ const BASE_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api`
   : '/api';
 
-const CONNECT_TIMEOUT_MS = 30_000;  // 30s to get first byte
-const STALL_TIMEOUT_MS   = 15_000;  // 15s between chunks
+const CONNECT_TIMEOUT_MS = 30_000;  // 30s to get first byte from server
+const STALL_TIMEOUT_MS   = 20_000;  // 20s between actual content chunks (not keep-alives)
 
 export function useAI() {
   const [messages, setMessages]      = useState([]);
@@ -27,13 +25,12 @@ export function useAI() {
   const [error, setError]            = useState(null);
   const [rateLimit, setRateLimit]    = useState(null);
 
-  const abortRef     = useRef(null);
+  const abortRef      = useRef(null);
   const stallTimerRef = useRef(null);
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
   const cleanup = useCallback((assistantMsgId) => {
-    // Clear any pending stall timer
     if (stallTimerRef.current) {
       clearTimeout(stallTimerRef.current);
       stallTimerRef.current = null;
@@ -44,14 +41,18 @@ export function useAI() {
         m.id === assistantMsgId ? { ...m, streaming: false } : m
       ));
     } else {
-      // Fallback: clear any lingering streaming flags
       setMessages(prev => prev.map(m => m.streaming ? { ...m, streaming: false } : m));
     }
   }, []);
 
+  /**
+   * Reset stall timer ONLY when we receive actual content (delta or done).
+   * Keep-alive pings (': ping\n\n') are ignored — they don't count as progress.
+   */
   const resetStallTimer = useCallback((controller) => {
     if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
     stallTimerRef.current = setTimeout(() => {
+      console.warn('[useAI] Stall timeout — aborting stream');
       controller.abort();
     }, STALL_TIMEOUT_MS);
   }, []);
@@ -74,8 +75,14 @@ export function useAI() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Overall connection timeout
-    const connectTimer = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS);
+    // Overall connect timeout — cleared as soon as we get the response headers
+    const connectTimer = setTimeout(() => {
+      console.warn('[useAI] Connect timeout — aborting');
+      controller.abort();
+    }, CONNECT_TIMEOUT_MS);
+
+    let accumulated  = '';
+    let hadError     = false; // local flag, avoids stale closure on `error` state
 
     try {
       const token = localStorage.getItem('accessToken');
@@ -90,7 +97,9 @@ export function useAI() {
         signal: controller.signal,
       });
 
+      // Got headers — kill connect timer, start stall watchdog
       clearTimeout(connectTimer);
+      resetStallTimer(controller);
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -101,56 +110,53 @@ export function useAI() {
         } else {
           setError({ type: 'api_error', message: errorData.message || `Server error (${res.status}). Please try again.` });
         }
+        hadError = true;
         setMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
-        cleanup(null);
         return;
       }
 
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
-      let accumulated = '';
-      let buffer      = '';
-      let streamDone  = false;
-
-      // Start stall watchdog — reset on every chunk received
-      resetStallTimer(controller);
+      let buffer     = '';
+      let streamDone = false;
 
       while (!streamDone) {
         const { done, value } = await reader.read();
-
         if (done) break;
-
-        // Got data — reset stall watchdog
-        resetStallTimer(controller);
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        buffer = lines.pop(); // keep incomplete last line
+        buffer = lines.pop();
 
         for (const line of lines) {
           const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
+
+          // Skip empty lines and SSE keep-alive comments (': ping')
+          // Do NOT reset stall timer on these — they're not real progress
+          if (!trimmed || trimmed.startsWith(':')) continue;
+          if (!trimmed.startsWith('data: ')) continue;
 
           const jsonStr = trimmed.slice(6);
-
-          // SSE keep-alive ping
           if (jsonStr === '[DONE]' || jsonStr === 'ping') continue;
 
           let chunk;
           try {
             chunk = JSON.parse(jsonStr);
           } catch {
-            continue; // skip malformed
+            continue;
           }
 
           if (chunk.error) {
             setError({ type: 'stream_error', message: chunk.error });
+            hadError = true;
             streamDone = true;
-            break;
+            break; // exits for-loop; while checks streamDone next iteration
           }
 
           if (chunk.delta) {
             accumulated += chunk.delta;
+            // Reset stall timer only on real content
+            resetStallTimer(controller);
             setMessages(prev => prev.map(m =>
               m.id === assistantMessage.id ? { ...m, content: accumulated } : m
             ));
@@ -161,31 +167,29 @@ export function useAI() {
           }
 
           if (chunk.done) {
+            // Reset stall timer — this is the final real event
+            resetStallTimer(controller);
             streamDone = true;
             break;
           }
         }
       }
 
-      // Flush any remaining buffer content
-      if (buffer.trim()) {
-        const trimmed = buffer.trim();
-        if (trimmed.startsWith('data: ')) {
-          try {
-            const chunk = JSON.parse(trimmed.slice(6));
-            if (chunk.delta) {
-              accumulated += chunk.delta;
-              setMessages(prev => prev.map(m =>
-                m.id === assistantMessage.id ? { ...m, content: accumulated } : m
-              ));
-            }
-          } catch { /* ignore */ }
-        }
+      // Flush any remaining partial buffer (edge case)
+      if (buffer.trim() && buffer.trim().startsWith('data: ')) {
+        try {
+          const chunk = JSON.parse(buffer.trim().slice(6));
+          if (chunk.delta) {
+            accumulated += chunk.delta;
+            setMessages(prev => prev.map(m =>
+              m.id === assistantMessage.id ? { ...m, content: accumulated } : m
+            ));
+          }
+        } catch { /* ignore */ }
       }
 
-      // If we got content but no explicit chunk.done, that's fine — just finish
-      if (!accumulated && !error) {
-        // Empty response from server
+      // Empty response — show fallback instead of blank bubble
+      if (!accumulated && !hadError) {
         setMessages(prev => prev.map(m =>
           m.id === assistantMessage.id
             ? { ...m, content: 'No response received. Please try again.' }
@@ -197,16 +201,17 @@ export function useAI() {
       clearTimeout(connectTimer);
 
       if (err.name === 'AbortError') {
-        // Could be user-initiated stop OR our timeout
-        const wasTimeout = !accumulated;
-        if (wasTimeout) {
+        if (!accumulated) {
+          // Timed out before any content — remove the empty bubble and show error
           setError({ type: 'timeout', message: 'Request timed out. The server took too long to respond.' });
           setMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
+          hadError = true;
         }
-        // If there was partial content, keep it — don't remove the message
+        // If partial content exists, keep it — just stop streaming (cleanup handles it)
       } else {
         setError({ type: 'network_error', message: 'Connection lost. Please check your connection and try again.' });
         setMessages(prev => prev.filter(m => m.id !== assistantMessage.id));
+        hadError = true;
       }
     } finally {
       clearTimeout(connectTimer);

@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Report = require('../models/Report');
+const Client = require('../models/Client');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
+
+const MANAGER_ROLES = ['admin', 'manager'];
 
 // @route GET /api/reports
 router.get('/', protect, asyncHandler(async (req, res) => {
@@ -12,8 +15,22 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client') {
     query.client = req.user.clientId;
     query.isPublished = true;
-  } else if (clientId) {
-    query.client = clientId;
+  } else if (MANAGER_ROLES.includes(req.user.role)) {
+    if (clientId) query.client = clientId;
+  } else {
+    // Team members: only see reports for their assigned clients
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
+    }).select('_id');
+    const assignedIds = assignedClients.map(c => c._id);
+
+    if (clientId) {
+      const isAssigned = assignedIds.some(id => String(id) === String(clientId));
+      if (!isAssigned) return res.json({ success: true, reports: [], total: 0, page: 1, pages: 0 });
+      query.client = clientId;
+    } else {
+      query.client = { $in: assignedIds };
+    }
   }
 
   if (period) query.period = period;
@@ -31,6 +48,17 @@ router.get('/', protect, asyncHandler(async (req, res) => {
 
 // @route POST /api/reports
 router.post('/', protect, authorize('admin', 'manager', 'team'), asyncHandler(async (req, res) => {
+  // Team members: validate they belong to this client
+  if (!MANAGER_ROLES.includes(req.user.role) && req.body.client) {
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
+    }).select('_id');
+    const isAssigned = assignedClients.some(c => String(c._id) === String(req.body.client));
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: 'Not authorised to create reports for this client' });
+    }
+  }
+
   // Auto-calculate ROAS if not provided
   if (req.body.metrics && req.body.metrics.adSpend && req.body.metrics.revenue && !req.body.metrics.roas) {
     req.body.metrics.roas = parseFloat((req.body.metrics.revenue / req.body.metrics.adSpend).toFixed(2));
@@ -41,7 +69,6 @@ router.post('/', protect, authorize('admin', 'manager', 'team'), asyncHandler(as
     .populate('createdBy', 'name avatar')
     .populate('client', 'name company');
 
-  // Emit automation event
   try { req.app.locals.emitEvent?.('report.created', { reportId: report._id, title: report.title, client: populated.client?.company, period: report.period }); } catch {}
 
   res.status(201).json({ success: true, report: populated });
@@ -52,6 +79,17 @@ router.post('/', protect, authorize('admin', 'manager', 'team'), asyncHandler(as
 router.get('/client/:clientId/summary', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client' && String(req.user.clientId) !== req.params.clientId) {
     return res.status(403).json({ success: false, message: 'Not authorized' });
+  }
+
+  // Team members: check they are assigned to this client
+  if (!MANAGER_ROLES.includes(req.user.role) && req.user.role !== 'client') {
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
+    }).select('_id');
+    const isAssigned = assignedClients.some(c => String(c._id) === String(req.params.clientId));
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
   }
 
   const reports = await Report.find({ client: req.params.clientId, isPublished: true })
@@ -79,8 +117,18 @@ router.get('/:id', protect, asyncHandler(async (req, res) => {
 
   if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
 
-  if (req.user.role === 'client' && String(report.client._id) !== String(req.user.clientId)) {
-    return res.status(403).json({ success: false, message: 'Not authorized' });
+  if (req.user.role === 'client') {
+    if (String(report.client._id) !== String(req.user.clientId)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+  } else if (!MANAGER_ROLES.includes(req.user.role)) {
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
+    }).select('_id');
+    const isAssigned = assignedClients.some(c => String(c._id) === String(report.client._id));
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
   }
 
   res.json({ success: true, report });
@@ -88,6 +136,19 @@ router.get('/:id', protect, asyncHandler(async (req, res) => {
 
 // @route PUT /api/reports/:id
 router.put('/:id', protect, authorize('admin', 'manager', 'team'), asyncHandler(async (req, res) => {
+  const existing = await Report.findById(req.params.id).populate('client', '_id');
+  if (!existing) return res.status(404).json({ success: false, message: 'Report not found' });
+
+  if (!MANAGER_ROLES.includes(req.user.role)) {
+    const assignedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
+    }).select('_id');
+    const isAssigned = assignedClients.some(c => String(c._id) === String(existing.client._id));
+    if (!isAssigned) {
+      return res.status(403).json({ success: false, message: 'Not authorised to edit this report' });
+    }
+  }
+
   if (req.body.metrics?.adSpend && req.body.metrics?.revenue) {
     req.body.metrics.roas = parseFloat((req.body.metrics.revenue / req.body.metrics.adSpend).toFixed(2));
   }
@@ -96,7 +157,6 @@ router.put('/:id', protect, authorize('admin', 'manager', 'team'), asyncHandler(
     .populate('createdBy', 'name avatar')
     .populate('client', 'name company');
 
-  if (!report) return res.status(404).json({ success: false, message: 'Report not found' });
   res.json({ success: true, report });
 }));
 

@@ -152,20 +152,38 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
         startDate:   event.startDate ? toDatetimeLocal(parseISO(event.startDate)) : '',
         endDate:     event.endDate   ? toDatetimeLocal(parseISO(event.endDate))   : '',
         description: event.description || '',
+        visibility:  event.visibility || 'all',
+        visibleTo:   (event.visibleTo || []).map(u => (typeof u === 'object' ? u._id : u)),
       };
     }
     const base = defaultDate ? new Date(defaultDate) : new Date();
     base.setHours(9, 0, 0, 0);
     const end = new Date(base);
     end.setHours(10, 0, 0, 0);
-    return { title: '', type: 'meeting', startDate: toDatetimeLocal(base), endDate: toDatetimeLocal(end), description: '' };
+    return { title: '', type: 'meeting', startDate: toDatetimeLocal(base), endDate: toDatetimeLocal(end), description: '', visibility: 'all', visibleTo: [] };
   };
 
   const [form, setForm] = useState(buildDefaults);
   const [saving, setSaving] = useState(false);
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  // Load team members once for the "specific people" picker
+  useEffect(() => {
+    api.get('/users?role=team').then(({ data }) => {
+      setTeamMembers(data.users || []);
+    }).catch(() => {});
+  }, []);
+
+  const toggleVisibleTo = (userId) => {
+    setForm(f => {
+      const already = f.visibleTo.includes(userId);
+      return { ...f, visibleTo: already ? f.visibleTo.filter(id => id !== userId) : [...f.visibleTo, userId] };
+    });
+  };
 
   const save = async () => {
     if (!form.title?.trim()) return;
+    if (form.visibility === 'specific' && form.visibleTo.length === 0) return;
     setSaving(true);
     try { await onSave({ ...event, ...form }, isNew); onClose(); }
     finally { setSaving(false); }
@@ -177,6 +195,12 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
     try { await onDelete(event._id); onClose(); }
     finally { setSaving(false); }
   };
+
+  const VISIBILITY_OPTIONS = [
+    { value: 'all',      label: 'Everyone', desc: 'All team members can see this' },
+    { value: 'specific', label: 'Specific people', desc: 'Choose who can see this' },
+    { value: 'private',  label: 'Only me', desc: 'Private — only you can see this' },
+  ];
 
   return (
     <Modal
@@ -190,7 +214,8 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
           )}
           <div className="flex gap-2 ml-auto">
             <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
-            <Button size="sm" onClick={save} loading={saving}>
+            <Button size="sm" onClick={save} loading={saving}
+              disabled={form.visibility === 'specific' && form.visibleTo.length === 0}>
               <Check size={12} /> {isNew ? 'Create' : 'Save'}
             </Button>
           </div>
@@ -237,6 +262,73 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             placeholder="Optional notes…"
           />
+        </div>
+
+        {/* ── Visibility ── */}
+        <div className="space-y-2">
+          <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Visibility</label>
+          <div className="grid grid-cols-1 gap-1.5">
+            {VISIBILITY_OPTIONS.map(opt => (
+              <button
+                key={opt.value}
+                onClick={() => setForm(f => ({ ...f, visibility: opt.value, visibleTo: opt.value !== 'specific' ? [] : f.visibleTo }))}
+                className="flex items-start gap-2.5 p-2.5 rounded-xl text-left transition-all"
+                style={{
+                  background: form.visibility === opt.value ? 'var(--fd-accent-light, #eff0fe)' : 'var(--fd-surface-sunken)',
+                  border: `1.5px solid ${form.visibility === opt.value ? 'var(--fd-accent, #4f6ef0)' : 'transparent'}`,
+                }}
+              >
+                <span
+                  className="w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 mt-0.5"
+                  style={{
+                    borderColor: form.visibility === opt.value ? 'var(--fd-accent, #4f6ef0)' : 'var(--fd-ink-4)',
+                    background:  form.visibility === opt.value ? 'var(--fd-accent, #4f6ef0)' : 'transparent',
+                  }}
+                />
+                <div>
+                  <p className="text-[12px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{opt.label}</p>
+                  <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{opt.desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* People picker for 'specific' */}
+          {form.visibility === 'specific' && (
+            <div className="mt-1 space-y-1">
+              <p className="text-[11px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>
+                Select people ({form.visibleTo.length} selected)
+              </p>
+              <div className="max-h-36 overflow-y-auto rounded-xl divide-y" style={{ border: '1px solid var(--fd-border)' }}>
+                {teamMembers.length === 0 && (
+                  <p className="text-[11px] p-3" style={{ color: 'var(--fd-ink-4)' }}>Loading team…</p>
+                )}
+                {teamMembers.map(member => {
+                  const selected = form.visibleTo.includes(member._id);
+                  return (
+                    <button
+                      key={member._id}
+                      onClick={() => toggleVisibleTo(member._id)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      style={{ background: selected ? 'var(--fd-accent-light, #eff0fe)' : 'transparent' }}
+                    >
+                      <span
+                        className="w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center"
+                        style={{ background: selected ? 'var(--fd-accent, #4f6ef0)' : 'var(--fd-surface-sunken)', border: `1.5px solid ${selected ? 'var(--fd-accent, #4f6ef0)' : 'var(--fd-border)'}` }}
+                      >
+                        {selected && <Check size={8} color="#fff" />}
+                      </span>
+                      <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{member.name}</span>
+                      <span className="text-[11px] ml-auto" style={{ color: 'var(--fd-ink-4)' }}>{member.jobTitle || member.role}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {form.visibility === 'specific' && form.visibleTo.length === 0 && (
+                <p className="text-[11px]" style={{ color: '#ef4444' }}>Please select at least one person.</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </Modal>

@@ -11,6 +11,16 @@ const { logActivity } = require('../utils/activityLog');
 const NON_CLIENT_ROLES = [...TEAM_ROLES];
 const MANAGER_ROLES = ['admin', 'manager'];
 
+// Helper: return the set of client IDs a manager/admin is scoped to.
+// Admins get null (= no restriction); managers get only their assigned clients.
+async function getScopedClientIds(user) {
+  if (user.role === 'admin') return null; // null = no restriction
+  const clients = await Client.find({
+    $or: [{ accountManager: user._id }, { teamMembers: user._id }],
+  }).select('_id');
+  return clients.map(c => c._id);
+}
+
 // @route GET /api/tasks
 router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
   const {
@@ -22,10 +32,28 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   const query = {};
 
   if (!isManager) {
+    // Team members only see tasks assigned to them
     query.assignedTo = req.user._id;
   } else {
-    if (clientId)    query.client     = clientId;
-    if (assignedTo)  query.assignedTo = assignedTo;
+    // Admins and managers: scope to their assigned clients
+    const scopedClientIds = await getScopedClientIds(req.user);
+
+    if (clientId) {
+      // Verify manager has access to the requested client
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        if (!hasAccess) return res.json({ success: true, tasks: [], total: 0, page: 1, pages: 0 });
+      }
+      query.client = clientId;
+    } else {
+      // No specific client requested — scope to managed clients
+      if (scopedClientIds) {
+        query.client = { $in: scopedClientIds };
+      }
+      // Admin with no filter: no restriction (scopedClientIds === null)
+    }
+
+    if (assignedTo) query.assignedTo = assignedTo;
   }
 
   if (status)   query.status   = status;
@@ -47,6 +75,17 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
 
 // @route POST /api/tasks
 router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
+  // Managers: validate they have access to the target client
+  if (req.user.role === 'manager' && req.body.client) {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(req.body.client));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to create tasks for this client' });
+      }
+    }
+  }
+
   const task = await Task.create({ ...req.body, createdBy: req.user._id });
   const populated = await Task.findById(task._id)
     .populate('client', 'name company')
@@ -86,6 +125,15 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
     }
     const allowed = ['status', 'actualHours', 'comments'];
     Object.keys(req.body).forEach(key => { if (!allowed.includes(key)) delete req.body[key]; });
+  } else if (req.user.role === 'manager') {
+    // Managers: verify they have access to this task's client
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to edit this task' });
+      }
+    }
   }
 
   const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
@@ -139,8 +187,21 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
 
 // @route DELETE /api/tasks/:id
 router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const existing = await Task.findById(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, message: 'Task not found' });
+
+  // Managers: verify they have access to this task's client
+  if (req.user.role === 'manager') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to delete this task' });
+      }
+    }
+  }
+
   const task = await Task.findByIdAndDelete(req.params.id);
-  if (!task) return res.status(404).json({ success: false, message: 'Task not found' });
 
   logActivity({
     req,
@@ -154,7 +215,20 @@ router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async
 // @route GET /api/tasks/stats
 router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const { clientId } = req.query;
-  const match = clientId ? { client: require('mongoose').Types.ObjectId.createFromHexString(clientId) } : {};
+
+  const scopedClientIds = await getScopedClientIds(req.user);
+
+  let match = {};
+  if (clientId) {
+    // Verify manager has access to requested client
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+      if (!hasAccess) return res.json({ success: true, byStatus: [], byPriority: [], byCategory: [], overdue: 0 });
+    }
+    match = { client: require('mongoose').Types.ObjectId.createFromHexString(clientId) };
+  } else if (scopedClientIds) {
+    match = { client: { $in: scopedClientIds } };
+  }
 
   const [byStatus, byPriority, byCategory, overdue] = await Promise.all([
     Task.aggregate([{ $match: match }, { $group: { _id: '$status', count: { $sum: 1 } } }]),

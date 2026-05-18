@@ -29,6 +29,18 @@ const calendarEventSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
+  // ── Visibility ────────────────────────────────────────────────────────────
+  // 'private'  — only the creator can see it
+  // 'specific' — only users listed in visibleTo can see it
+  // 'all'      — all internal team members can see it (original behaviour)
+  visibility: {
+    type: String,
+    enum: ['private', 'specific', 'all'],
+    default: 'all',
+  },
+  // Populated when visibility === 'specific'
+  visibleTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
   // Reminder
   reminder: {
     enabled:  { type: Boolean, default: false },
@@ -45,6 +57,7 @@ const calendarEventSchema = new mongoose.Schema({
 calendarEventSchema.index({ startDate: 1, endDate: 1 });
 calendarEventSchema.index({ createdBy: 1 });
 calendarEventSchema.index({ 'assignedTo': 1 });
+calendarEventSchema.index({ visibleTo: 1 });
 calendarEventSchema.index({ client: 1 });
 
 module.exports = mongoose.model('CalendarEvent', calendarEventSchema);

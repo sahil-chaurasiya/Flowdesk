@@ -1,26 +1,22 @@
 /**
  * Groq AI Service — FlowDesk
  *
- * Uses llama-3.1-8b-instant — fully free, very fast, low token usage.
- * Context is serialized as compact prose (not raw JSON) to stay well
- * under Groq's free tier TPM limits (20,000 TPM for 8b-instant).
- *
- * SECURITY: Context is always pre-filtered by aiContextBuilder.js.
- * This service never queries the DB directly.
- *
- * FIXES vs original:
- *  - AbortSignal.timeout(25000) on all Groq fetch calls
- *  - finish_reason 'length' also sends done:true (was silently hanging)
- *  - stream read loop uses streamDone flag to break cleanly
- *  - always sends done:true + ends res, even on partial content
- *  - logs context build timeout so it's visible in server logs
+ * FIXES:
+ *  - Primary model: llama-3.3-70b-versatile (Groq's recommended production model)
+ *  - Fallback model: llama-3.1-8b-instant (if primary hits rate limit)
+ *  - Auto-retry on 429 with fallback model before giving up
+ *  - SSE keep-alive pings every 5s to prevent proxy timeouts
+ *  - finish_reason 'length' sends done:true (was silently hanging)
+ *  - Always sends done:true + ends res, even on partial content
  */
 
 const { buildContext } = require('./aiContextBuilder');
 
 const GROQ_API_URL   = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL          = 'llama-3.1-8b-instant';
-const GROQ_TIMEOUT   = 25000; // 25s for Groq API response
+const MODEL_PRIMARY  = 'llama-3.3-70b-versatile'; // Groq's recommended production model
+const MODEL_FALLBACK = 'llama-3.1-8b-instant';    // fallback if primary is rate-limited
+const GROQ_TIMEOUT   = 30000;
+const PING_INTERVAL  = 5000;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COMPACT CONTEXT SERIALIZERS
@@ -99,11 +95,9 @@ Only reference data provided below. Never invent names, tasks, or metrics. Never
 
   let ctx = '';
 
-  // ── Admin / Manager ──────────────────────────────────────────────────────
   if (context.scope === 'organization') {
     const snap = context.snapshot || {};
     const ts   = snap.taskSummary || {};
-
     ctx = `
 SCOPE: Organization-wide
 Clients: ${snap.totalClients ?? 0} total, ${snap.activeClients ?? 0} active | Team: ${snap.teamSize ?? 0} members
@@ -128,7 +122,6 @@ RECENT REPORTS:
 ${serializeReports(context.recentReports)}
 ${context.teamMembers?.length ? '\nTEAM MEMBERS:\n' + context.teamMembers.map(m => `- ${m.name} | ${m.role} | ${m.jobTitle || 'N/A'}`).join('\n') : ''}`;
 
-  // ── Team Member ──────────────────────────────────────────────────────────
   } else if (context.scope === 'personal') {
     const snap = context.snapshot || {};
     ctx = `
@@ -151,7 +144,6 @@ ${serializeUpdates(context.recentUpdates)}
 MY UPLOADED FILES:
 ${(context.recentFiles || []).map(f => `- ${f.name} (${f.category}) | client: ${f.client || '?'} | ${f.uploadedAt || '?'}`).join('\n') || 'None.'}`;
 
-  // ── Client ───────────────────────────────────────────────────────────────
   } else if (context.scope === 'client') {
     const cp   = context.clientProfile || {};
     const snap = context.snapshot || {};
@@ -183,6 +175,32 @@ ${serializeMessages(context.recentMessages)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// GROQ FETCH HELPER — tries primary model, falls back on 429
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchGroq(payload, stream = false) {
+  const makeReq = (model) => fetch(GROQ_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({ ...payload, model, stream }),
+    signal: AbortSignal.timeout(GROQ_TIMEOUT),
+  });
+
+  let res = await makeReq(MODEL_PRIMARY);
+
+  // Primary model rate-limited → retry immediately with fallback
+  if (res.status === 429) {
+    console.warn('[groqService] Primary model rate-limited, retrying with fallback');
+    res = await makeReq(MODEL_FALLBACK);
+  }
+
+  return res;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // NON-STREAMING
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -190,27 +208,13 @@ async function getAIResponse(user, messages) {
   const context      = await buildContext(user);
   const systemPrompt = buildSystemPrompt(context);
 
-  if (context._timeout) {
-    console.warn('[groqService] Context build timed out for user:', user._id);
-  }
+  if (context._timeout) console.warn('[groqService] Context build timed out for user:', user._id);
 
-  const res = await fetch(GROQ_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model:       MODEL,
-      max_tokens:  800,
-      temperature: 0.35,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages,
-      ],
-    }),
-    signal: AbortSignal.timeout(GROQ_TIMEOUT),
-  });
+  const res = await fetchGroq({
+    max_tokens:  800,
+    temperature: 0.35,
+    messages: [{ role: 'system', content: systemPrompt }, ...messages],
+  }, false);
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -233,67 +237,63 @@ async function streamAIResponse(user, messages, res) {
   const context      = await buildContext(user);
   const systemPrompt = buildSystemPrompt(context);
 
-  if (context._timeout) {
-    console.warn('[groqService] Context build timed out for user:', user._id);
-  }
+  if (context._timeout) console.warn('[groqService] Context build timed out for user:', user._id);
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Content-Type',      'text/event-stream');
+  res.setHeader('Cache-Control',     'no-cache');
+  res.setHeader('Connection',        'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
+  // Keep-alive pings — prevents Nginx/proxy from killing idle SSE connections
+  const pingInterval = setInterval(() => {
+    if (!res.writableEnded) {
+      res.write(': ping\n\n');
+      if (typeof res.flush === 'function') res.flush();
+    }
+  }, PING_INTERVAL);
+
+  const send = (obj) => {
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify(obj)}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+    }
+  };
+
+  const finish = () => {
+    clearInterval(pingInterval);
+    if (!res.writableEnded) {
+      res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      if (typeof res.flush === 'function') res.flush();
+      res.end();
+    }
+  };
+
   let groqRes;
   try {
-    groqRes = await fetch(GROQ_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model:       MODEL,
-        max_tokens:  800,
-        temperature: 0.35,
-        stream:      true,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...messages,
-        ],
-      }),
-      signal: AbortSignal.timeout(GROQ_TIMEOUT),
-    });
+    groqRes = await fetchGroq({
+      max_tokens:  800,
+      temperature: 0.35,
+      messages: [{ role: 'system', content: systemPrompt }, ...messages],
+    }, true);
   } catch (fetchErr) {
     const isTimeout = fetchErr.name === 'TimeoutError' || fetchErr.name === 'AbortError';
-    res.write(`data: ${JSON.stringify({ error: isTimeout ? 'Groq API timed out. Please try again.' : 'Failed to reach AI service.' })}\n\n`);
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
+    send({ error: isTimeout ? 'Groq API timed out. Please try again.' : 'Failed to reach AI service.' });
+    finish();
     return;
   }
 
   if (!groqRes.ok) {
     const err = await groqRes.json().catch(() => ({}));
     const msg = err?.error?.message || `Groq API error (${groqRes.status})`;
-    // Surface rate limit clearly
-    if (groqRes.status === 429) {
-      res.write(`data: ${JSON.stringify({ error: 'Rate limit reached. Please wait a moment and try again.' })}\n\n`);
-    } else {
-      res.write(`data: ${JSON.stringify({ error: msg })}\n\n`);
-    }
-    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
-    res.end();
+    send({ error: groqRes.status === 429 ? 'Rate limit reached. Please wait a moment and try again.' : msg });
+    finish();
     return;
   }
 
   const reader  = groqRes.body.getReader();
   const decoder = new TextDecoder();
-  let buffer     = '';
-
-  // flush() forces Node/Express to push buffered SSE data immediately
-  const send = (obj) => {
-    res.write(`data: ${JSON.stringify(obj)}\n\n`);
-    if (typeof res.flush === 'function') res.flush();
-  };
+  let buffer    = '';
 
   try {
     outer: while (true) {
@@ -302,16 +302,13 @@ async function streamAIResponse(user, messages, res) {
 
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop();
+      buffer = lines.pop(); // hold incomplete last line
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed) continue;
+        if (!trimmed || trimmed.startsWith(':')) continue; // skip blanks + SSE comments
 
-        if (trimmed === 'data: [DONE]') {
-          break outer;
-        }
-
+        if (trimmed === 'data: [DONE]') break outer;
         if (!trimmed.startsWith('data: ')) continue;
 
         let chunk;
@@ -322,18 +319,14 @@ async function streamAIResponse(user, messages, res) {
 
         if (delta) send({ delta });
 
-        if (finish_reason === 'stop' || finish_reason === 'length') {
-          break outer;
-        }
+        if (finish_reason === 'stop' || finish_reason === 'length') break outer;
       }
     }
   } catch (streamErr) {
     console.error('[groqService] Stream read error:', streamErr.message);
     send({ error: 'Stream interrupted. Please try again.' });
   } finally {
-    // Always send done:true and close — covers [DONE], finish_reason, error, or reader close
-    send({ done: true });
-    res.end();
+    finish();
   }
 }
 

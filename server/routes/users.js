@@ -4,20 +4,47 @@ const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 
+const TEAM_ONLY_ROLES = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
+
 // @route GET /api/users
-router.get('/', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+// Admin & managers get full list with all filters.
+// Other internal team members may only fetch the team member list (e.g. for calendar visibility picker).
+router.get('/', protect, asyncHandler(async (req, res) => {
+  const isManagerOrAdmin = ['admin', 'manager'].includes(req.user.role);
+  const isInternalTeam   = TEAM_ONLY_ROLES.includes(req.user.role);
+
+  if (!isManagerOrAdmin && !isInternalTeam) {
+    return res.status(403).json({ success: false, message: 'Not authorized' });
+  }
+
   const { role, isActive, search, page = 1, limit = 20 } = req.query;
   const query = {};
-  if (role) query.role = role;
+
+  // 'team' is a shorthand for all non-client internal roles
+  if (role === 'team') {
+    query.role = { $in: [...TEAM_ONLY_ROLES, 'manager', 'admin'] };
+  } else if (role) {
+    query.role = role;
+  }
+
+  // Non-managers may only query the team list; restrict if no role filter provided
+  if (!isManagerOrAdmin && !query.role) {
+    query.role = { $in: [...TEAM_ONLY_ROLES, 'manager', 'admin'] };
+  }
+
   if (isActive !== undefined) query.isActive = isActive === 'true';
-  if (search) query.$or = [
-    { name: { $regex: search, $options: 'i' } },
-    { email: { $regex: search, $options: 'i' } }
-  ];
+  if (search && isManagerOrAdmin) {
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+    ];
+  }
 
   const total = await User.countDocuments(query);
+  // Non-managers get minimal fields only (name, role, jobTitle, avatar, _id)
   const users = await User.find(query)
-    .populate('clientId', 'name company')
+    .populate(isManagerOrAdmin ? { path: 'clientId', select: 'name company' } : '')
+    .select(isManagerOrAdmin ? '' : 'name role jobTitle avatar')
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(Number(limit));

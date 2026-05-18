@@ -1,49 +1,90 @@
 const express = require('express');
-const router = express.Router();
-const Task   = require('../models/Task');
-const Client = require('../models/Client');
-const User   = require('../models/User');
-const Lead   = require('../models/Lead');
+const router  = express.Router();
+const Task    = require('../models/Task');
+const Client  = require('../models/Client');
+const User    = require('../models/User');
+const Lead    = require('../models/Lead');
+const mongoose = require('mongoose');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 
 const TEAM_ROLES_ALL = ['admin', 'manager', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 const TEAM_ROLES     = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 
-// @route GET /api/dashboard/stats  (existing — unchanged signature)
+// Helper: return the set of client IDs a manager/admin is scoped to.
+// Admins get all; managers get clients where they are accountManager or teamMember.
+async function getScopedClientIds(user) {
+  if (user.role === 'admin') return null; // null = no restriction
+  const clients = await Client.find({
+    $or: [{ accountManager: user._id }, { teamMembers: user._id }],
+  }).select('_id');
+  return clients.map(c => c._id);
+}
+
+// @route GET /api/dashboard/stats
 router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const scopedClientIds = await getScopedClientIds(req.user);
+  const clientMatch = scopedClientIds ? { client: { $in: scopedClientIds } } : {};
+
   const [activeClients, tasksByStatus, teamCount, totalLeads, recentTasks] = await Promise.all([
-    Client.countDocuments({ status: 'active' }),
+    scopedClientIds
+      ? Client.countDocuments({ _id: { $in: scopedClientIds }, status: 'active' })
+      : Client.countDocuments({ status: 'active' }),
     Task.aggregate([
-      { $match: { status: { $in: ['pending', 'in_progress', 'review'] } } },
-      { $group: { _id: '$status', count: { $sum: 1 } } }
+      { $match: { ...clientMatch, status: { $in: ['pending', 'in_progress', 'review'] } } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
     ]),
     User.countDocuments({ role: { $in: TEAM_ROLES_ALL }, isActive: true }),
-    Lead.countDocuments({}),
-    Task.find({ status: { $in: ['pending', 'in_progress'] } })
+    scopedClientIds
+      ? Lead.countDocuments({ client: { $in: scopedClientIds } })
+      : Lead.countDocuments({}),
+    Task.find({ ...clientMatch, status: { $in: ['pending', 'in_progress'] } })
       .sort({ priority: -1, deadline: 1 })
       .limit(5)
       .populate('client', 'company')
       .populate('assignedTo', 'name role')
-      .lean()
+      .lean(),
   ]);
 
-  const byStatus   = tasksByStatus.reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {});
-  const openTasks  = (byStatus.pending || 0) + (byStatus.in_progress || 0);
+  const byStatus    = tasksByStatus.reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {});
+  const openTasks   = (byStatus.pending || 0) + (byStatus.in_progress || 0);
   const reviewTasks = byStatus.review || 0;
 
   res.json({ success: true, activeClients, openTasks, reviewTasks, teamCount, totalLeads, recentTasks });
 }));
 
-// @route GET /api/dashboard/team  (existing — unchanged)
+// @route GET /api/dashboard/team
 router.get('/team', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
-  const members  = await User.find({ role: { $in: TEAM_ROLES }, isActive: true }).select('name role jobTitle avatar');
+  const scopedClientIds = await getScopedClientIds(req.user);
+  const clientMatch = scopedClientIds ? { client: { $in: scopedClientIds } } : {};
+
+  // For managers, only show team members assigned to their clients
+  let members;
+  if (scopedClientIds) {
+    const clientDocs = await Client.find({ _id: { $in: scopedClientIds } })
+      .select('teamMembers accountManager');
+    const memberIdSet = new Set();
+    clientDocs.forEach(c => {
+      if (c.accountManager) memberIdSet.add(String(c.accountManager));
+      c.teamMembers.forEach(m => memberIdSet.add(String(m)));
+    });
+    members = await User.find({
+      _id: { $in: [...memberIdSet] },
+      role: { $in: TEAM_ROLES },
+      isActive: true,
+    }).select('name role jobTitle avatar');
+  } else {
+    members = await User.find({ role: { $in: TEAM_ROLES }, isActive: true })
+      .select('name role jobTitle avatar');
+  }
+
   const workload = await Promise.all(members.map(async (member) => {
+    const taskMatch = { assignedTo: member._id, ...clientMatch };
     const [pending, inProgress, review, completed] = await Promise.all([
-      Task.countDocuments({ assignedTo: member._id, status: 'pending' }),
-      Task.countDocuments({ assignedTo: member._id, status: 'in_progress' }),
-      Task.countDocuments({ assignedTo: member._id, status: 'review' }),
-      Task.countDocuments({ assignedTo: member._id, status: 'completed' }),
+      Task.countDocuments({ ...taskMatch, status: 'pending' }),
+      Task.countDocuments({ ...taskMatch, status: 'in_progress' }),
+      Task.countDocuments({ ...taskMatch, status: 'review' }),
+      Task.countDocuments({ ...taskMatch, status: 'completed' }),
     ]);
     return { member, pending, inProgress, review, completed, total: pending + inProgress + review };
   }));
@@ -51,52 +92,40 @@ router.get('/team', protect, authorize('admin', 'manager'), asyncHandler(async (
   res.json({ success: true, workload });
 }));
 
-// ── NEW: Analytics endpoints ──────────────────────────────────────────────────
+// ── Analytics ─────────────────────────────────────────────────────────────────
 
 // @route GET /api/dashboard/analytics/tasks
-// Task completion trend over the last N days (default 30)
 router.get('/analytics/tasks', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const days = Math.min(parseInt(req.query.days) || 30, 90);
   const since = new Date();
   since.setDate(since.getDate() - days);
 
+  const scopedClientIds = await getScopedClientIds(req.user);
+  const clientMatch = scopedClientIds ? { client: { $in: scopedClientIds } } : {};
+
   const [completedTrend, createdTrend, byCategory, overdue] = await Promise.all([
-    // Completed per day
     Task.aggregate([
-      { $match: { completedAt: { $gte: since }, status: 'completed' } },
-      { $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
+      { $match: { ...clientMatch, completedAt: { $gte: since }, status: 'completed' } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$completedAt' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
     ]),
-
-    // Created per day
     Task.aggregate([
-      { $match: { createdAt: { $gte: since } } },
-      { $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { _id: 1 } }
+      { $match: { ...clientMatch, createdAt: { $gte: since } } },
+      { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } }, count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
     ]),
-
-    // By category (all time)
     Task.aggregate([
+      { $match: clientMatch },
       { $group: { _id: '$category', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
+      { $sort: { count: -1 } },
     ]),
-
-    // Overdue count
     Task.countDocuments({
+      ...clientMatch,
       deadline: { $lt: new Date() },
-      status: { $nin: ['completed', 'cancelled'] }
+      status: { $nin: ['completed', 'cancelled'] },
     }),
   ]);
 
-  // Fill in missing days
   const dateMap = {};
   for (let d = 0; d < days; d++) {
     const date = new Date(since);
@@ -112,36 +141,33 @@ router.get('/analytics/tasks', protect, authorize('admin', 'manager'), asyncHand
 }));
 
 // @route GET /api/dashboard/analytics/leads
-// Lead funnel + conversion analytics
 router.get('/analytics/leads', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
-  const mongoose = require('mongoose');
   const { clientId } = req.query;
+  const scopedClientIds = await getScopedClientIds(req.user);
 
-  // Safely build match filter — avoid ObjectId cast errors
   let match = {};
   if (clientId && mongoose.Types.ObjectId.isValid(clientId)) {
+    // If manager is scoped, verify they have access to this client
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+      if (!hasAccess) return res.json({ success: true, funnel: [], byQuality: [], bySource: [], trend: [], total: 0, conversionRate: '0.0' });
+    }
     match = { client: new mongoose.Types.ObjectId(clientId) };
+  } else if (scopedClientIds) {
+    match = { client: { $in: scopedClientIds } };
   }
 
   const since12Weeks = new Date(Date.now() - 84 * 24 * 3600 * 1000);
 
   const [byStatus, byQuality, bySource, trend] = await Promise.all([
-    Lead.aggregate([
-      { $match: match },
-      { $group: { _id: '$status', count: { $sum: 1 } } }
-    ]),
-    Lead.aggregate([
-      { $match: match },
-      { $group: { _id: '$quality', count: { $sum: 1 } } }
-    ]),
+    Lead.aggregate([{ $match: match }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+    Lead.aggregate([{ $match: match }, { $group: { _id: '$quality', count: { $sum: 1 } } }]),
     Lead.aggregate([
       { $match: match },
       { $group: { _id: '$source', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
-      { $limit: 8 }
+      { $limit: 8 },
     ]),
-    // Upload trend (last 12 weeks) — use %Y-%m-%d grouped by week via $week arithmetic
-    // Use %Y-%m-%d with day-of-week truncation for broad MongoDB compatibility
     Lead.aggregate([
       { $match: { ...match, createdAt: { $gte: since12Weeks } } },
       {
@@ -153,20 +179,19 @@ router.get('/analytics/leads', protect, authorize('admin', 'manager'), asyncHand
                 $dateSubtract: {
                   startDate: '$createdAt',
                   unit: 'day',
-                  amount: { $mod: [{ $dayOfWeek: '$createdAt' }, 7] }
-                }
-              }
-            }
+                  amount: { $mod: [{ $dayOfWeek: '$createdAt' }, 7] },
+                },
+              },
+            },
           },
-          count: { $sum: 1 }
-        }
+          count: { $sum: 1 },
+        },
       },
       { $sort: { _id: 1 } },
-      { $limit: 12 }
+      { $limit: 12 },
     ]),
   ]);
 
-  // Funnel order
   const FUNNEL_ORDER = ['new', 'contacted', 'qualified', 'converted', 'lost'];
   const statusMap = byStatus.reduce((acc, s) => { acc[s._id] = s.count; return acc; }, {});
   const funnel = FUNNEL_ORDER.map(s => ({ stage: s, count: statusMap[s] || 0 }));
@@ -178,26 +203,44 @@ router.get('/analytics/leads', protect, authorize('admin', 'manager'), asyncHand
 }));
 
 // @route GET /api/dashboard/analytics/productivity
-// Per-team-member productivity metrics
 router.get('/analytics/productivity', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const since = new Date();
   since.setDate(since.getDate() - 30);
 
-  const members = await User.find({ role: { $in: TEAM_ROLES }, isActive: true })
-    .select('name role jobTitle avatar');
+  const scopedClientIds = await getScopedClientIds(req.user);
+  const clientMatch = scopedClientIds ? { client: { $in: scopedClientIds } } : {};
+
+  let members;
+  if (scopedClientIds) {
+    const clientDocs = await Client.find({ _id: { $in: scopedClientIds } })
+      .select('teamMembers accountManager');
+    const memberIdSet = new Set();
+    clientDocs.forEach(c => {
+      if (c.accountManager) memberIdSet.add(String(c.accountManager));
+      c.teamMembers.forEach(m => memberIdSet.add(String(m)));
+    });
+    members = await User.find({
+      _id: { $in: [...memberIdSet] },
+      role: { $in: TEAM_ROLES },
+      isActive: true,
+    }).select('name role jobTitle avatar');
+  } else {
+    members = await User.find({ role: { $in: TEAM_ROLES }, isActive: true })
+      .select('name role jobTitle avatar');
+  }
 
   const productivity = await Promise.all(members.map(async (m) => {
+    const base = { assignedTo: m._id, ...clientMatch };
     const [total, completed, overdue, inReview] = await Promise.all([
-      Task.countDocuments({ assignedTo: m._id }),
-      Task.countDocuments({ assignedTo: m._id, status: 'completed', completedAt: { $gte: since } }),
-      Task.countDocuments({ assignedTo: m._id, status: { $nin: ['completed', 'cancelled'] }, deadline: { $lt: new Date() } }),
-      Task.countDocuments({ assignedTo: m._id, status: 'review' }),
+      Task.countDocuments(base),
+      Task.countDocuments({ ...base, status: 'completed', completedAt: { $gte: since } }),
+      Task.countDocuments({ ...base, status: { $nin: ['completed', 'cancelled'] }, deadline: { $lt: new Date() } }),
+      Task.countDocuments({ ...base, status: 'review' }),
     ]);
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { member: m, total, completed, overdue, inReview, completionRate };
   }));
 
-  // Sort by completed desc
   productivity.sort((a, b) => b.completed - a.completed);
 
   res.json({ success: true, productivity });

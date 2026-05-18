@@ -107,6 +107,17 @@ router.post('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, r
     });
   }
 
+  // Managers: validate they have access to the specified client (if any)
+  if (req.user.role === 'manager' && rest.client) {
+    const managedClients = await Client.find({
+      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
+    }).select('_id');
+    const manages = managedClients.some(c => String(c._id) === String(rest.client));
+    if (!manages) {
+      return res.status(403).json({ success: false, message: 'Not authorised to create events for this client' });
+    }
+  }
+
   const event = await CalendarEvent.create({
     ...rest,
     createdBy: req.user._id,

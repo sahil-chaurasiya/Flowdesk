@@ -6,6 +6,15 @@ const { protect, authorize, TEAM_ROLES } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { createNotification } = require('../utils/notifications');
 
+// Helper: return scoped client IDs for a manager (null = admin, no restriction)
+async function getScopedClientIds(user) {
+  if (user.role === 'admin') return null;
+  const clients = await Client.find({
+    $or: [{ accountManager: user._id }, { teamMembers: user._id }],
+  }).select('_id');
+  return clients.map(c => c._id);
+}
+
 // ═══════════════════════════════════════════════════════════════
 // SOCIAL ACCOUNTS
 // ═══════════════════════════════════════════════════════════════
@@ -20,8 +29,17 @@ router.get('/accounts', protect, asyncHandler(async (req, res) => {
     // Client only sees their own accounts
     query.client = req.user.clientId;
   } else if (MANAGER_ROLES.includes(req.user.role)) {
-    // Admin/manager: optional clientId filter, otherwise all
-    if (clientId) query.client = clientId;
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (clientId) {
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        if (!hasAccess) return res.json({ success: true, accounts: [] });
+      }
+      query.client = clientId;
+    } else if (scopedClientIds) {
+      query.client = { $in: scopedClientIds };
+    }
+    // Admin with no filter: no restriction
   } else {
     // Team members: only see clients they're assigned to
     const assignedClients = await Client.find({
@@ -82,8 +100,17 @@ router.get('/posts', protect, asyncHandler(async (req, res) => {
     query.client = req.user.clientId;
     query.isClientVisible = true;
   } else if (MANAGER_ROLES.includes(req.user.role)) {
-    // Admin/manager: optional clientId filter
-    if (clientId) query.client = clientId;
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (clientId) {
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        if (!hasAccess) return res.json({ success: true, posts: [], total: 0, page: 1, pages: 0 });
+      }
+      query.client = clientId;
+    } else if (scopedClientIds) {
+      query.client = { $in: scopedClientIds };
+    }
+    // Admin with no filter: no restriction
   } else {
     // Team members: only see posts for their assigned clients
     const assignedClients = await Client.find({
@@ -119,6 +146,17 @@ router.get('/posts', protect, asyncHandler(async (req, res) => {
 
 // POST /api/social/posts
 router.post('/posts', protect, authorize('admin', 'manager', 'team'), asyncHandler(async (req, res) => {
+  // Managers and team: validate they have access to the target client
+  if (req.user.role !== 'admin' && req.body.client) {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(req.body.client));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to create posts for this client' });
+      }
+    }
+  }
+
   const post = await SocialPost.create({ ...req.body, createdBy: req.user._id });
 
   const populated = await SocialPost.findById(post._id)
@@ -228,7 +266,18 @@ router.get('/analytics', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client') {
     clientFilter = req.user.clientId;
   } else if (MANAGER_ROLES.includes(req.user.role)) {
-    clientFilter = clientId || null;
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (clientId) {
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        clientFilter = hasAccess ? clientId : 'none';
+      } else {
+        clientFilter = clientId;
+      }
+    } else if (scopedClientIds) {
+      clientFilter = scopedClientIds.length ? scopedClientIds : 'none';
+    }
+    // Admin with no filter: clientFilter remains null (no restriction)
   } else {
     // Team members: scope to assigned clients
     const assignedClients = await Client.find({
@@ -352,7 +401,18 @@ router.get('/calendar', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client') {
     clientFilter = req.user.clientId;
   } else if (MANAGER_ROLES.includes(req.user.role)) {
-    clientFilter = clientId || null;
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (clientId) {
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        clientFilter = hasAccess ? clientId : 'none';
+      } else {
+        clientFilter = clientId;
+      }
+    } else if (scopedClientIds) {
+      clientFilter = scopedClientIds.length ? scopedClientIds : 'none';
+    }
+    // Admin with no filter: clientFilter remains null (no restriction)
   } else {
     // Team members: restrict to their assigned clients
     const assignedClients = await Client.find({

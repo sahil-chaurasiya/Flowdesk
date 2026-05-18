@@ -7,6 +7,15 @@ const { asyncHandler } = require('../middleware/error');
 
 const MANAGER_ROLES = ['admin', 'manager'];
 
+// Helper: return scoped client IDs for a manager (null = admin, no restriction)
+async function getScopedClientIds(user) {
+  if (user.role === 'admin') return null;
+  const clients = await Client.find({
+    $or: [{ accountManager: user._id }, { teamMembers: user._id }],
+  }).select('_id');
+  return clients.map(c => c._id);
+}
+
 // @route GET /api/reports
 router.get('/', protect, asyncHandler(async (req, res) => {
   const { clientId, period, page = 1, limit = 10 } = req.query;
@@ -16,7 +25,17 @@ router.get('/', protect, asyncHandler(async (req, res) => {
     query.client = req.user.clientId;
     query.isPublished = true;
   } else if (MANAGER_ROLES.includes(req.user.role)) {
-    if (clientId) query.client = clientId;
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (clientId) {
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
+        if (!hasAccess) return res.json({ success: true, reports: [], total: 0, page: 1, pages: 0 });
+      }
+      query.client = clientId;
+    } else if (scopedClientIds) {
+      query.client = { $in: scopedClientIds };
+    }
+    // Admin with no filter: no restriction
   } else {
     // Team members: only see reports for their assigned clients
     const assignedClients = await Client.find({
@@ -48,14 +67,14 @@ router.get('/', protect, asyncHandler(async (req, res) => {
 
 // @route POST /api/reports
 router.post('/', protect, authorize('admin', 'manager', 'team'), asyncHandler(async (req, res) => {
-  // Team members: validate they belong to this client
-  if (!MANAGER_ROLES.includes(req.user.role) && req.body.client) {
-    const assignedClients = await Client.find({
-      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
-    }).select('_id');
-    const isAssigned = assignedClients.some(c => String(c._id) === String(req.body.client));
-    if (!isAssigned) {
-      return res.status(403).json({ success: false, message: 'Not authorised to create reports for this client' });
+  // Managers and team: validate they have access to the target client
+  if (req.user.role !== 'admin' && req.body.client) {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(c => String(c) === String(req.body.client));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to create reports for this client' });
+      }
     }
   }
 
@@ -81,14 +100,14 @@ router.get('/client/:clientId/summary', protect, asyncHandler(async (req, res) =
     return res.status(403).json({ success: false, message: 'Not authorized' });
   }
 
-  // Team members: check they are assigned to this client
-  if (!MANAGER_ROLES.includes(req.user.role) && req.user.role !== 'client') {
-    const assignedClients = await Client.find({
-      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
-    }).select('_id');
-    const isAssigned = assignedClients.some(c => String(c._id) === String(req.params.clientId));
-    if (!isAssigned) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+  // Managers and team members: check they are assigned to this client
+  if (req.user.role !== 'admin' && req.user.role !== 'client') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(req.params.clientId));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorized' });
+      }
     }
   }
 
@@ -121,13 +140,13 @@ router.get('/:id', protect, asyncHandler(async (req, res) => {
     if (String(report.client._id) !== String(req.user.clientId)) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
-  } else if (!MANAGER_ROLES.includes(req.user.role)) {
-    const assignedClients = await Client.find({
-      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
-    }).select('_id');
-    const isAssigned = assignedClients.some(c => String(c._id) === String(report.client._id));
-    if (!isAssigned) {
-      return res.status(403).json({ success: false, message: 'Not authorized' });
+  } else if (req.user.role !== 'admin') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(report.client._id));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorized' });
+      }
     }
   }
 
@@ -139,13 +158,13 @@ router.put('/:id', protect, authorize('admin', 'manager', 'team'), asyncHandler(
   const existing = await Report.findById(req.params.id).populate('client', '_id');
   if (!existing) return res.status(404).json({ success: false, message: 'Report not found' });
 
-  if (!MANAGER_ROLES.includes(req.user.role)) {
-    const assignedClients = await Client.find({
-      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
-    }).select('_id');
-    const isAssigned = assignedClients.some(c => String(c._id) === String(existing.client._id));
-    if (!isAssigned) {
-      return res.status(403).json({ success: false, message: 'Not authorised to edit this report' });
+  if (req.user.role !== 'admin') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client._id));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to edit this report' });
+      }
     }
   }
 
@@ -162,6 +181,19 @@ router.put('/:id', protect, authorize('admin', 'manager', 'team'), asyncHandler(
 
 // @route DELETE /api/reports/:id
 router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const existing = await Report.findById(req.params.id).populate('client', '_id');
+  if (!existing) return res.status(404).json({ success: false, message: 'Report not found' });
+
+  if (req.user.role === 'manager') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client._id));
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: 'Not authorised to delete this report' });
+      }
+    }
+  }
+
   await Report.findByIdAndDelete(req.params.id);
   res.json({ success: true, message: 'Report deleted' });
 }));

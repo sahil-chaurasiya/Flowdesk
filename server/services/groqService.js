@@ -95,11 +95,14 @@ Only reference data provided below. Never invent names, tasks, or metrics. Never
 
   let ctx = '';
 
-  if (context.scope === 'organization') {
+  if (context.scope === 'organization' || context.scope === 'managed_clients') {
     const snap = context.snapshot || {};
     const ts   = snap.taskSummary || {};
+    const scopeLabel = context.scope === 'managed_clients'
+      ? `Manager view — scoped to ${snap.totalClients ?? 0} assigned client(s)`
+      : 'Organization-wide';
     ctx = `
-SCOPE: Organization-wide
+SCOPE: ${scopeLabel}
 Clients: ${snap.totalClients ?? 0} total, ${snap.activeClients ?? 0} active | Team: ${snap.teamSize ?? 0} members
 Tasks: ${ts.pending ?? 0} pending, ${ts.in_progress ?? 0} in-progress, ${ts.review ?? 0} in review, ${ts.completed ?? 0} completed
 
@@ -211,7 +214,7 @@ async function getAIResponse(user, messages) {
   if (context._timeout) console.warn('[groqService] Context build timed out for user:', user._id);
 
   const res = await fetchGroq({
-    max_tokens:  800,
+    max_tokens:  2048,
     temperature: 0.35,
     messages: [{ role: 'system', content: systemPrompt }, ...messages],
   }, false);
@@ -272,7 +275,7 @@ async function streamAIResponse(user, messages, res) {
   let groqRes;
   try {
     groqRes = await fetchGroq({
-      max_tokens:  800,
+      max_tokens:  2048,
       temperature: 0.35,
       messages: [{ role: 'system', content: systemPrompt }, ...messages],
     }, true);

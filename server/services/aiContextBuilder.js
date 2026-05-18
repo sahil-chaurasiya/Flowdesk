@@ -97,14 +97,14 @@ function sanitizeUpdate(update) {
 // Returns: [{ _id: userId, name, role, jobTitle, pending, inProgress, review, total }]
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function buildTeamWorkload() {
+async function buildTeamWorkload(scopedClientIds = null) {
   try {
     // One aggregate on Task — group by assignedTo × status, filter active statuses only
+    const matchStage = { status: { $in: ['pending', 'in_progress', 'review'] } };
+    if (scopedClientIds) matchStage.client = { $in: scopedClientIds };
     const rows = await Task.aggregate([
       {
-        $match: {
-          status: { $in: ['pending', 'in_progress', 'review'] },
-        },
+        $match: matchStage,
       },
       {
         $group: {
@@ -158,6 +158,19 @@ async function buildAdminContext(user) {
   const isAdmin = user.role === 'admin';
   const Q_MS    = 8000; // per-query timeout
 
+  // Managers are scoped to clients they manage or are a team member of.
+  // Admins see everything (scopedClientIds === null).
+  let scopedClientIds = null;
+  if (!isAdmin) {
+    const managedClients = await Client.find({
+      $or: [{ accountManager: user._id }, { teamMembers: user._id }],
+    }).select('_id').lean();
+    scopedClientIds = managedClients.map(c => c._id);
+  }
+
+  const clientFilter      = scopedClientIds ? { _id: { $in: scopedClientIds } } : {};
+  const taskClientFilter  = scopedClientIds ? { client: { $in: scopedClientIds } } : {};
+
   const [
     allTasks,
     allClients,
@@ -168,20 +181,18 @@ async function buildAdminContext(user) {
     teamWorkload,
   ] = await Promise.all([
     withTimeout(
-      Task.find({})
+      Task.find({ ...taskClientFilter })
         .populate('client', 'name company')
         .populate('assignedTo', 'name role')
         .sort({ priority: -1, deadline: 1 })
         .limit(80)
-        
         .lean(),
       Q_MS + 1000, []
     ),
 
     withTimeout(
-      Client.find({})
+      Client.find(clientFilter)
         .select('name company status plan services industry startDate contractEndDate onboardingCompleted')
-        
         .lean(),
       Q_MS + 1000, []
     ),
@@ -195,6 +206,7 @@ async function buildAdminContext(user) {
 
     withTimeout(
       Task.find({
+        ...taskClientFilter,
         status:   { $in: ['pending', 'in_progress', 'review'] },
         deadline: { $gte: today(), $lte: daysFromNow(7) },
       })
@@ -202,23 +214,22 @@ async function buildAdminContext(user) {
         .populate('assignedTo', 'name')
         .sort({ deadline: 1 })
         .limit(20)
-        
         .lean(),
       Q_MS + 1000, []
     ),
 
     withTimeout(
-      Report.find({ isPublished: true })
+      Report.find({ isPublished: true, ...(scopedClientIds ? { client: { $in: scopedClientIds } } : {}) })
         .populate('client', 'company')
         .sort({ createdAt: -1 })
         .limit(10)
-        
         .lean(),
       Q_MS + 1000, []
     ),
 
     withTimeout(
       Task.find({
+        ...taskClientFilter,
         status:   { $in: ['pending', 'in_progress', 'review'] },
         deadline: { $lt: today() },
       })
@@ -226,13 +237,12 @@ async function buildAdminContext(user) {
         .populate('assignedTo', 'name')
         .sort({ deadline: 1 })
         .limit(20)
-        
         .lean(),
       Q_MS + 1000, []
     ),
 
     // ← single aggregate, not N×4 countDocuments
-    withTimeout(buildTeamWorkload(), Q_MS + 2000, []),
+    withTimeout(buildTeamWorkload(scopedClientIds), Q_MS + 2000, []),
   ]);
 
   const taskSummary = {
@@ -244,7 +254,7 @@ async function buildAdminContext(user) {
   return {
     role:       user.role,
     userName:   user.name,
-    scope:      'organization',
+    scope:      isAdmin ? 'organization' : 'managed_clients',
     snapshot: {
       totalClients:  allClients.length,
       activeClients: allClients.filter(c => c.status === 'active').length,
@@ -535,7 +545,7 @@ async function buildContext(user) {
   return withTimeout(build, 12000, {
     role:     user.role,
     userName: user.name,
-    scope:    user.role === 'client' ? 'client' : user.role === 'admin' || user.role === 'manager' ? 'organization' : 'personal',
+    scope:    user.role === 'client' ? 'client' : user.role === 'admin' ? 'organization' : user.role === 'manager' ? 'managed_clients' : 'personal',
     _timeout: true,
     tasks: [], clients: [], teamWorkload: [], upcomingDeadlines: [],
     overdueItems: [], recentReports: [], snapshot: {},

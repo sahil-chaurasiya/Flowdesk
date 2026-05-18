@@ -34,6 +34,9 @@ const searchRouter    = require('./routes/search');
 // ── AI Assistant route ────────────────────────────────────────────────────────
 const aiRouter = require('./routes/ai');
 
+// ── Internal Lead Management (admin + performance_marketer only) ───────────────
+const internalLeadsRouter = require('./routes/internalLeads');
+
 const app    = express();
 const server = http.createServer(app);
 
@@ -100,6 +103,9 @@ app.use('/api/search',    searchRouter);
 // All AI requests require JWT auth. Context is built server-side — the frontend
 // has zero control over what data the AI receives.
 app.use('/api/ai', aiRouter);
+
+// ── Internal Lead Management ──────────────────────────────────────────────────
+app.use('/api/internal-leads', internalLeadsRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

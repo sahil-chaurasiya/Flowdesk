@@ -36,6 +36,7 @@ import KanbanPage           from './pages/admin/KanbanPage';
 import CalendarPage         from './pages/admin/CalendarPage';
 import SettingsPage         from './pages/admin/SettingsPage';
 import ActivityPage         from './pages/admin/ActivityPage';
+import InternalLeadsPage    from './pages/admin/InternalLeadsPage';
 
 // Client Pages
 import ClientDashboard    from './pages/client/Dashboard';
@@ -117,6 +118,13 @@ export default function App() {
                 <Route path="calendar"   element={<CalendarPage />} />
                 <Route path="settings"   element={<SettingsPage />} />
                 <Route path="activity"   element={<ActivityPage />} />
+
+                {/* ── Internal Lead Management (admin + performance_marketer only) */}
+                <Route path="internal-leads" element={
+                  <ProtectedRoute roles={['admin', 'performance_marketer']}>
+                    <InternalLeadsPage />
+                  </ProtectedRoute>
+                } />
               </Route>
 
               {/* Client Portal Routes */}

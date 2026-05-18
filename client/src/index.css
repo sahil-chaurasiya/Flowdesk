@@ -78,6 +78,8 @@
     --fd-notif-unread-bg: #fafbff;
     --fd-notif-icon-bg:   #f5f4f1;
 
+    --fd-card-bg:         #ffffff;
+
     --fd-modal-bg:        #ffffff;
     --fd-modal-border:    #e8e5e0;
     --fd-modal-footer-bg: #fafaf9;
@@ -180,6 +182,8 @@
     --fd-notif-row-border:#252830;
     --fd-notif-unread-bg: #1a2035;
     --fd-notif-icon-bg:   #22252c;
+
+    --fd-card-bg:         #1e2025;
 
     --fd-modal-bg:        #1e2025;
     --fd-modal-border:    #2a2d36;

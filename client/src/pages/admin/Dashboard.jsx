@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   Building2, CheckSquare, Clock, Users, Target,
   TrendingUp, AlertCircle, Play, ChevronRight, Plus,
-  ArrowUpRight, Zap, BarChart2, Activity,
+  ArrowUpRight, Zap, BarChart2, Activity, Bell, Phone, Flame,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -506,10 +506,271 @@ function TeamMemberDashboard({ user }) {
   );
 }
 
+// ── Quality badge ─────────────────────────────────────────────────────────────
+const QUALITY_CONFIG = {
+  hot:  { label: 'Hot',  color: '#ef4444', bg: 'rgba(239,68,68,0.1)',  dot: '#ef4444' },
+  warm: { label: 'Warm', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', dot: '#f59e0b' },
+  cold: { label: 'Cold', color: '#60a5fa', bg: 'rgba(96,165,250,0.1)', dot: '#60a5fa' },
+};
+
+const STAGE_CONFIG = {
+  new:               { label: 'New',        color: '#6366f1' },
+  contacted:         { label: 'Contacted',  color: '#f59e0b' },
+  meeting_scheduled: { label: 'Meeting',    color: '#a855f7' },
+  proposal_sent:     { label: 'Proposal',   color: '#3b82f6' },
+  negotiation:       { label: 'Negotiating',color: '#f97316' },
+  won:               { label: 'Won',        color: '#22c55e' },
+  lost:              { label: 'Lost',       color: '#ef4444' },
+};
+
+// ── Internal Leads Follow-Up Widget ──────────────────────────────────────────
+function FollowUpsWidget() {
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get('/internal-leads/follow-ups-today')
+      .then(r => setLeads(r.data.leads || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return null;
+  if (!leads.length) return null;
+
+  const now = new Date();
+  const overdue = leads.filter(l => {
+    const d = new Date(l.followUpDate);
+    return d < now && d.toDateString() !== now.toDateString();
+  });
+  const todayLeads = leads.filter(l => {
+    const d = new Date(l.followUpDate);
+    return d.toDateString() === now.toDateString();
+  });
+
+  const avatarColors = [
+    '#4f6ef0','#a855f7','#f97316','#22c55e','#ec4899','#06b6d4',
+  ];
+  const getAvatarColor = (name = '') => {
+    const idx = (name.charCodeAt(0) || 0) % avatarColors.length;
+    return avatarColors[idx];
+  };
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: 'var(--fd-card-bg)',
+        border: '1px solid var(--fd-border)',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+      }}
+    >
+      {/* ── Header strip ── */}
+      <div
+        className="px-5 pt-4 pb-0"
+        style={{ borderBottom: '1px solid var(--fd-border)' }}
+      >
+        <div className="flex items-center justify-between pb-4">
+          {/* Left: icon + title + badge */}
+          <div className="flex items-center gap-3">
+            {/* Animated bell icon container */}
+            <div
+              className="relative w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.2)' }}
+            >
+              <Bell size={15} style={{ color: '#f59e0b' }} />
+              {/* Pulse ring */}
+              {leads.length > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-black text-white"
+                  style={{ background: '#ef4444', lineHeight: 1 }}
+                >
+                  {leads.length}
+                </span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-[14px] font-bold tracking-[-0.01em]" style={{ color: 'var(--fd-ink-1)' }}>
+                Follow-up Reminders
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+                {overdue.length > 0
+                  ? `${overdue.length} overdue · ${todayLeads.length} due today`
+                  : `${todayLeads.length} due today`}
+              </p>
+            </div>
+          </div>
+
+          {/* Right: pill stats + link */}
+          <div className="flex items-center gap-2">
+            {overdue.length > 0 && (
+              <span
+                className="text-[10.5px] font-semibold px-2.5 py-1 rounded-full"
+                style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}
+              >
+                {overdue.length} overdue
+              </span>
+            )}
+            <Link
+              to="/admin/internal-leads?followUpToday=true"
+              className="flex items-center gap-1 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+              style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
+            >
+              View all <ArrowUpRight size={11} />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Lead cards grid ── */}
+      <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+        {leads.slice(0, 6).map((lead, idx) => {
+          const d = new Date(lead.followUpDate);
+          const isOver = d < now && d.toDateString() !== now.toDateString();
+          const quality = QUALITY_CONFIG[lead.quality] || QUALITY_CONFIG.warm;
+          const stage = STAGE_CONFIG[lead.stage] || { label: lead.stage, color: '#6b7280' };
+          const avatarBg = getAvatarColor(lead.name || lead.company);
+          const initials = (lead.name || lead.company || '?').slice(0, 2).toUpperCase();
+
+          return (
+            <Link
+              to={`/admin/internal-leads?lead=${lead._id}`}
+              key={lead._id}
+              className="group relative flex flex-col gap-2.5 p-3.5 rounded-xl transition-all duration-200"
+              style={{
+                background: isOver
+                  ? 'rgba(239,68,68,0.04)'
+                  : 'var(--fd-surface-sunken)',
+                border: `1px solid ${isOver ? 'rgba(239,68,68,0.2)' : 'var(--fd-border)'}`,
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.08)';
+                e.currentTarget.style.borderColor = isOver ? 'rgba(239,68,68,0.4)' : 'var(--fd-border-strong)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = '';
+                e.currentTarget.style.boxShadow = '';
+                e.currentTarget.style.borderColor = isOver ? 'rgba(239,68,68,0.2)' : 'var(--fd-border)';
+              }}
+            >
+              {/* Top row: avatar + name + quality badge */}
+              <div className="flex items-start gap-2.5">
+                {/* Avatar */}
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-[11px] flex-shrink-0"
+                  style={{ background: avatarBg, letterSpacing: '0.03em' }}
+                >
+                  {initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-semibold leading-tight truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                    {lead.name || 'Unknown'}
+                  </div>
+                  {lead.company && (
+                    <div className="text-[11px] truncate mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+                      {lead.company}
+                    </div>
+                  )}
+                </div>
+                {/* Quality dot badge */}
+                <div
+                  className="flex items-center gap-1 px-1.5 py-0.5 rounded-md flex-shrink-0"
+                  style={{ background: quality.bg }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: quality.dot }} />
+                  <span className="text-[9.5px] font-bold uppercase tracking-wide" style={{ color: quality.color }}>
+                    {quality.label}
+                  </span>
+                </div>
+              </div>
+
+              {/* Follow-up note */}
+              {lead.followUpNote && (
+                <p
+                  className="text-[11.5px] leading-relaxed line-clamp-2"
+                  style={{ color: 'var(--fd-ink-3)' }}
+                >
+                  {lead.followUpNote}
+                </p>
+              )}
+
+              {/* Bottom row: stage + date + phone */}
+              <div className="flex items-center gap-2 mt-auto pt-1" style={{ borderTop: '1px solid var(--fd-border)' }}>
+                {/* Stage pill */}
+                <div
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-md"
+                  style={{ background: stage.color + '14' }}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: stage.color }} />
+                  <span className="text-[10px] font-semibold" style={{ color: stage.color }}>
+                    {stage.label}
+                  </span>
+                </div>
+
+                {/* Spacer */}
+                <div className="flex-1" />
+
+                {/* Date / overdue */}
+                <div className="flex items-center gap-1.5">
+                  {isOver ? (
+                    <span
+                      className="text-[10.5px] font-bold px-2 py-0.5 rounded-md"
+                      style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444' }}
+                    >
+                      ⚠ Overdue
+                    </span>
+                  ) : (
+                    <span className="text-[10.5px] font-semibold" style={{ color: '#f59e0b' }}>
+                      {formatDate(lead.followUpDate)}
+                    </span>
+                  )}
+
+                  {/* Phone quick-action */}
+                  {lead.phone && (
+                    <a
+                      href={`tel:${lead.phone}`}
+                      onClick={e => e.preventDefault()}
+                      className="w-6 h-6 rounded-lg flex items-center justify-center transition-all hover:scale-110"
+                      style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}
+                      title={lead.phone}
+                    >
+                      <Phone size={10} style={{ color: 'var(--fd-ink-3)' }} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* ── Footer: budget total teaser ── */}
+      {leads.length > 0 && (
+        <div
+          className="px-5 py-3 flex items-center justify-between"
+          style={{ borderTop: '1px solid var(--fd-border)', background: 'var(--fd-surface-sunken)' }}
+        >
+          <span className="text-[11.5px]" style={{ color: 'var(--fd-ink-4)' }}>
+            {leads.length} lead{leads.length > 1 ? 's' : ''} need attention today
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px]" style={{ color: 'var(--fd-ink-5)' }}>Combined deal value</span>
+            <span className="text-[12.5px] font-bold" style={{ color: 'var(--fd-ink-1)' }}>
+              ₹{leads.reduce((sum, l) => sum + (l.dealValue || 0), 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { user } = useAuthStore();
   const isManagerOrAdmin = ['admin', 'manager'].includes(user?.role);
+  const showFollowUps    = ['admin', 'performance_marketer'].includes(user?.role);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -531,6 +792,9 @@ export default function AdminDashboard() {
           </Link>
         )}
       </div>
+
+      {/* Follow-up reminders: admin + performance_marketer */}
+      {showFollowUps && <FollowUpsWidget />}
 
       {isManagerOrAdmin ? <ManagerDashboard /> : <TeamMemberDashboard user={user} />}
     </div>

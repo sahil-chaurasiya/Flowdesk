@@ -5,7 +5,7 @@ import {
   BarChart3, Upload, Bell, LogOut, ChevronLeft,
   ChevronRight, Menu, X, Rss, Building2, Target,
   ListChecks, Instagram, Sun, Moon, Search,
-  Kanban, Calendar, Activity, Settings,
+  Kanban, Calendar, Activity, Settings, Briefcase,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -27,13 +27,14 @@ const ROLE_LABELS = {
 };
 
 const navItems = [
-  { to: '/admin/dashboard',  icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/clients',    icon: Building2,       label: 'Clients',      managerOnly: true },
-  { to: '/admin/tasks',      icon: CheckSquare,     label: 'All Tasks',    managerOnly: true },
-  { to: '/admin/kanban',     icon: Kanban,          label: 'Kanban',       managerOnly: true },
-  { to: '/admin/my-tasks',   icon: ListChecks,      label: 'My Tasks',     teamOnly: true },
-  { to: '/admin/leads',      icon: Target,          label: 'Leads',        managerOnly: true },
-  { to: '/admin/calendar',   icon: Calendar,        label: 'Calendar' },
+  { to: '/admin/dashboard',        icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/admin/clients',          icon: Building2,       label: 'Clients',           managerOnly: true },
+  { to: '/admin/tasks',            icon: CheckSquare,     label: 'All Tasks',          managerOnly: true },
+  { to: '/admin/kanban',           icon: Kanban,          label: 'Kanban',             managerOnly: true },
+  { to: '/admin/my-tasks',         icon: ListChecks,      label: 'My Tasks',           teamOnly: true },
+  { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       managerOnly: true },
+  { to: '/admin/internal-leads',   icon: Briefcase,       label: 'Internal Leads',     internalLeadsOnly: true },
+  { to: '/admin/calendar',         icon: Calendar,        label: 'Calendar' },
   { to: '/admin/updates',    icon: Rss,             label: 'Updates' },
   { to: '/admin/social',     icon: Instagram,       label: 'Social Media' },
   { to: '/admin/reports',    icon: BarChart3,       label: 'Reports' },
@@ -47,7 +48,7 @@ const navItems = [
 const NAV_SECTIONS = [
   {
     label: 'Workspace',
-    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/leads'],
+    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/leads', '/admin/internal-leads'],
   },
   {
     label: 'Delivery',
@@ -116,11 +117,13 @@ export default function AdminLayout() {
   const isManager  = ['admin', 'manager'].includes(user?.role);
   const isAdmin    = user?.role === 'admin';
   const isTeamOnly = TEAM_ROLES.includes(user?.role);
+  const isInternalLeads = ['admin', 'performance_marketer'].includes(user?.role);
 
   const filteredNavItems = navItems.filter(item => {
-    if (item.adminOnly   && !isAdmin)   return false;
-    if (item.managerOnly && !isManager) return false;
-    if (item.teamOnly    && !isTeamOnly) return false;
+    if (item.adminOnly         && !isAdmin)         return false;
+    if (item.managerOnly       && !isManager)       return false;
+    if (item.teamOnly          && !isTeamOnly)      return false;
+    if (item.internalLeadsOnly && !isInternalLeads) return false;
     return true;
   });
 

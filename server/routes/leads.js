@@ -342,7 +342,7 @@ router.get('/stats', protect, asyncHandler(async (req, res) => {
 // @route PATCH /api/leads/:id/client-update
 // Client-only: update their tracking status + notes
 router.patch('/:id/client-update', protect, authorize('client'), asyncHandler(async (req, res) => {
-  const { clientStatus, clientNotes } = req.body;
+  const { clientStatus, clientNotes, clientFollowUpDate, clientFollowUpNote } = req.body;
 
   const VALID_CLIENT_STATUSES = ['new', 'contacted', 'qualified', 'converted', 'not_interested', 'invalid'];
   if (clientStatus && !VALID_CLIENT_STATUSES.includes(clientStatus)) {
@@ -359,6 +359,8 @@ router.patch('/:id/client-update', protect, authorize('client'), asyncHandler(as
   const updateFields = { clientUpdatedAt: new Date() };
   if (clientStatus !== undefined) updateFields.clientStatus = clientStatus;
   if (clientNotes  !== undefined) updateFields.clientNotes  = clientNotes;
+  if (clientFollowUpDate !== undefined) updateFields.clientFollowUpDate = clientFollowUpDate || null;
+  if (clientFollowUpNote !== undefined) updateFields.clientFollowUpNote = clientFollowUpNote;
 
   // Track first response time — critical for dispute analysis
   if (clientStatus && clientStatus !== 'new' && !existing.clientFirstContactedAt) {
@@ -376,6 +378,47 @@ router.patch('/:id/client-update', protect, authorize('client'), asyncHandler(as
       to: clientStatus || existing.clientStatus,
     },
   });
+
+  res.json({ success: true, lead });
+}));
+
+// @route POST /api/leads/:id/client-notes
+// Client-only: add a note to history
+router.post('/:id/client-notes', protect, authorize('client'), asyncHandler(async (req, res) => {
+  const { body } = req.body;
+  if (!body || !body.trim()) {
+    return res.status(400).json({ success: false, message: 'Note body is required' });
+  }
+
+  const existing = await Lead.findById(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, message: 'Lead not found' });
+  if (String(existing.client) !== String(req.user.clientId)) {
+    return res.status(403).json({ success: false, message: 'Not authorised' });
+  }
+
+  const lead = await Lead.findByIdAndUpdate(
+    req.params.id,
+    { $push: { clientNotesHistory: { body: body.trim(), createdAt: new Date() } }, clientUpdatedAt: new Date() },
+    { new: true }
+  );
+
+  res.json({ success: true, lead });
+}));
+
+// @route DELETE /api/leads/:id/client-notes/:noteId
+// Client-only: delete a note from history
+router.delete('/:id/client-notes/:noteId', protect, authorize('client'), asyncHandler(async (req, res) => {
+  const existing = await Lead.findById(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, message: 'Lead not found' });
+  if (String(existing.client) !== String(req.user.clientId)) {
+    return res.status(403).json({ success: false, message: 'Not authorised' });
+  }
+
+  const lead = await Lead.findByIdAndUpdate(
+    req.params.id,
+    { $pull: { clientNotesHistory: { _id: req.params.noteId } }, clientUpdatedAt: new Date() },
+    { new: true }
+  );
 
   res.json({ success: true, lead });
 }));

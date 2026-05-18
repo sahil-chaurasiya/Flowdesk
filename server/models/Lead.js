@@ -60,6 +60,14 @@ const leadSchema = new mongoose.Schema({
     trim: true,
     maxlength: 1000
   },
+  // ─── Multi-note history (replaces single clientNotes for new clients) ────────
+  clientNotesHistory: [{
+    body: { type: String, trim: true, maxlength: 1000 },
+    createdAt: { type: Date, default: Date.now },
+  }],
+  // ─── Client follow-up ───────────────────────────────────────────────────────
+  clientFollowUpDate: { type: Date },
+  clientFollowUpNote: { type: String, trim: true, maxlength: 500 },
   clientUpdatedAt: {
     type: Date
   },

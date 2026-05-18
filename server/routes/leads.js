@@ -55,9 +55,8 @@ function mapColumns(headers) {
 }
 
 // Helper: return the set of client IDs a manager/admin is scoped to.
-// Admins get null (= no restriction); managers get only their assigned clients.
 async function getScopedClientIds(user) {
-  if (user.role === 'admin') return null; // null = no restriction
+  if (user.role === 'admin') return null;
   const clients = await Client.find({
     $or: [{ accountManager: user._id }, { teamMembers: user._id }],
   }).select('_id');
@@ -70,7 +69,6 @@ router.post('/upload', protect, authorize('admin', 'manager'), upload.single('fi
   const { clientId, batchLabel, source, campaign } = req.body;
   if (!clientId) return res.status(400).json({ success: false, message: 'clientId is required' });
 
-  // Managers: verify they have access to the target client
   if (req.user.role === 'manager') {
     const scopedClientIds = await getScopedClientIds(req.user);
     if (scopedClientIds) {
@@ -131,6 +129,9 @@ router.post('/upload', protect, authorize('admin', 'manager'), upload.single('fi
       notes: get('notes'),
       extra,
       leadDate: get('leadDate') ? new Date(get('leadDate')) : new Date(),
+      // Company always delivers leads as 'new' — we do not qualify
+      status: 'new',
+      clientStatus: 'new',
     });
   }
 
@@ -157,7 +158,7 @@ router.post('/upload', protect, authorize('admin', 'manager'), upload.single('fi
 
 // @route GET /api/leads
 router.get('/', protect, asyncHandler(async (req, res) => {
-  const { clientId, batchId, status, source, page = 1, limit = 50 } = req.query;
+  const { clientId, batchId, clientStatus, source, page = 1, limit = 50 } = req.query;
   const query = {};
 
   if (req.user.role === 'client') {
@@ -166,24 +167,21 @@ router.get('/', protect, asyncHandler(async (req, res) => {
     const scopedClientIds = await getScopedClientIds(req.user);
 
     if (clientId) {
-      // Verify manager has access to this specific client
       if (scopedClientIds) {
         const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
         if (!hasAccess) return res.json({ success: true, leads: [], total: 0, page: 1, pages: 0 });
       }
       query.client = clientId;
     } else if (scopedClientIds) {
-      // No filter: scope to managed clients only (admin gets all)
       query.client = { $in: scopedClientIds };
     }
-    // Admin with no filter: no restriction needed
   } else {
     return res.status(403).json({ success: false, message: 'Not authorized to view leads' });
   }
 
-  if (batchId) query.batchId = batchId;
-  if (status)  query.status  = status;
-  if (source)  query.source  = new RegExp(source, 'i');
+  if (batchId)      query.batchId      = batchId;
+  if (clientStatus) query.clientStatus = clientStatus;
+  if (source)       query.source       = new RegExp(source, 'i');
 
   const total = await Lead.countDocuments(query);
   const leads = await Lead.find(query)
@@ -203,7 +201,6 @@ router.get('/batches', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client') {
     matchClient = req.user.clientId;
   } else {
-    // Validate manager has access to requested client
     if (clientId && req.user.role === 'manager') {
       const scopedClientIds = await getScopedClientIds(req.user);
       if (scopedClientIds) {
@@ -225,6 +222,26 @@ router.get('/batches', protect, asyncHandler(async (req, res) => {
         sources: { $addToSet: '$source' },
         createdAt: { $min: '$createdAt' },
         uploadedBy: { $first: '$uploadedBy' },
+        invalidCount: {
+          $sum: { $cond: [{ $eq: ['$clientStatus', 'invalid'] }, 1, 0] }
+        },
+        convertedCount: {
+          $sum: { $cond: [{ $eq: ['$clientStatus', 'converted'] }, 1, 0] }
+        },
+        contactedCount: {
+          $sum: {
+            $cond: [
+              { $in: ['$clientStatus', ['contacted', 'qualified', 'converted', 'not_interested']] },
+              1, 0
+            ]
+          }
+        },
+        untouchedCount: {
+          $sum: { $cond: [{ $eq: ['$clientStatus', 'new'] }, 1, 0] }
+        },
+        disputeFlagged: {
+          $sum: { $cond: ['$disputeFlag', 1, 0] }
+        },
       }
     },
     { $sort: { createdAt: -1 } },
@@ -261,29 +278,146 @@ router.get('/stats', protect, asyncHandler(async (req, res) => {
 
   const oid = mongoose.Types.ObjectId.createFromHexString(String(matchClient));
 
-  const [total, byStatus, bySource] = await Promise.all([
+  const [total, byClientStatus, bySource, responseTimeStats, invalidLeads] = await Promise.all([
     Lead.countDocuments({ client: oid }),
+
     Lead.aggregate([
       { $match: { client: oid } },
-      { $group: { _id: '$status', count: { $sum: 1 } } }
+      { $group: { _id: '$clientStatus', count: { $sum: 1 } } }
     ]),
+
     Lead.aggregate([
       { $match: { client: oid } },
       { $group: { _id: '$source', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
       { $limit: 10 }
     ]),
+
+    // Avg time before client first contacted a lead (slow response = client's fault)
+    Lead.aggregate([
+      {
+        $match: {
+          client: oid,
+          clientFirstContactedAt: { $exists: true, $ne: null }
+        }
+      },
+      {
+        $project: {
+          responseHours: {
+            $divide: [
+              { $subtract: ['$clientFirstContactedAt', '$createdAt'] },
+              1000 * 60 * 60
+            ]
+          }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          avgResponseHours: { $avg: '$responseHours' },
+          count: { $sum: 1 }
+        }
+      }
+    ]),
+
+    Lead.countDocuments({ client: oid, clientStatus: 'invalid' }),
   ]);
 
-  res.json({ success: true, total, byStatus, bySource });
+  const invalidRate = total > 0 ? parseFloat(((invalidLeads / total) * 100).toFixed(1)) : 0;
+  const converted = byClientStatus.find(s => s._id === 'converted')?.count || 0;
+  const convRate = total > 0 ? parseFloat(((converted / total) * 100).toFixed(1)) : 0;
+
+  res.json({
+    success: true,
+    total,
+    byClientStatus,
+    bySource,
+    responseTimeStats: responseTimeStats[0] || null,
+    invalidLeads,
+    invalidRate,
+    conversionRate: convRate,
+  });
+}));
+
+// @route PATCH /api/leads/:id/client-update
+// Client-only: update their tracking status + notes
+router.patch('/:id/client-update', protect, authorize('client'), asyncHandler(async (req, res) => {
+  const { clientStatus, clientNotes } = req.body;
+
+  const VALID_CLIENT_STATUSES = ['new', 'contacted', 'qualified', 'converted', 'not_interested', 'invalid'];
+  if (clientStatus && !VALID_CLIENT_STATUSES.includes(clientStatus)) {
+    return res.status(400).json({ success: false, message: 'Invalid status value' });
+  }
+
+  const existing = await Lead.findById(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, message: 'Lead not found' });
+
+  if (String(existing.client) !== String(req.user.clientId)) {
+    return res.status(403).json({ success: false, message: 'Not authorised to update this lead' });
+  }
+
+  const updateFields = { clientUpdatedAt: new Date() };
+  if (clientStatus !== undefined) updateFields.clientStatus = clientStatus;
+  if (clientNotes  !== undefined) updateFields.clientNotes  = clientNotes;
+
+  // Track first response time — critical for dispute analysis
+  if (clientStatus && clientStatus !== 'new' && !existing.clientFirstContactedAt) {
+    updateFields.clientFirstContactedAt = new Date();
+  }
+
+  const lead = await Lead.findByIdAndUpdate(req.params.id, updateFields, { new: true });
+
+  logActivity({
+    req,
+    action: 'lead.client_status_updated',
+    entity: { type: 'lead', id: lead._id, name: lead.name || lead.email },
+    meta: {
+      from: existing.clientStatus,
+      to: clientStatus || existing.clientStatus,
+    },
+  });
+
+  res.json({ success: true, lead });
+}));
+
+// @route PATCH /api/leads/:id/dispute
+// Admin/manager: flag a lead that client incorrectly marked as invalid
+router.patch('/:id/dispute', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const { disputeFlag, disputeNote } = req.body;
+
+  const existing = await Lead.findById(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, message: 'Lead not found' });
+
+  if (req.user.role === 'manager') {
+    const scopedClientIds = await getScopedClientIds(req.user);
+    if (scopedClientIds) {
+      const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
+      if (!hasAccess) return res.status(403).json({ success: false, message: 'Not authorised' });
+    }
+  }
+
+  const lead = await Lead.findByIdAndUpdate(
+    req.params.id,
+    { disputeFlag, disputeNote },
+    { new: true }
+  );
+
+  logActivity({
+    req,
+    action: disputeFlag ? 'lead.dispute_flagged' : 'lead.dispute_cleared',
+    entity: { type: 'lead', id: lead._id, name: lead.name || lead.email },
+    meta: { disputeNote },
+  });
+
+  res.json({ success: true, lead });
 }));
 
 // @route PUT /api/leads/:id
+// Admin/manager: edit lead details — status is always 'new', clientStatus is client-only
 router.put('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const existing = await Lead.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Lead not found' });
 
-  // Managers: verify they have access to this lead's client
   if (req.user.role === 'manager') {
     const scopedClientIds = await getScopedClientIds(req.user);
     if (scopedClientIds) {
@@ -294,23 +428,20 @@ router.put('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (r
     }
   }
 
-  const lead = await Lead.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  // Company can never override client-side tracking or set status
+  const {
+    status, clientStatus, clientNotes, clientUpdatedAt,
+    clientFirstContactedAt, disputeFlag, disputeNote,
+    ...editableFields
+  } = req.body;
 
-  if (req.body.status && req.body.status !== existing.status) {
-    logActivity({
-      req,
-      action: 'lead.status_changed',
-      entity: { type: 'lead', id: lead._id, name: lead.name || lead.email },
-      meta: { from: existing.status, to: req.body.status },
-    });
-  }
+  const lead = await Lead.findByIdAndUpdate(req.params.id, editableFields, { new: true });
 
   res.json({ success: true, lead });
 }));
 
 // @route DELETE /api/leads/batch/:batchId
 router.delete('/batch/:batchId', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
-  // Managers: verify they own at least one lead in this batch (i.e., the batch belongs to their client)
   if (req.user.role === 'manager') {
     const sampleLead = await Lead.findOne({ batchId: req.params.batchId });
     if (sampleLead) {

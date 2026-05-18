@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Target, TrendingUp, Users, ChevronDown, ChevronUp,
   Filter, Clock, Phone, Mail,
@@ -71,8 +72,24 @@ function LeadDrawer({ lead: initialLead, onClose, onUpdated }) {
   const [followUpNote, setFollowUpNote]   = useState(lead.clientFollowUpNote || '');
   const [savingFU, setSavingFU]           = useState(false);
   const [fuSaved, setFuSaved]             = useState(false);
+  const bodyRef = useRef(null);
 
   useEffect(() => { setLead(initialLead); }, [initialLead]);
+
+  // On mount: lock background scroll and reset drawer to top
+  useEffect(() => {
+    // Reset drawer scroll to top immediately
+    if (bodyRef.current) bodyRef.current.scrollTop = 0;
+
+    // Lock the layout scroll container
+    const mainEl = document.getElementById('client-main-scroll');
+    if (mainEl) {
+      const prev = mainEl.style.overflowY;
+      mainEl.style.overflowY = 'hidden';
+      return () => { mainEl.style.overflowY = prev; };
+    }
+  }, []);
+
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
@@ -134,16 +151,19 @@ function LeadDrawer({ lead: initialLead, onClose, onUpdated }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-40 transition-opacity"
-        style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)' }}
-        onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col shadow-2xl overflow-hidden"
-        style={{
-          width: 'min(480px, 100vw)',
-          background: 'var(--fd-card-bg)',
-          borderLeft: '1px solid var(--fd-border)',
-          animation: 'slideInRight 0.22s cubic-bezier(0.16,1,0.3,1)',
-        }}>
+      <div onClick={onClose} style={{
+        position: 'fixed', inset: 0, zIndex: 9998,
+        background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(2px)'
+      }} />
+      <div style={{
+        position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 9999,
+        width: 'min(480px, 100vw)', height: '100%',
+        display: 'flex', flexDirection: 'column',
+        background: 'var(--fd-card-bg)',
+        borderLeft: '1px solid var(--fd-border)',
+        boxShadow: '0 0 40px rgba(0,0,0,0.4)',
+        animation: 'slideInRight 0.22s cubic-bezier(0.16,1,0.3,1)',
+      }}>
         <style>{`
           @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
           @keyframes fadeInNote { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
@@ -151,8 +171,8 @@ function LeadDrawer({ lead: initialLead, onClose, onUpdated }) {
         `}</style>
 
         {/* Header */}
-        <div className="flex items-start justify-between px-5 py-4 border-b flex-shrink-0"
-          style={{ borderColor: 'var(--fd-border)', background: 'var(--fd-surface-sunken)' }}>
+        <div style={{ flexShrink: 0, borderBottom: '1px solid var(--fd-border)', background: 'var(--fd-surface-sunken)' }}
+          className="flex items-start justify-between px-5 py-4">
           <div className="flex items-center gap-3 min-w-0">
             <Avatar name={lead.name || lead.company || '?'} size={42} />
             <div className="min-w-0">
@@ -173,7 +193,7 @@ function LeadDrawer({ lead: initialLead, onClose, onUpdated }) {
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto">
+        <div ref={bodyRef} style={{ flex: 1, minHeight: 0, overflowY: 'scroll', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}>
 
           {/* Contact */}
           <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--fd-border)' }}>
@@ -721,8 +741,9 @@ export default function ClientLeadsPage() {
       )}
 
       {/* Drawer */}
-      {selectedLead && (
-        <LeadDrawer lead={selectedLead} onClose={() => setSelectedLead(null)} onUpdated={handleLeadUpdated} />
+      {selectedLead && createPortal(
+        <LeadDrawer key={selectedLead._id} lead={selectedLead} onClose={() => setSelectedLead(null)} onUpdated={handleLeadUpdated} />,
+        document.body
       )}
     </div>
   );

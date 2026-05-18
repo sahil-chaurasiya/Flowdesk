@@ -229,7 +229,7 @@ export default function ClientLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-5 lg:p-7">
+        <main id="client-main-scroll" className="flex-1 overflow-y-auto p-5 lg:p-7">
           <Outlet />
         </main>
       </div>

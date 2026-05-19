@@ -241,29 +241,34 @@ function KanbanColumn({ stage, leads, onDrop, onDragOver, onLeadClick, draggedId
 
 // ── Add / Edit Lead Modal ──────────────────────────────────────────────────────
 function LeadFormModal({ lead, onClose, onSave }) {
-  const [form, setForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    company: '',
-    website: '',
-    location: '',
-    source: 'other',
-    sourceDetail: '',
-    budget: '',
-    dealValue: '',
-    quality: 'warm',
-    stage: 'new',
-    services: [],
-    requirements: '',
-    followUpDate: '',
-    followUpNote: '',
-    tags: '',
-    ...lead,
-    services:  lead?.services || [],
-    tags:      (lead?.tags || []).join(', '),
-    dealValue: lead?.dealValue || '',
-    followUpDate: lead?.followUpDate ? new Date(lead.followUpDate).toISOString().slice(0, 16) : '',
+  const [form, setForm] = useState(() => {
+    const overrides = {
+      services:     lead?.services || [],
+      tags:         (lead?.tags || []).join(', '),
+      dealValue:    lead?.dealValue ?? '',
+      followUpDate: lead?.followUpDate ? new Date(lead.followUpDate).toISOString().slice(0, 16) : '',
+    };
+    return {
+      name: '',
+      email: '',
+      phone: '',
+      company: '',
+      website: '',
+      location: '',
+      source: 'other',
+      sourceDetail: '',
+      budget: '',
+      dealValue: '',
+      quality: 'warm',
+      stage: 'new',
+      services: [],
+      requirements: '',
+      followUpDate: '',
+      followUpNote: '',
+      tags: '',
+      ...(lead || {}),
+      ...overrides,
+    };
   });
   const [saving, setSaving] = useState(false);
 

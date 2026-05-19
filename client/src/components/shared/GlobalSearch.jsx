@@ -1,17 +1,38 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Building2, CheckSquare, Target, Users, X, Loader2 } from 'lucide-react';
+import {
+  Search, Building2, CheckSquare, Target, Users, X, Loader2,
+  CalendarDays, FileText, MessageSquare, Megaphone, UserSearch,
+} from 'lucide-react';
 import api from '../../lib/api';
 
 const TYPE_META = {
-  client: { icon: Building2,   color: '#4f6ef0', label: 'Clients',  path: (r) => `/admin/clients/${r._id}` },
-  task:   { icon: CheckSquare, color: '#f59e0b', label: 'Tasks',    path: ()  => `/admin/tasks` },
-  lead:   { icon: Target,      color: '#22c55e', label: 'Leads',    path: ()  => `/admin/leads` },
-  user:   { icon: Users,       color: '#a855f7', label: 'Team',     path: (r) => `/admin/team/${r._id}` },
+  client:       { icon: Building2,    color: '#4f6ef0', label: 'Clients',        path: (r) => `/admin/clients/${r._id}` },
+  task:         { icon: CheckSquare,  color: '#f59e0b', label: 'Tasks',          path: ()  => `/admin/tasks` },
+  lead:         { icon: Target,       color: '#22c55e', label: 'Leads',          path: ()  => `/admin/leads` },
+  user:         { icon: Users,        color: '#a855f7', label: 'Team',           path: (r) => `/admin/team/${r._id}` },
+  internalLead: { icon: UserSearch,   color: '#f97316', label: 'Pipeline',       path: ()  => `/admin/internal-leads` },
+  event:        { icon: CalendarDays, color: '#06b6d4', label: 'Calendar',       path: ()  => `/admin/calendar` },
+  socialPost:   { icon: Megaphone,    color: '#ec4899', label: 'Social Posts',   path: ()  => `/admin/social` },
+  file:         { icon: FileText,     color: '#64748b', label: 'Files',          path: ()  => `/admin/files` },
+  message:      { icon: MessageSquare,color: '#10b981', label: 'Messages',       path: ()  => `/admin/messages` },
 };
 
 // Render order for groups
-const GROUP_ORDER = ['client', 'task', 'lead', 'user'];
+const GROUP_ORDER = ['client', 'task', 'lead', 'user', 'internalLead', 'event', 'socialPost', 'file', 'message'];
+
+// Map type → key in results object
+const RESULT_KEY = {
+  client:       'clients',
+  task:         'tasks',
+  lead:         'leads',
+  user:         'users',
+  internalLead: 'internalLeads',
+  event:        'events',
+  socialPost:   'socialPosts',
+  file:         'files',
+  message:      'messages',
+};
 
 const STATUS_LABELS = {
   pending: 'Pending', in_progress: 'In Progress', review: 'Review',
@@ -36,21 +57,46 @@ function useDebounce(value, delay) {
   return debounced;
 }
 
-// Primary display label per type — fixes client showing contact name instead of company
 function getItemLabel(item) {
-  if (item._type === 'client') return item.company || item.name;
-  if (item._type === 'task')   return item.title;
-  if (item._type === 'lead')   return item.name || item.email;
-  if (item._type === 'user')   return item.name;
-  return item.name || item.title || item.company || item.email;
+  switch (item._type) {
+    case 'client':       return item.company || item.name;
+    case 'task':         return item.title;
+    case 'lead':         return item.name || item.email;
+    case 'user':         return item.name;
+    case 'internalLead': return item.name || item.company || item.email;
+    case 'event':        return item.title;
+    case 'socialPost':   return item.caption ? item.caption.slice(0, 60) + (item.caption.length > 60 ? '…' : '') : `${item.platform} post`;
+    case 'file':         return item.originalName || item.name;
+    case 'message':      return item.content ? item.content.slice(0, 60) + (item.content.length > 60 ? '…' : '') : 'Message';
+    default:             return item.name || item.title || item.company || item.email || '';
+  }
 }
 
 function getItemSub(item) {
-  if (item._type === 'task')   return [item.client?.company, STATUS_LABELS[item.status]].filter(Boolean).join(' · ');
-  if (item._type === 'client') return [item.industry, item.status ? STATUS_LABELS[item.status] || item.status : null].filter(Boolean).join(' · ');
-  if (item._type === 'user')   return item.role?.replace(/_/g, ' ');
-  if (item._type === 'lead')   return [item.client?.company, STATUS_LABELS[item.status]].filter(Boolean).join(' · ');
-  return '';
+  switch (item._type) {
+    case 'task':
+      return [item.client?.company, STATUS_LABELS[item.status]].filter(Boolean).join(' · ');
+    case 'client':
+      return [item.industry, item.status ? STATUS_LABELS[item.status] || item.status : null].filter(Boolean).join(' · ');
+    case 'user':
+      return item.role?.replace(/_/g, ' ');
+    case 'lead':
+      return [item.client?.company, STATUS_LABELS[item.status]].filter(Boolean).join(' · ');
+    case 'internalLead':
+      return [item.company, item.stage, item.source?.replace(/_/g, ' ')].filter(Boolean).join(' · ');
+    case 'event': {
+      const d = item.startDate ? new Date(item.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : null;
+      return [item.type?.replace(/_/g, ' '), d].filter(Boolean).join(' · ');
+    }
+    case 'socialPost':
+      return [item.platform, item.contentType, item.client?.company].filter(Boolean).join(' · ');
+    case 'file':
+      return [item.category, item.client?.company].filter(Boolean).join(' · ');
+    case 'message':
+      return [item.sender?.name, item.conversation?.client?.company].filter(Boolean).join(' · ');
+    default:
+      return '';
+  }
 }
 
 export default function GlobalSearch({ isOpen, onClose }) {
@@ -58,10 +104,10 @@ export default function GlobalSearch({ isOpen, onClose }) {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState(0);
-  const inputRef    = useRef(null);
-  const listRef     = useRef(null);
-  const navigate    = useNavigate();
-  const debounced   = useDebounce(query, 220);
+  const inputRef  = useRef(null);
+  const listRef   = useRef(null);
+  const navigate  = useNavigate();
+  const debounced = useDebounce(query, 220);
 
   // Focus + reset on open
   useEffect(() => {
@@ -83,10 +129,10 @@ export default function GlobalSearch({ isOpen, onClose }) {
       .finally(() => setLoading(false));
   }, [debounced]);
 
-  // Build flat list in the same order groups are rendered — critical for correct keyboard highlight
+  // Build flat list in GROUP_ORDER — critical for correct keyboard highlight
   const flat = results
     ? GROUP_ORDER.flatMap(type => {
-        const key = type === 'user' ? 'users' : type === 'client' ? 'clients' : type + 's';
+        const key = RESULT_KEY[type];
         return (results[key] || []).map(r => ({ ...r, _type: type }));
       })
     : [];
@@ -104,19 +150,11 @@ export default function GlobalSearch({ isOpen, onClose }) {
       if (e.key === 'Escape') { onClose(); return; }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelected(s => {
-          const next = Math.min(s + 1, flat.length - 1);
-          scrollItemIntoView(next);
-          return next;
-        });
+        setSelected(s => { const n = Math.min(s + 1, flat.length - 1); scrollItemIntoView(n); return n; });
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelected(s => {
-          const prev = Math.max(s - 1, 0);
-          scrollItemIntoView(prev);
-          return prev;
-        });
+        setSelected(s => { const p = Math.max(s - 1, 0); scrollItemIntoView(p); return p; });
       }
       if (e.key === 'Enter' && flat[selected]) navigateTo(flat[selected]);
     };
@@ -124,7 +162,6 @@ export default function GlobalSearch({ isOpen, onClose }) {
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, flat, selected, navigateTo, onClose]);
 
-  // Scroll selected item into view within the results list
   function scrollItemIntoView(idx) {
     if (!listRef.current) return;
     const items = listRef.current.querySelectorAll('[data-result-item]');
@@ -135,6 +172,19 @@ export default function GlobalSearch({ isOpen, onClose }) {
 
   const hasResults = flat.length > 0;
   const showResults = results !== null;
+
+  // Quick-jump pill config
+  const quickJumps = [
+    { label: 'Clients',  type: 'client',       nav: '/admin/clients',        color: '#4f6ef0' },
+    { label: 'Tasks',    type: 'task',          nav: '/admin/tasks',          color: '#f59e0b' },
+    { label: 'Leads',    type: 'lead',          nav: '/admin/leads',          color: '#22c55e' },
+    { label: 'Team',     type: 'user',          nav: '/admin/team',           color: '#a855f7' },
+    { label: 'Pipeline', type: 'internalLead',  nav: '/admin/internal-leads', color: '#f97316' },
+    { label: 'Calendar', type: 'event',         nav: '/admin/calendar',       color: '#06b6d4' },
+    { label: 'Social',   type: 'socialPost',    nav: '/admin/social',         color: '#ec4899' },
+    { label: 'Files',    type: 'file',          nav: '/admin/files',          color: '#64748b' },
+    { label: 'Messages', type: 'message',       nav: '/admin/messages',       color: '#10b981' },
+  ];
 
   return (
     <div
@@ -150,7 +200,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
 
       {/* Panel */}
       <div
-        className="relative w-full max-w-[560px] rounded-2xl overflow-hidden animate-scale-in"
+        className="relative w-full max-w-[580px] rounded-2xl overflow-hidden animate-scale-in"
         tabIndex={-1}
         style={{
           background: 'var(--fd-modal-bg)',
@@ -159,7 +209,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
           outline: 'none',
         }}
       >
-        {/* ── Input row ───────────────────────────────────────────── */}
+        {/* ── Input row ─────────────────────────────────────────────── */}
         <div
           className="flex items-center gap-3 px-4"
           style={{ borderBottom: results !== null ? '1px solid var(--fd-border)' : 'none' }}
@@ -175,7 +225,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
             ref={inputRef}
             value={query}
             onChange={e => { setQuery(e.target.value); setSelected(0); }}
-            placeholder="Search clients, tasks, leads, team…"
+            placeholder="Search everything — clients, tasks, files, messages…"
             className="flex-1 py-[14px] bg-transparent outline-none text-[14px]"
             style={{
               color: 'var(--fd-ink-1)',
@@ -210,9 +260,9 @@ export default function GlobalSearch({ isOpen, onClose }) {
           )}
         </div>
 
-        {/* ── Results ─────────────────────────────────────────────── */}
+        {/* ── Results ───────────────────────────────────────────────── */}
         {showResults && (
-          <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: 400 }}>
+          <div ref={listRef} className="overflow-y-auto" style={{ maxHeight: 420 }}>
             {!hasResults ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2">
                 <Search size={20} style={{ color: 'var(--fd-ink-5)' }} />
@@ -223,7 +273,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
             ) : (
               <div className="py-1.5">
                 {GROUP_ORDER.map(type => {
-                  const key = type === 'user' ? 'users' : type === 'client' ? 'clients' : type + 's';
+                  const key = RESULT_KEY[type];
                   const group = (results[key] || []).map(r => ({ ...r, _type: type }));
                   if (!group.length) return null;
                   const meta = TYPE_META[type];
@@ -282,8 +332,8 @@ export default function GlobalSearch({ isOpen, onClose }) {
                               )}
                             </div>
 
-                            {/* Status pill */}
-                            {item.status && (
+                            {/* Status pill — only for types that have meaningful status */}
+                            {item.status && ['task', 'lead', 'client'].includes(item._type) && (
                               <span
                                 className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 capitalize"
                                 style={{
@@ -305,24 +355,19 @@ export default function GlobalSearch({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* ── Empty / hint state ──────────────────────────────────── */}
+        {/* ── Empty / hint state ────────────────────────────────────── */}
         {!showResults && !loading && (
           <div className="px-4 pt-5 pb-4">
             <p className="text-[11.5px] mb-3" style={{ color: 'var(--fd-ink-4)' }}>
               Quick jump
             </p>
             <div className="flex flex-wrap gap-1.5">
-              {[
-                { label: 'Clients', type: 'client', color: '#4f6ef0' },
-                { label: 'Tasks',   type: 'task',   color: '#f59e0b' },
-                { label: 'Leads',   type: 'lead',   color: '#22c55e' },
-                { label: 'Team',    type: 'user',   color: '#a855f7' },
-              ].map(({ label, type, color }) => {
+              {quickJumps.map(({ label, type, nav, color }) => {
                 const Icon = TYPE_META[type].icon;
                 return (
                   <button
                     key={type}
-                    onClick={() => { navigate(`/admin/${type === 'user' ? 'team' : type + 's'}`); onClose(); }}
+                    onClick={() => { navigate(nav); onClose(); }}
                     className="flex items-center gap-1.5 text-[12px] px-3 py-1.5 rounded-lg transition-colors"
                     style={{
                       background: `${color}12`,
@@ -341,7 +386,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
           </div>
         )}
 
-        {/* ── Footer ──────────────────────────────────────────────── */}
+        {/* ── Footer ────────────────────────────────────────────────── */}
         <div
           className="flex items-center gap-4 px-4 py-2"
           style={{ borderTop: '1px solid var(--fd-border)' }}

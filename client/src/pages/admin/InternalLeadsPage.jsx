@@ -315,13 +315,13 @@ function LeadFormModal({ lead, onClose, onSave }) {
           <button onClick={onClose} className="btn-ghost p-1.5 rounded-lg"><X size={16} /></button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-5">
           {/* Contact info */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--fd-ink-4)' }}>
               Contact Info
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[['name','Name','text'],['email','Email','email'],['phone','Phone','tel'],['company','Company','text'],['website','Website','url'],['location','Location','text']].map(([k, label, type]) => (
                 <div key={k}>
                   <label className="text-[11.5px] font-medium mb-1 block" style={{ color: 'var(--fd-ink-3)' }}>{label}</label>
@@ -338,7 +338,7 @@ function LeadFormModal({ lead, onClose, onSave }) {
             <p className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--fd-ink-4)' }}>
               Lead Details
             </p>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
               <div>
                 <label className="text-[11.5px] font-medium mb-1 block" style={{ color: 'var(--fd-ink-3)' }}>Quality</label>
                 <select className={InputClass} style={inputStyle} value={form.quality} onChange={e => set('quality', e.target.value)}>
@@ -360,7 +360,7 @@ function LeadFormModal({ lead, onClose, onSave }) {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11.5px] font-medium mb-1 block" style={{ color: 'var(--fd-ink-3)' }}>Budget / Month</label>
                 <input className={InputClass} style={inputStyle} value={form.budget || ''} onChange={e => set('budget', e.target.value)} placeholder="e.g. ₹30,000 / $2000" />
@@ -401,7 +401,7 @@ function LeadFormModal({ lead, onClose, onSave }) {
             <p className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--fd-ink-4)' }}>
               Follow-up
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-[11.5px] font-medium mb-1 block" style={{ color: 'var(--fd-ink-3)' }}>Follow-up Date & Time</label>
                 <input type="datetime-local" className={InputClass} style={inputStyle}
@@ -552,7 +552,7 @@ function LeadDrawer({ lead: initialLead, onClose, onUpdate, onDelete }) {
           {/* Deal info */}
           <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--fd-border)' }}>
             <p className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--fd-ink-4)' }}>Deal Info</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" style={{ wordBreak: 'break-word' }}>
               {[
                 ['Budget', lead.budget],
                 ['Deal Value', lead.dealValue ? `₹${lead.dealValue.toLocaleString('en-IN')}` : null],
@@ -816,7 +816,7 @@ function StatsBar({ stats }) {
     { label: 'Won Value', value: stats.totalWonValue ? `₹${stats.totalWonValue.toLocaleString('en-IN')}` : '₹0', icon: TrendingUp, color: '#22c55e' },
   ];
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {items.map(item => {
         const Icon = item.icon;
         return (
@@ -940,8 +940,8 @@ export default function InternalLeadsPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-[22px] font-bold tracking-[-0.02em]" style={{ color: 'var(--fd-ink-1)' }}>
             🎯 Internal Leads
           </h1>
@@ -949,14 +949,14 @@ export default function InternalLeadsPage() {
             Company's own lead pipeline — visible to Admin & Performance Marketers only
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <button onClick={fetchLeads}
             className="btn-ghost p-2 rounded-lg" title="Refresh">
             <RefreshCw size={15} />
           </button>
           <button onClick={() => setShowImportModal(true)}
             className="btn-secondary flex items-center gap-1.5 text-[12.5px]">
-            <Upload size={13} /> Import Excel
+            <Upload size={13} /><span className="hidden sm:inline"> Import Excel</span><span className="sm:hidden"> Import</span>
           </button>
           <button onClick={() => setShowAddModal(true)}
             className="btn-primary flex items-center gap-1.5 text-[12.5px]">
@@ -969,9 +969,9 @@ export default function InternalLeadsPage() {
       <StatsBar stats={stats} />
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-[280px]">
+        <div className="relative w-full sm:flex-1 sm:min-w-[200px] sm:max-w-[280px]">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fd-ink-4)' }} />
           <input
             className="w-full pl-8 pr-3 py-2 rounded-lg text-[12.5px] outline-none"
@@ -1048,7 +1048,8 @@ export default function InternalLeadsPage() {
       ) : (
         /* List view */
         <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--fd-border)' }}>
-          <table className="w-full text-[12.5px]">
+          <div className="overflow-x-auto">
+          <table className="w-full text-[12.5px]" style={{ minWidth: 700 }}>
             <thead>
               <tr style={{ background: 'var(--fd-surface-sunken)', borderBottom: '1px solid var(--fd-border)' }}>
                 {['Name / Company','Contact','Stage','Quality','Follow-up','Budget','Added'].map(h => (
@@ -1102,6 +1103,7 @@ export default function InternalLeadsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

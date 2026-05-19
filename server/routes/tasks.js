@@ -21,6 +21,57 @@ async function getScopedClientIds(user) {
   return clients.map(c => c._id);
 }
 
+// ── Client-only: view and submit their own requests ───────────────────────────
+
+// @route GET /api/tasks/my-requests
+router.get('/my-requests', protect, authorize('client'), asyncHandler(async (req, res) => {
+  const clientId = req.user.clientId;
+  if (!clientId) return res.status(403).json({ success: false, message: 'No client account linked' });
+
+  const tasks = await Task.find({ client: clientId, isClientRequest: true })
+    .populate('assignedTo', 'name avatar role jobTitle')
+    .populate('createdBy', 'name')
+    .sort({ createdAt: -1 })
+    .limit(50)
+    .lean();
+
+  res.json({ success: true, tasks });
+}));
+
+// @route POST /api/tasks/my-requests
+router.post('/my-requests', protect, authorize('client'), asyncHandler(async (req, res) => {
+  const clientId = req.user.clientId;
+  if (!clientId) return res.status(403).json({ success: false, message: 'No client account linked' });
+
+  const { title, description, priority = 'medium' } = req.body;
+  if (!title) return res.status(400).json({ success: false, message: 'Title is required' });
+
+  const task = await Task.create({
+    title,
+    description,
+    priority,
+    client: clientId,
+    createdBy: req.user._id,
+    isClientRequest: true,
+    category: 'client_request',
+    status: 'pending',
+  });
+
+  const populated = await Task.findById(task._id)
+    .populate('assignedTo', 'name avatar role jobTitle')
+    .populate('createdBy', 'name')
+    .lean();
+
+  logActivity({
+    req,
+    action: 'task.created',
+    entity: { type: 'task', id: task._id, name: task.title },
+    meta: { isClientRequest: true },
+  });
+
+  res.status(201).json({ success: true, task: populated });
+}));
+
 // @route GET /api/tasks
 router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
   const {

@@ -6,6 +6,7 @@ import {
   Users, Zap, ArrowUpRight, ArrowDownRight, Rss,
   ThumbsUp, Share2, Bookmark, Globe, Star, Activity,
   TrendingDown, Radio, Award, Flame, MousePointer,
+  Bell, CalendarClock, Phone,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -219,12 +220,114 @@ function mockSpark(seed, count = 10) {
   });
 }
 
+// ─── Follow-Ups Today Widget ──────────────────────────────────────────────────
+function FollowUpsToday({ leads }) {
+  const C = getTokens();
+  if (!leads || leads.length === 0) return null;
+
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+
+  return (
+    <div
+      className="fd-card rounded-2xl overflow-hidden"
+      style={{ border: `1px solid ${C.amber}50` }}
+    >
+      <div
+        className="px-5 py-3.5 flex items-center justify-between"
+        style={{ background: C.amberSoft, borderBottom: `1px solid ${C.amber}30` }}
+      >
+        <div className="flex items-center gap-2">
+          <Bell size={14} color={C.amber} strokeWidth={1.8} />
+          <span className="text-[13px] font-semibold" style={{ color: C.amber }}>
+            Follow-Ups Due Today
+          </span>
+          <span
+            className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full"
+            style={{ background: C.amber, color: '#fff' }}
+          >
+            {leads.length}
+          </span>
+        </div>
+        <Link
+          to="/portal/leads"
+          className="flex items-center gap-1 text-[11.5px] font-medium"
+          style={{ color: C.amber }}
+        >
+          View all <ChevronRight size={12} />
+        </Link>
+      </div>
+
+      <div className="divide-y divide-[var(--fd-border-subtle)]">
+        {leads.slice(0, 5).map(lead => {
+          const fuDate = new Date(lead.clientFollowUpDate);
+          const isOverdue = fuDate < todayStart;
+          return (
+            <div
+              key={lead._id}
+              className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-[var(--fd-table-row-hover)]"
+            >
+              <div
+                className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: isOverdue ? C.redSoft : C.amberSoft }}
+              >
+                <CalendarClock size={14} color={isOverdue ? C.red : C.amber} strokeWidth={1.8} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-semibold truncate text-[var(--fd-ink-1)]">
+                  {lead.name || lead.email || lead.phone || 'Unknown Lead'}
+                </div>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {lead.clientFollowUpNote && (
+                    <span className="text-[11px] truncate text-[var(--fd-ink-4)]">
+                      {lead.clientFollowUpNote}
+                    </span>
+                  )}
+                  {!lead.clientFollowUpNote && lead.phone && (
+                    <span className="flex items-center gap-1 text-[11px] text-[var(--fd-ink-4)]">
+                      <Phone size={9} /> {lead.phone}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex-shrink-0 text-right">
+                <span
+                  className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full"
+                  style={
+                    isOverdue
+                      ? { background: C.redSoft, color: C.red }
+                      : { background: C.amberSoft, color: C.amber }
+                  }
+                >
+                  {isOverdue ? '⚠ Overdue' : '🔔 Today'}
+                </span>
+                {lead.source && (
+                  <div className="text-[10px] mt-1 text-[var(--fd-ink-5)]">{lead.source}</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {leads.length > 5 && (
+        <div
+          className="px-5 py-2.5 text-center text-[11.5px] font-medium"
+          style={{ background: 'var(--fd-surface-raised)', color: 'var(--fd-ink-4)' }}
+        >
+          +{leads.length - 5} more follow-ups due
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 export default function ClientDashboard() {
   const { user } = useAuthStore();
   const [overview, setOverview] = useState(null);
   const [leadStats, setLeadStats] = useState(null);
   const [recentLeads, setRecentLeads] = useState([]);
+  const [followUpLeads, setFollowUpLeads] = useState([]);
   const [socialAnalytics, setSocialAnalytics] = useState(null);
   const [recentPosts, setRecentPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -235,12 +338,14 @@ export default function ClientDashboard() {
       api.get(`/clients/${user.clientId}/overview`),
       api.get('/leads/stats').catch(() => ({ data: null })),
       api.get('/leads?limit=8').catch(() => ({ data: { leads: [] } })),
+      api.get('/leads/follow-ups-today').catch(() => ({ data: { leads: [] } })),
       api.get('/social/analytics?days=30').catch(() => ({ data: null })),
       api.get('/social/posts?status=published&limit=4').catch(() => ({ data: { posts: [] } })),
-    ]).then(([ov, ls, l, sa, p]) => {
+    ]).then(([ov, ls, l, fu, sa, p]) => {
       setOverview(ov.data);
       setLeadStats(ls.data);
       setRecentLeads(l.data.leads || []);
+      setFollowUpLeads(fu.data?.leads || []);
       setSocialAnalytics(sa.data?.analytics || null);
       setRecentPosts(p.data.posts || []);
     }).finally(() => setLoading(false));
@@ -256,7 +361,7 @@ export default function ClientDashboard() {
   const totals = socialAnalytics?.totals || {};
   const byPlatform = socialAnalytics?.byPlatform || [];
 
-  const byStatus = leadStats?.byStatus || [];
+  const byStatus = leadStats?.byClientStatus || leadStats?.byStatus || [];
   const totalLeads = leadStats?.total || 0;
   const qualifiedLeads = byStatus.find(s => s._id === 'qualified')?.count || 0;
   const convertedLeads = byStatus.find(s => s._id === 'converted')?.count || 0;
@@ -360,6 +465,11 @@ export default function ClientDashboard() {
           sparkData={mockSpark((totals.totalReach || 0) % 80 + 10)}
         />
       </div>
+
+      {/* ─── FOLLOW-UPS DUE TODAY ────────────────────────────────────────── */}
+      {followUpLeads.length > 0 && (
+        <FollowUpsToday leads={followUpLeads} />
+      )}
 
       {/* ─── ROW 2: LEAD FUNNEL + SOCIAL OVERVIEW ────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

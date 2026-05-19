@@ -236,13 +236,19 @@ export function ClientRequestsPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', priority: 'medium' });
 
-  const load = () => { setLoading(true); api.get('/tasks?isClientRequest=true&limit=50').then(r => { setTasks(r.data.tasks); setLoading(false); }); };
+  const load = () => {
+    setLoading(true);
+    api.get('/tasks/my-requests')
+      .then(r => { setTasks(r.data.tasks || []); })
+      .catch(() => { setTasks([]); })
+      .finally(() => { setLoading(false); });
+  };
   useEffect(() => { load(); }, []);
 
   const handleSubmit = async () => {
     if (!form.title) return;
     setSaving(true);
-    try { await api.post('/tasks', { ...form, isClientRequest: true }); setShowModal(false); setForm({ title: '', description: '', priority: 'medium' }); load(); } finally { setSaving(false); }
+    try { await api.post('/tasks/my-requests', { ...form }); setShowModal(false); setForm({ title: '', description: '', priority: 'medium' }); load(); } finally { setSaving(false); }
   };
 
   const statusMap = { pending: { label: 'Submitted', color: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]' }, in_progress: { label: 'In Progress', color: 'bg-blue-100 text-blue-700' }, review: { label: 'In Review', color: 'bg-purple-100 text-purple-700' }, completed: { label: 'Completed', color: 'bg-emerald-100 text-emerald-700' }, cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-600' } };

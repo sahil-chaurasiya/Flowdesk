@@ -256,6 +256,28 @@ router.get('/batches', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, batches });
 }));
 
+// @route GET /api/leads/follow-ups-today
+// Client: returns leads with a follow-up scheduled for today or overdue
+router.get('/follow-ups-today', protect, authorize('client'), asyncHandler(async (req, res) => {
+  const clientId = req.user.clientId;
+  if (!clientId) return res.status(403).json({ success: false, message: 'No client account linked' });
+
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd   = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+  // Include today's follow-ups AND overdue ones (not yet converted/not_interested/invalid)
+  const leads = await Lead.find({
+    client: clientId,
+    clientFollowUpDate: { $lte: todayEnd },
+    clientStatus: { $nin: ['converted', 'not_interested', 'invalid'] },
+  })
+    .sort({ clientFollowUpDate: 1 })
+    .limit(20)
+    .lean();
+
+  res.json({ success: true, leads });
+}));
+
 // @route GET /api/leads/stats
 router.get('/stats', protect, asyncHandler(async (req, res) => {
   const { clientId } = req.query;

@@ -286,8 +286,8 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
                   }}
                 />
                 <div>
-                  <p className="text-[12px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{opt.label}</p>
-                  <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{opt.desc}</p>
+                  <p className="text-[12px] font-semibold" style={{ color: form.visibility === opt.value ? '#1a1a2e' : 'var(--fd-ink-1)' }}>{opt.label}</p>
+                  <p className="text-[11px]" style={{ color: form.visibility === opt.value ? '#3a3a5c' : 'var(--fd-ink-4)' }}>{opt.desc}</p>
                 </div>
               </button>
             ))}
@@ -318,8 +318,8 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
                       >
                         {selected && <Check size={8} color="#fff" />}
                       </span>
-                      <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{member.name}</span>
-                      <span className="text-[11px] ml-auto" style={{ color: 'var(--fd-ink-4)' }}>{member.jobTitle || member.role}</span>
+                      <span className="text-[12px] font-medium" style={{ color: selected ? '#1a1a2e' : 'var(--fd-ink-1)' }}>{member.name}</span>
+                      <span className="text-[11px] ml-auto" style={{ color: selected ? '#3a3a5c' : 'var(--fd-ink-4)' }}>{member.jobTitle || member.role}</span>
                     </button>
                   );
                 })}

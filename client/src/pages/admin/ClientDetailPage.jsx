@@ -4,7 +4,7 @@ import {
   ArrowLeft, Edit3, MessageSquare, Mail, Phone, Globe, Calendar,
   DollarSign, Plus, CheckCircle, Clock, AlertCircle, Users, X, UserPlus,
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye,
-  Heart, MessageCircle, Share2, BarChart2
+  Heart, MessageCircle, Share2, BarChart2, IndianRupee
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -266,7 +266,7 @@ export default function ClientDetailPage() {
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{client.phone || '—'}</div>
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Globe size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.website || '—'}</span></div>
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />Started {formatDate(client.startDate)}</div>
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><DollarSign size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><IndianRupee size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
                 </div>
                 {client.services?.length > 0 && (
                   <div className="mt-4">
@@ -888,7 +888,7 @@ export default function ClientDetailPage() {
                 {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </div>
-            <Input label="Monthly Budget ($)" type="number" value={editForm.monthlyBudget || ''} onChange={e => setEditForm(p => ({ ...p, monthlyBudget: e.target.value }))} />
+            <Input label="Monthly Budget" type="number" value={editForm.monthlyBudget || ''} onChange={e => setEditForm(p => ({ ...p, monthlyBudget: e.target.value }))} />
             <Textarea label="Notes" value={editForm.notes || ''} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={3} />
           </div>
         </Modal>

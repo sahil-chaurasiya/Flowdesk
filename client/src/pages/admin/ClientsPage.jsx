@@ -4,7 +4,8 @@ import { Plus, Search, Building2, ChevronRight } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Select } from '../../components/ui/index';
-import { formatDate, SERVICE_LABELS, PLAN_LABELS } from '../../lib/utils';
+import { formatDate, PLAN_LABELS } from '../../lib/utils';
+import { useServices } from '../../hooks/useServices';
 
 // Status & plan styles now use CSS vars so they adapt to dark mode automatically
 const STATUS_STYLE_LIGHT = {
@@ -55,12 +56,9 @@ const STATUS_TABS = [
   { label: 'Inactive',    value: 'inactive' },
 ];
 
-const SERVICES_LIST = Object.entries(SERVICE_LABELS || {
-  paid_ads: 'Paid Ads', social_media: 'Social Media', video_editing: 'Video Editing',
-  graphic_design: 'Graphic Design', copywriting: 'Copywriting', reporting: 'Reporting',
-});
-
 function ClientForm({ initial, onSubmit, loading, managers }) {
+  const { services: servicesList } = useServices();
+  const SERVICES_LIST = servicesList.filter(s => s.isActive).map(s => [s.key, s.label]);
   const [form, setForm] = useState(initial || {
     name: '', company: '', email: '', phone: '', website: '', industry: '',
     status: 'onboarding', plan: 'starter', services: [], monthlyBudget: '',
@@ -96,7 +94,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
             <option key={v} value={v}>{l}</option>
           ))}
         </Select>
-        <Input label="Monthly Budget ($)" type="number" value={form.monthlyBudget} onChange={e => set('monthlyBudget', e.target.value)} />
+        <Input label="Monthly Budget" type="number" value={form.monthlyBudget} onChange={e => set('monthlyBudget', e.target.value)} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Account Manager" value={form.accountManager} onChange={e => set('accountManager', e.target.value)}>
@@ -176,6 +174,7 @@ export default function ClientsPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { serviceLabels } = useServices();
 
   const loadClients = useCallback(async () => {
     setLoading(true);
@@ -295,7 +294,7 @@ export default function ClientsPage() {
                               className="px-2 py-0.5 rounded text-[10.5px] font-medium"
                               style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
                             >
-                              {(SERVICE_LABELS || {})[s] || s}
+                              {serviceLabels[s] || s}
                             </span>
                           ))}
                           {client.services?.length > 2 && (

@@ -36,6 +36,7 @@ const aiRouter = require('./routes/ai');
 
 // ── Internal Lead Management (admin + performance_marketer only) ───────────────
 const internalLeadsRouter = require('./routes/internalLeads');
+const servicesRouter      = require('./routes/services');
 
 const app    = express();
 const server = http.createServer(app);
@@ -106,6 +107,7 @@ app.use('/api/ai', aiRouter);
 
 // ── Internal Lead Management ──────────────────────────────────────────────────
 app.use('/api/internal-leads', internalLeadsRouter);
+app.use('/api/services',       servicesRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

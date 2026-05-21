@@ -16,10 +16,13 @@ export const timeAgo = (date) => {
   return formatDistanceToNow(typeof date === 'string' ? parseISO(date) : date, { addSuffix: true });
 };
 
-export const formatCurrency = (amount, currency = 'USD') => {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount || 0);
+export const formatCurrency = (amount, currency = 'INR') => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
 };
-
 export const formatNumber = (num) => {
   if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
   if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
@@ -79,6 +82,8 @@ export const getFileIcon = (mimeType = '') => {
   return '📎';
 };
 
+// Static fallback — used only as seed data. The live list is stored in MongoDB
+// and fetched via useServices() hook. These keys are inserted by seed.js.
 export const SERVICE_LABELS = {
   seo: 'SEO',
   ppc: 'PPC / Paid Ads',

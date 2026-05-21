@@ -37,6 +37,7 @@ import CalendarPage         from './pages/admin/CalendarPage';
 import SettingsPage         from './pages/admin/SettingsPage';
 import ActivityPage         from './pages/admin/ActivityPage';
 import InternalLeadsPage    from './pages/admin/InternalLeadsPage';
+import ApiLogsPage          from './pages/admin/ApiLogsPage';
 
 // Client Pages
 import ClientDashboard    from './pages/client/Dashboard';
@@ -118,6 +119,13 @@ export default function App() {
                 <Route path="calendar"   element={<CalendarPage />} />
                 <Route path="settings"   element={<SettingsPage />} />
                 <Route path="activity"   element={<ActivityPage />} />
+
+                {/* ── API Logs (admin only) ────────────────────────────── */}
+                <Route path="logs" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <ApiLogsPage />
+                  </ProtectedRoute>
+                } />
 
                 {/* ── Internal Lead Management (admin + performance_marketer only) */}
                 <Route path="internal-leads" element={

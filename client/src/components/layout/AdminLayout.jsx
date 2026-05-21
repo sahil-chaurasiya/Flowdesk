@@ -6,6 +6,7 @@ import {
   ChevronRight, Menu, X, Rss, Building2, Target,
   ListChecks, Instagram, Sun, Moon, Search,
   Kanban, Calendar, Activity, Settings, Briefcase,
+  FileSearch,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -42,6 +43,7 @@ const navItems = [
   { to: '/admin/messages',   icon: MessageSquare,   label: 'Messages' },
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
   { to: '/admin/activity',   icon: Activity,        label: 'Activity',     adminOnly: true },
+  { to: '/admin/logs',       icon: FileSearch,      label: 'API Logs',     adminOnly: true },
   { to: '/admin/settings',   icon: Settings,        label: 'Settings' },
 ];
 
@@ -60,7 +62,7 @@ const NAV_SECTIONS = [
   },
   {
     label: 'System',
-    keys: ['/admin/activity', '/admin/settings'],
+    keys: ['/admin/activity', '/admin/logs', '/admin/settings'],
   },
 ];
 

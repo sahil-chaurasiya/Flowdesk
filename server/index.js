@@ -10,6 +10,7 @@ const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/database');
 const { initSocket } = require('./config/socket');
 const { errorHandler } = require('./middleware/error');
+const apiLogger        = require('./middleware/apiLogger');
 
 // ── Existing routes (DO NOT REMOVE) ──────────────────────────────────────────
 const authRoutes         = require('./routes/auth');
@@ -37,6 +38,7 @@ const aiRouter = require('./routes/ai');
 // ── Internal Lead Management (admin + performance_marketer only) ───────────────
 const internalLeadsRouter = require('./routes/internalLeads');
 const servicesRouter      = require('./routes/services');
+const apiLogsRouter       = require('./routes/apiLogs');
 
 const app    = express();
 const server = http.createServer(app);
@@ -75,6 +77,9 @@ if (process.env.NODE_ENV === 'development') {
 // Static files for local uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// ── API Request Logger (before all routes) ────────────────────────────────────
+app.use(apiLogger);
+
 // Make emitEvent available globally for other routes
 app.locals.emitEvent = emitEvent;
 
@@ -108,6 +113,7 @@ app.use('/api/ai', aiRouter);
 // ── Internal Lead Management ──────────────────────────────────────────────────
 app.use('/api/internal-leads', internalLeadsRouter);
 app.use('/api/services',       servicesRouter);
+app.use('/api/logs',           apiLogsRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

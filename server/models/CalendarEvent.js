@@ -17,8 +17,22 @@ const calendarEventSchema = new mongoose.Schema({
   // Type — drives colour coding in UI
   type: {
     type: String,
-    enum: ['task_deadline', 'meeting', 'reminder', 'follow_up', 'campaign', 'other'],
+    enum: ['task_deadline', 'meeting', 'reminder', 'follow_up', 'campaign', 'shoot', 'other'],
     default: 'other',
+  },
+
+  // Shoot sub-type (only used when type === 'shoot')
+  shootSubtype: {
+    type: String,
+    enum: ['photo_shoot', 'video_shoot', 'reel_shoot', 'product_shoot', 'event_shoot', 'interview', 'bts', 'other_shoot'],
+    default: null,
+  },
+
+  // Status
+  status: {
+    type: String,
+    enum: ['pending', 'in_progress', 'done', 'cancelled'],
+    default: 'pending',
   },
 
   // Relations (all optional)
@@ -30,15 +44,11 @@ const calendarEventSchema = new mongoose.Schema({
   assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   // ── Visibility ────────────────────────────────────────────────────────────
-  // 'private'  — only the creator can see it
-  // 'specific' — only users listed in visibleTo can see it
-  // 'all'      — all internal team members can see it (original behaviour)
   visibility: {
     type: String,
     enum: ['private', 'specific', 'all'],
     default: 'all',
   },
-  // Populated when visibility === 'specific'
   visibleTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 
   // Reminder
@@ -49,15 +59,29 @@ const calendarEventSchema = new mongoose.Schema({
   },
 
   color: { type: String, default: null }, // hex override
+  // isCompleted kept for backward compat, status is the source of truth
   isCompleted: { type: Boolean, default: false },
 }, {
   timestamps: true,
 });
+
+// Virtual: overdue = endDate has passed AND status is not done/cancelled
+calendarEventSchema.virtual('isOverdue').get(function () {
+  return (
+    this.status !== 'done' &&
+    this.status !== 'cancelled' &&
+    this.endDate < new Date()
+  );
+});
+
+calendarEventSchema.set('toJSON', { virtuals: true });
+calendarEventSchema.set('toObject', { virtuals: true });
 
 calendarEventSchema.index({ startDate: 1, endDate: 1 });
 calendarEventSchema.index({ createdBy: 1 });
 calendarEventSchema.index({ 'assignedTo': 1 });
 calendarEventSchema.index({ visibleTo: 1 });
 calendarEventSchema.index({ client: 1 });
+calendarEventSchema.index({ status: 1 });
 
 module.exports = mongoose.model('CalendarEvent', calendarEventSchema);

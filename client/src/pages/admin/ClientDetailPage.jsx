@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit3, MessageSquare, Mail, Phone, Globe, Calendar,
-  DollarSign, Plus, CheckCircle, Clock, AlertCircle, Users, X, UserPlus,
+  DollarSign, Plus, CheckCircle, CheckCircle2, Check, Clock, AlertCircle, AlertTriangle, Users, X, UserPlus,
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
-  ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2,
+  ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -74,12 +74,26 @@ const SHOOT_SUBTYPE_ICONS  = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value
 const EVENT_TYPES = Object.keys(EVENT_COLORS);
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+const STATUS_CONFIG = {
+  pending:     { label: 'Pending',     icon: Circle,       color: '#94a3b8', bg: '#f8fafc' },
+  in_progress: { label: 'In Progress', icon: Loader,       color: '#f59e0b', bg: '#fffbeb' },
+  done:        { label: 'Done',        icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
+  cancelled:   { label: 'Cancelled',   icon: XCircle,      color: '#ef4444', bg: '#fef2f2' },
+};
+
 // ─── Client-scoped mini calendar ─────────────────────────────────────────────
 function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
   const toast = useToast ? useToast() : null;
   const [modal, setModal]   = useState(null); // { mode: 'new'|'view'|'edit', event?, date? }
   const [saving, setSaving] = useState(false);
   const [form, setForm]     = useState({});
+
+  const now = new Date();
+
+  const enrich = (ev) => ({
+    ...ev,
+    isOverdue: ev.status !== 'done' && ev.status !== 'cancelled' && new Date(ev.endDate) < now,
+  });
 
   const monthStart = startOfMonth(month);
   const monthEnd   = endOfMonth(month);
@@ -111,16 +125,28 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
     setSaving(true);
     try {
       if (modal.mode === 'new') {
-        const { data } = await api.post('/calendar', { ...form, clientId });
-        setEvents(prev => [...prev, data.event]);
+        const { data } = await api.post('/calendar', { ...form, client: clientId, status: form.status || 'pending' });
+        setEvents(prev => [...prev, enrich(data.event)]);
       } else {
         const { data } = await api.put(`/calendar/${form._id}`, form);
-        setEvents(prev => prev.map(e => e._id === form._id ? data.event : e));
+        setEvents(prev => prev.map(e => e._id === form._id ? enrich(data.event) : e));
       }
       setModal(null);
     } catch (err) {
       if (toast) toast({ type: 'error', title: 'Failed to save' });
     } finally { setSaving(false); }
+  };
+
+  const handleStatusChange = async (evId, newStatus) => {
+    try {
+      const { data } = await api.put(`/calendar/${evId}`, { status: newStatus });
+      const enriched = enrich(data.event);
+      setEvents(prev => prev.map(e => e._id === evId ? enriched : e));
+      if (modal?.event?._id === evId) setModal(m => ({ ...m, event: enriched }));
+      if (toast) toast({ type: 'success', title: `Marked as ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
+    } catch {
+      if (toast) toast({ type: 'error', title: 'Failed to update status' });
+    }
   };
 
   const handleDelete = async (evId) => {
@@ -184,11 +210,14 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                 <div className="px-1 pb-1 space-y-[2px]">
                   {dayEvts.slice(0, 2).map(ev => {
                     const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
+                    const overdue = ev.isOverdue;
                     return (
                       <button key={ev._id} onClick={e => { e.stopPropagation(); openView(ev); }}
-                        className="w-full text-left text-[10px] font-semibold px-1.5 py-[2px] rounded truncate"
-                        style={{ background: c.light, color: c.text }}>
-                        {ev.title}
+                        className="w-full text-left text-[10px] font-semibold px-1.5 py-[2px] rounded truncate flex items-center gap-1"
+                        style={{ background: overdue ? '#fef2f2' : c.light, color: overdue ? '#b91c1c' : c.text }}>
+                        {overdue && <AlertTriangle size={7} style={{ flexShrink: 0 }} />}
+                        <span className="truncate">{ev.title}</span>
+                        {ev.status === 'done' && <CheckCircle2 size={8} style={{ color: '#22c55e', flexShrink: 0, marginLeft: 'auto' }} />}
                       </button>
                     );
                   })}
@@ -236,6 +265,54 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
               <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
                 <Clock size={13} />
                 {format(parseISO(form.startDate), 'EEE, MMM d · h:mm a')}
+                {form.isOverdue && (
+                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ml-1"
+                    style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+                    <AlertTriangle size={8} /> OVERDUE
+                  </span>
+                )}
+              </div>
+              {/* Status */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl"
+                style={{ background: 'var(--fd-surface-sunken)' }}>
+                <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>Status</span>
+                <div className="relative">
+                  {(() => {
+                    const [statusOpen, setStatusOpen] = useState(false);
+                    const cfg = STATUS_CONFIG[form.status] || STATUS_CONFIG.pending;
+                    const Icon = cfg.icon;
+                    return (
+                      <div className="relative">
+                        <button onClick={() => setStatusOpen(v => !v)}
+                          className="flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-full"
+                          style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
+                          <Icon size={10} /> {cfg.label} <ChevronRight size={8} style={{ transform: statusOpen ? 'rotate(90deg)' : 'none' }} />
+                        </button>
+                        {statusOpen && (
+                          <div className="absolute z-50 right-0 top-full mt-1 rounded-xl overflow-hidden shadow-lg"
+                            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', minWidth: 140 }}>
+                            {Object.entries(STATUS_CONFIG).map(([val, s]) => {
+                              const I = s.icon;
+                              return (
+                                <button key={val} onClick={() => {
+                                  handleStatusChange(form._id, val);
+                                  setForm(f => ({ ...f, status: val }));
+                                  setStatusOpen(false);
+                                }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 hover:opacity-70 text-left"
+                                  style={{ background: val === form.status ? s.bg : 'transparent' }}>
+                                  <I size={12} style={{ color: s.color }} />
+                                  <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{s.label}</span>
+                                  {val === form.status && <Check size={10} className="ml-auto" style={{ color: s.color }} />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
               {form.description && (
                 <p className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>{form.description}</p>
@@ -260,6 +337,25 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
               </div>
               <Input label="Title" value={form.title || ''} autoFocus
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Event title" />
+              {/* Status */}
+              <div className="space-y-1.5">
+                <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Status</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(STATUS_CONFIG).map(([val, s]) => {
+                    const Icon = s.icon;
+                    return (
+                      <button key={val} onClick={() => setForm(f => ({ ...f, status: val }))}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all"
+                        style={(form.status || 'pending') === val
+                          ? { background: s.color, color: '#fff' }
+                          : { background: s.bg, color: s.color, border: `1px solid ${s.color}40` }
+                        }>
+                        <Icon size={10} /> {s.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="space-y-1.5">
                 <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Type</label>
                 <div className="flex flex-wrap gap-1.5">
@@ -475,7 +571,7 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     if (activeTab === 'social' && id) {
-      api.get(`/social/analytics?clientId=${id}&days=${socialDays}`)
+      api.get(`/social/analytics?client=${id}&days=${socialDays}`)
         .then(r => setSocialAnalytics(r.data.analytics || null))
         .catch(() => {});
     }
@@ -485,7 +581,7 @@ export default function ClientDetailPage() {
     if (activeTab === 'calendar' && id) {
       const from = startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 }).toISOString();
       const to   = endOfWeek(endOfMonth(calendarMonth),   { weekStartsOn: 1 }).toISOString();
-      api.get(`/calendar?from=${from}&to=${to}&clientId=${id}`)
+      api.get(`/calendar?from=${from}&to=${to}&client=${id}`)
         .then(r => setCalendarEvents(r.data.events || []))
         .catch(() => {});
     }
@@ -496,13 +592,13 @@ export default function ClientDetailPage() {
     try {
       const [ovRes, taskRes, updRes, fileRes, repRes, socialAccRes, socialAnaRes, socialPostRes] = await Promise.all([
         api.get(`/clients/${id}/overview`),
-        api.get(`/tasks?clientId=${id}&limit=50`),
-        api.get(`/updates?clientId=${id}&limit=20`),
-        api.get(`/files?clientId=${id}&limit=20`),
-        api.get(`/reports?clientId=${id}&limit=10`),
-        api.get(`/social/accounts?clientId=${id}`),
-        api.get(`/social/analytics?clientId=${id}&days=${socialDays}`),
-        api.get(`/social/posts?clientId=${id}&limit=10`),
+        api.get(`/tasks?client=${id}&limit=50`),
+        api.get(`/updates?client=${id}&limit=20`),
+        api.get(`/files?client=${id}&limit=20`),
+        api.get(`/reports?client=${id}&limit=10`),
+        api.get(`/social/accounts?client=${id}`),
+        api.get(`/social/analytics?client=${id}&days=${socialDays}`),
+        api.get(`/social/posts?client=${id}&limit=10`),
       ]);
       setOverview(ovRes.data);
       setTasks(taskRes.data.tasks || []);

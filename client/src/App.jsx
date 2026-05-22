@@ -114,7 +114,11 @@ export default function App() {
                 <Route path="updates"    element={<UpdatesPage />} />
                 <Route path="reports"    element={<ReportsAdminPage />} />
                 <Route path="files"      element={<FilesAdminPage />} />
-                <Route path="social"     element={<SocialAdminPage />} />
+                <Route path="social"     element={
+                  <ProtectedRoute roles={['admin', 'manager']}>
+                    <SocialAdminPage />
+                  </ProtectedRoute>
+                } />
 
                 {/* ── NEW routes ──────────────────────────────────────────── */}
                 <Route path="kanban"     element={<KanbanPage />} />

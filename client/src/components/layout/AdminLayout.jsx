@@ -37,7 +37,7 @@ const navItems = [
   { to: '/admin/internal-leads',   icon: Briefcase,       label: 'Internal Leads',     internalLeadsOnly: true },
   { to: '/admin/calendar',         icon: Calendar,        label: 'Calendar' },
   { to: '/admin/updates',    icon: Rss,             label: 'Updates' },
-  { to: '/admin/social',     icon: Instagram,       label: 'Social Media' },
+  { to: '/admin/social',     icon: Instagram,       label: 'Social Media', managerOnly: true },
   { to: '/admin/reports',    icon: BarChart3,       label: 'Reports' },
   { to: '/admin/files',      icon: Upload,          label: 'Files' },
   { to: '/admin/messages',   icon: MessageSquare,   label: 'Messages' },

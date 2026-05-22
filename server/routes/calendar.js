@@ -9,15 +9,10 @@ const { logActivity } = require('../utils/activityLog');
 const ALL_INTERNAL = ['admin', 'manager', ...TEAM_ROLES];
 
 // ── Visibility filter helper ──────────────────────────────────────────────────
-// An event is visible to a user if ANY of:
-//   1. visibility === 'all'
-//   2. visibility === 'private' AND createdBy === userId
-//   3. visibility === 'specific' AND (visibleTo contains userId OR createdBy === userId)
-//   4. assignedTo contains userId (always visible to assignees)
 function buildVisibilityFilter(userId) {
   return [
     { visibility: 'all' },
-    { visibility: { $exists: false } },          // legacy docs with no field
+    { visibility: { $exists: false } },          // legacy docs
     { visibility: 'private', createdBy: userId },
     { visibility: 'specific', visibleTo: userId },
     { visibility: 'specific', createdBy: userId },
@@ -25,9 +20,20 @@ function buildVisibilityFilter(userId) {
   ];
 }
 
+// ── Helper: get client IDs scoped to the requesting user ─────────────────────
+async function getScopedClientIds(userId, role) {
+  if (role === 'admin') return null; // null = no restriction
+
+  const clients = await Client.find({
+    $or: [{ accountManager: userId }, { teamMembers: userId }],
+  }).select('_id');
+  return clients.map(c => c._id);
+}
+
 // @route  GET /api/calendar
+// Query params: from, to, client (ObjectId), type, status
 router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, res) => {
-  const { from, to, client } = req.query;
+  const { from, to, client, type, status } = req.query;
   const userId = req.user._id;
   const role   = req.user.role;
 
@@ -40,39 +46,25 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
 
   const visOr = buildVisibilityFilter(userId);
 
-  // ── Scope by role ───────────────────────────────────────────────────────
-  let clientScope = null; // null = no extra restriction
+  // ── Role-based client scoping ───────────────────────────────────────────
+  let clientScope = null;
+  const scopedIds = await getScopedClientIds(userId, role);
 
-  if (role === 'admin') {
+  if (scopedIds === null) {
+    // Admin: can see anything; optionally filter by a specific client
     if (client) clientScope = { client };
-  } else if (role === 'manager') {
-    const managedClients = await Client.find({
-      $or: [{ accountManager: userId }, { teamMembers: userId }],
-    }).select('_id');
-    const managedIds = managedClients.map(c => c._id);
+  } else {
+    // Manager / team: scope to their clients only
     if (client) {
-      const manages = managedIds.some(id => String(id) === String(client));
+      const manages = scopedIds.some(id => String(id) === String(client));
       if (!manages) return res.json({ success: true, events: [] });
       clientScope = { client };
     } else {
-      clientScope = { $or: [{ client: null }, { client: { $in: managedIds } }] };
-    }
-  } else {
-    // Team members
-    const assignedClients = await Client.find({
-      $or: [{ accountManager: userId }, { teamMembers: userId }],
-    }).select('_id');
-    const assignedIds = assignedClients.map(c => c._id);
-    if (client) {
-      const isAssigned = assignedIds.some(id => String(id) === String(client));
-      if (!isAssigned) return res.json({ success: true, events: [] });
-      clientScope = { client };
-    } else {
-      clientScope = { $or: [{ client: null }, { client: { $in: assignedIds } }] };
+      clientScope = { $or: [{ client: null }, { client: { $in: scopedIds } }] };
     }
   }
 
-  // Build final query using $and to combine scope + visibility
+  // ── Build final query ───────────────────────────────────────────────────
   const andClauses = [{ $or: visOr }];
   if (clientScope) {
     if (clientScope.$or) {
@@ -81,11 +73,13 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
       andClauses.push(clientScope);
     }
   }
+  if (type)   andClauses.push({ type });
+  if (status) andClauses.push({ status });
 
   const query = { ...dateFilter, $and: andClauses };
 
   const events = await CalendarEvent.find(query)
-    .populate('client', 'company')
+    .populate('client', 'company name')
     .populate('task', 'title')
     .populate('createdBy', 'name')
     .populate('assignedTo', 'name avatar')
@@ -93,7 +87,36 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
     .sort({ startDate: 1 })
     .lean();
 
-  res.json({ success: true, events });
+  // Compute overdue flag on lean results
+  const now = new Date();
+  const enriched = events.map(ev => ({
+    ...ev,
+    isOverdue: ev.status !== 'done' && ev.status !== 'cancelled' && new Date(ev.endDate) < now,
+  }));
+
+  res.json({ success: true, events: enriched });
+}));
+
+// @route  GET /api/calendar/clients  — returns clients scoped to the current user
+router.get('/clients', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, res) => {
+  const { role, _id: userId } = req.user;
+
+  let clients;
+  if (role === 'admin') {
+    clients = await Client.find({ status: { $ne: 'churned' } })
+      .select('_id name company')
+      .sort('company')
+      .lean();
+  } else {
+    clients = await Client.find({
+      $or: [{ accountManager: userId }, { teamMembers: userId }],
+    })
+      .select('_id name company')
+      .sort('company')
+      .lean();
+  }
+
+  res.json({ success: true, clients });
 }));
 
 // @route  POST /api/calendar
@@ -107,12 +130,10 @@ router.post('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, r
     });
   }
 
-  // Managers: validate they have access to the specified client (if any)
-  if (req.user.role === 'manager' && rest.client) {
-    const managedClients = await Client.find({
-      $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
-    }).select('_id');
-    const manages = managedClients.some(c => String(c._id) === String(rest.client));
+  // Non-admins: validate they actually manage this client
+  if (req.user.role !== 'admin' && rest.client) {
+    const scopedIds = await getScopedClientIds(req.user._id, req.user.role);
+    const manages = scopedIds && scopedIds.some(c => String(c) === String(rest.client));
     if (!manages) {
       return res.status(403).json({ success: false, message: 'Not authorised to create events for this client' });
     }
@@ -123,13 +144,17 @@ router.post('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, r
     createdBy: req.user._id,
     visibility,
     visibleTo: visibility === 'specific' ? visibleTo : [],
+    status: rest.status || 'pending',
   });
 
   const populated = await CalendarEvent.findById(event._id)
-    .populate('client', 'company')
+    .populate('client', 'company name')
     .populate('assignedTo', 'name avatar')
     .populate('visibleTo', 'name avatar')
     .lean();
+
+  const now = new Date();
+  populated.isOverdue = populated.status !== 'done' && populated.status !== 'cancelled' && new Date(populated.endDate) < now;
 
   logActivity({
     req,
@@ -147,7 +172,12 @@ router.put('/:id', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req,
 
   const isManager = ['admin', 'manager'].includes(req.user.role);
   const isOwner   = String(existing.createdBy) === String(req.user._id);
-  if (!isManager && !isOwner) {
+  // Anyone assigned can update status
+  const isAssigned = existing.assignedTo.map(String).includes(String(req.user._id));
+
+  // For status-only updates (e.g. mark done), allow assigned users
+  const isStatusOnlyUpdate = Object.keys(req.body).length === 1 && 'status' in req.body;
+  if (!isManager && !isOwner && !isAssigned && !isStatusOnlyUpdate) {
     return res.status(403).json({ success: false, message: 'Not authorised to edit this event' });
   }
 
@@ -159,18 +189,25 @@ router.put('/:id', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req,
       message: 'Please select at least one person when using "Specific people" visibility.',
     });
   }
-  // Clear visibleTo list when switching away from 'specific'
   if (req.body.visibility && req.body.visibility !== 'specific') {
     req.body.visibleTo = [];
+  }
+
+  // Sync isCompleted with status for backward compat
+  if (req.body.status) {
+    req.body.isCompleted = req.body.status === 'done';
   }
 
   const event = await CalendarEvent.findByIdAndUpdate(
     req.params.id, req.body, { new: true, runValidators: true },
   )
-    .populate('client', 'company')
+    .populate('client', 'company name')
     .populate('assignedTo', 'name avatar')
     .populate('visibleTo', 'name avatar')
     .lean();
+
+  const now = new Date();
+  event.isOverdue = event.status !== 'done' && event.status !== 'cancelled' && new Date(event.endDate) < now;
 
   res.json({ success: true, event });
 }));

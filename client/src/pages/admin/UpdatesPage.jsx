@@ -1,25 +1,79 @@
-import React, { useEffect, useState } from 'react';
-import { Rss, Plus, BarChart3, Upload, Trash2 } from 'lucide-react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Rss, Plus, BarChart3, Upload, Trash2, Building2, X, Filter } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, CardContent, Spinner } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Textarea, Select } from '../../components/ui/index';
 import { timeAgo, formatDate, formatCurrency, formatFileSize, getFileIcon } from '../../lib/utils';
 
-// ────── Updates Page ──────
+// ── Shared client filter bar ──────────────────────────────────────────────────
+function ClientFilterBar({ clients, value, onChange, placeholder = 'All Clients' }) {
+  if (!clients || clients.length === 0) return null;
+  return (
+    <div className="relative inline-flex items-center">
+      <Building2
+        size={13}
+        className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+        style={{ color: 'var(--fd-ink-4)' }}
+      />
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="appearance-none text-[12px] font-medium pl-7 pr-7 py-1.5 rounded-lg cursor-pointer"
+        style={{
+          background: value ? '#eff0fe' : 'var(--fd-surface)',
+          border: `1px solid ${value ? '#4f6ef0' : 'var(--fd-border)'}`,
+          color: value ? '#3a56d4' : 'var(--fd-ink-3)',
+        }}
+      >
+        <option value="">{placeholder}</option>
+        {clients.map(c => (
+          <option key={c._id} value={c._id}>{c.company || c.name}</option>
+        ))}
+      </select>
+      {value && (
+        <button
+          onClick={() => onChange('')}
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded"
+          style={{ color: '#3a56d4' }}
+        >
+          <X size={10} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ────── Updates Page ──────────────────────────────────────────────────────────
 export function UpdatesPage() {
   const [updates, setUpdates] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [filterClient, setFilterClient] = useState('');
+  const [filterType, setFilterType] = useState('');
   const [form, setForm] = useState({ title: '', content: '', type: 'general', client: '', isPinned: false });
 
-  const load = () => { setLoading(true); api.get('/updates?limit=50').then(r => { setUpdates(r.data.updates); setLoading(false); }); };
-  useEffect(() => { load(); api.get('/clients?limit=100').then(r => setClients(r.data.clients)); }, []);
+  const UPDATE_TYPES = ['general', 'milestone', 'report', 'alert', 'campaign_launch', 'optimization', 'meeting_notes'];
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ limit: 50 });
+    if (filterClient) params.set('clientId', filterClient);
+    if (filterType)   params.set('type', filterType);
+    api.get(`/updates?${params}`).then(r => {
+      setUpdates(r.data.updates || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [filterClient, filterType]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { api.get('/clients?limit=100').then(r => setClients(r.data.clients || [])); }, []);
 
   const handleCreate = async () => {
     setSaving(true);
-    try { await api.post('/updates', form); setShowModal(false); load(); } finally { setSaving(false); }
+    try { await api.post('/updates', form); setShowModal(false); load(); }
+    finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
@@ -28,17 +82,72 @@ export function UpdatesPage() {
   };
 
   const typeColors = {
-    general: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]', milestone: 'bg-emerald-100 text-emerald-700',
-    report: 'bg-blue-100 text-blue-700', alert: 'bg-red-100 text-red-700',
-    campaign_launch: 'bg-purple-100 text-purple-700', optimization: 'bg-orange-100 text-orange-700',
-    meeting_notes: 'bg-amber-100 text-amber-700'
+    general: 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]',
+    milestone: 'bg-emerald-100 text-emerald-700',
+    report: 'bg-blue-100 text-blue-700',
+    alert: 'bg-red-100 text-red-700',
+    campaign_launch: 'bg-purple-100 text-purple-700',
+    optimization: 'bg-orange-100 text-orange-700',
+    meeting_notes: 'bg-amber-100 text-amber-700',
   };
+
+  const hasFilters = filterClient || filterType;
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHeader title="Updates" subtitle="All client updates" actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />Post Update</Button>} />
-      {loading ? <div className="flex justify-center py-16"><Spinner /></div> : updates.length === 0 ? (
-        <EmptyState icon={Rss} title="No updates yet" description="Post the first update for a client." />
+      <PageHeader
+        title="Updates"
+        subtitle="All client updates"
+        actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />Post Update</Button>}
+      />
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ClientFilterBar clients={clients} value={filterClient} onChange={v => setFilterClient(v)} />
+
+        {/* Type filter */}
+        <div className="relative inline-flex items-center">
+          <select
+            value={filterType}
+            onChange={e => setFilterType(e.target.value)}
+            className="appearance-none text-[12px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
+            style={{
+              background: filterType ? '#eff0fe' : 'var(--fd-surface)',
+              border: `1px solid ${filterType ? '#4f6ef0' : 'var(--fd-border)'}`,
+              color: filterType ? '#3a56d4' : 'var(--fd-ink-3)',
+            }}
+          >
+            <option value="">All Types</option>
+            {UPDATE_TYPES.map(t => (
+              <option key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+            ))}
+          </select>
+          {filterType && (
+            <button onClick={() => setFilterType('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: '#3a56d4' }}>
+              <X size={10} />
+            </button>
+          )}
+        </div>
+
+        {hasFilters && (
+          <button
+            onClick={() => { setFilterClient(''); setFilterType(''); }}
+            className="flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-lg transition-all hover:opacity-70"
+            style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)', border: '1px solid var(--fd-border)' }}
+          >
+            <X size={10} /> Clear
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Spinner /></div>
+      ) : updates.length === 0 ? (
+        <EmptyState
+          icon={Rss}
+          title="No updates found"
+          description={hasFilters ? 'Try adjusting your filters.' : 'Post the first update for a client.'}
+        />
       ) : (
         <div className="space-y-4">
           {updates.map(u => (
@@ -52,13 +161,24 @@ export function UpdatesPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-semibold text-[var(--fd-ink-1)]">{u.title}</span>
                           {u.isPinned && <span className="text-xs">📌</span>}
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[u.type] || 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'}`}>{u.type?.replace('_', ' ')}</span>
-                          {u.client && <span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs">{u.client.company}</span>}
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColors[u.type] || 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'}`}>
+                            {u.type?.replace(/_/g, ' ')}
+                          </span>
+                          {u.client && (
+                            <span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs flex items-center gap-1">
+                              <Building2 size={9} />{u.client.company || u.client.name}
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-[var(--fd-ink-4)] mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
                         <p className="text-sm text-[var(--fd-ink-2)] mt-2 whitespace-pre-line line-clamp-3">{u.content}</p>
                       </div>
-                      <button onClick={() => handleDelete(u._id)} className="text-[var(--fd-ink-5)] hover:text-red-500 transition-colors p-1 flex-shrink-0"><Trash2 size={15} /></button>
+                      <button
+                        onClick={() => handleDelete(u._id)}
+                        className="text-[var(--fd-ink-5)] hover:text-red-500 transition-colors p-1 flex-shrink-0"
+                      >
+                        <Trash2 size={15} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -67,8 +187,16 @@ export function UpdatesPage() {
           ))}
         </div>
       )}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Post Update" size="md"
-        footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button><Button loading={saving} onClick={handleCreate}>Post</Button></div>}>
+
+      <Modal
+        isOpen={showModal} onClose={() => setShowModal(false)} title="Post Update" size="md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button loading={saving} onClick={handleCreate}>Post</Button>
+          </div>
+        }
+      >
         <div className="space-y-4">
           <Select label="Client *" value={form.client} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}>
             <option value="">Select client...</option>
@@ -76,7 +204,9 @@ export function UpdatesPage() {
           </Select>
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
           <Select label="Type" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
-            {['general','milestone','report','alert','campaign_launch','optimization','meeting_notes'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>)}
+            {UPDATE_TYPES.map(t => (
+              <option key={t} value={t}>{t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</option>
+            ))}
           </Select>
           <Textarea label="Content *" value={form.content} onChange={e => setForm(p => ({ ...p, content: e.target.value }))} rows={5} />
           <label className="flex items-center gap-2 cursor-pointer">
@@ -89,33 +219,102 @@ export function UpdatesPage() {
   );
 }
 
-// ────── Reports Page ──────
+// ────── Reports Page ──────────────────────────────────────────────────────────
 export function ReportsAdminPage() {
   const [reports, setReports] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [filterClient, setFilterClient] = useState('');
+  const [filterPeriod, setFilterPeriod] = useState('');
   const [form, setForm] = useState({
     title: '', client: '', period: 'monthly', startDate: '', endDate: '',
-    metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' }, notes: ''
+    metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' },
+    notes: '',
   });
 
-  const load = () => { setLoading(true); api.get('/reports?limit=50').then(r => { setReports(r.data.reports); setLoading(false); }); };
-  useEffect(() => { load(); api.get('/clients?limit=100').then(r => setClients(r.data.clients)); }, []);
+  const PERIODS = ['daily', 'weekly', 'monthly', 'quarterly', 'annual', 'custom'];
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ limit: 50 });
+    if (filterClient) params.set('clientId', filterClient);
+    if (filterPeriod) params.set('period', filterPeriod);
+    api.get(`/reports?${params}`).then(r => {
+      setReports(r.data.reports || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [filterClient, filterPeriod]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { api.get('/clients?limit=100').then(r => setClients(r.data.clients || [])); }, []);
 
   const handleCreate = async () => {
     setSaving(true);
-    try { await api.post('/reports', form); setShowModal(false); load(); } finally { setSaving(false); }
+    try { await api.post('/reports', form); setShowModal(false); load(); }
+    finally { setSaving(false); }
   };
 
   const setMetric = (k, v) => setForm(p => ({ ...p, metrics: { ...p.metrics, [k]: v } }));
 
+  const hasFilters = filterClient || filterPeriod;
+
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHeader title="Reports" subtitle="Performance reports across all clients" actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />New Report</Button>} />
-      {loading ? <div className="flex justify-center py-16"><Spinner /></div> : reports.length === 0 ? (
-        <EmptyState icon={BarChart3} title="No reports yet" />
+      <PageHeader
+        title="Reports"
+        subtitle="Performance reports across all clients"
+        actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />New Report</Button>}
+      />
+
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ClientFilterBar clients={clients} value={filterClient} onChange={v => setFilterClient(v)} />
+
+        {/* Period filter */}
+        <div className="relative inline-flex items-center">
+          <select
+            value={filterPeriod}
+            onChange={e => setFilterPeriod(e.target.value)}
+            className="appearance-none text-[12px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
+            style={{
+              background: filterPeriod ? '#eff0fe' : 'var(--fd-surface)',
+              border: `1px solid ${filterPeriod ? '#4f6ef0' : 'var(--fd-border)'}`,
+              color: filterPeriod ? '#3a56d4' : 'var(--fd-ink-3)',
+            }}
+          >
+            <option value="">All Periods</option>
+            {PERIODS.map(p => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+            ))}
+          </select>
+          {filterPeriod && (
+            <button onClick={() => setFilterPeriod('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: '#3a56d4' }}>
+              <X size={10} />
+            </button>
+          )}
+        </div>
+
+        {hasFilters && (
+          <button
+            onClick={() => { setFilterClient(''); setFilterPeriod(''); }}
+            className="flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-lg transition-all hover:opacity-70"
+            style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)', border: '1px solid var(--fd-border)' }}
+          >
+            <X size={10} /> Clear
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Spinner /></div>
+      ) : reports.length === 0 ? (
+        <EmptyState
+          icon={BarChart3}
+          title="No reports found"
+          description={hasFilters ? 'Try adjusting your filters.' : 'No reports yet.'}
+        />
       ) : (
         <div className="grid gap-4">
           {reports.map(r => (
@@ -124,18 +323,28 @@ export function ReportsAdminPage() {
                 <div className="flex items-start justify-between flex-wrap gap-2 mb-3">
                   <div>
                     <div className="font-semibold text-[var(--fd-ink-1)]">{r.title}</div>
-                    <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{r.client?.company} · {formatDate(r.startDate)} – {formatDate(r.endDate)}</div>
+                    <div className="flex items-center gap-2 text-xs text-[var(--fd-ink-3)] mt-0.5 flex-wrap">
+                      {r.client && (
+                        <span className="flex items-center gap-1">
+                          <Building2 size={10} />{r.client.company || r.client.name}
+                        </span>
+                      )}
+                      <span>·</span>
+                      <span>{formatDate(r.startDate)} – {formatDate(r.endDate)}</span>
+                    </div>
                   </div>
-                  <span className="px-2.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{r.period}</span>
+                  <span className="px-2.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">
+                    {r.period}
+                  </span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {[
                     { l: 'Ad Spend', v: formatCurrency(r.metrics?.adSpend) },
-                    { l: 'Revenue', v: formatCurrency(r.metrics?.revenue) },
-                    { l: 'ROAS', v: `${r.metrics?.roas?.toFixed(1)}x` },
-                    { l: 'Leads', v: r.metrics?.leads },
+                    { l: 'Revenue',  v: formatCurrency(r.metrics?.revenue) },
+                    { l: 'ROAS',     v: `${r.metrics?.roas?.toFixed(1)}x` },
+                    { l: 'Leads',    v: r.metrics?.leads },
                     { l: 'Conversions', v: r.metrics?.conversions },
-                    { l: 'Clicks', v: r.metrics?.clicks?.toLocaleString() },
+                    { l: 'Clicks',   v: r.metrics?.clicks?.toLocaleString() },
                   ].map(m => (
                     <div key={m.l} className="bg-[var(--fd-surface-raised)] rounded-lg p-2 text-center">
                       <div className="text-xs text-[var(--fd-ink-4)]">{m.l}</div>
@@ -148,8 +357,16 @@ export function ReportsAdminPage() {
           ))}
         </div>
       )}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Create Report" size="lg"
-        footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button><Button loading={saving} onClick={handleCreate}>Create</Button></div>}>
+
+      <Modal
+        isOpen={showModal} onClose={() => setShowModal(false)} title="Create Report" size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button loading={saving} onClick={handleCreate}>Create</Button>
+          </div>
+        }
+      >
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Report Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
@@ -160,20 +377,20 @@ export function ReportsAdminPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select label="Period" value={form.period} onChange={e => setForm(p => ({ ...p, period: e.target.value }))}>
-              {['daily','weekly','monthly','quarterly','annual','custom'].map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase()+p.slice(1)}</option>)}
+              {PERIODS.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </Select>
             <Input label="Start Date *" type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} />
-            <Input label="End Date *" type="date" value={form.endDate} onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} />
+            <Input label="End Date *"   type="date" value={form.endDate}   onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} />
           </div>
           <div className="p-4 bg-[var(--fd-surface-raised)] rounded-lg">
             <div className="text-sm font-semibold text-[var(--fd-ink-2)] mb-3">Metrics</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <Input label="Ad Spend ($)" type="number" value={form.metrics.adSpend} onChange={e => setMetric('adSpend', e.target.value)} />
-              <Input label="Revenue ($)" type="number" value={form.metrics.revenue} onChange={e => setMetric('revenue', e.target.value)} />
-              <Input label="Leads" type="number" value={form.metrics.leads} onChange={e => setMetric('leads', e.target.value)} />
-              <Input label="Conversions" type="number" value={form.metrics.conversions} onChange={e => setMetric('conversions', e.target.value)} />
-              <Input label="Impressions" type="number" value={form.metrics.impressions} onChange={e => setMetric('impressions', e.target.value)} />
-              <Input label="Clicks" type="number" value={form.metrics.clicks} onChange={e => setMetric('clicks', e.target.value)} />
+              <Input label="Ad Spend ($)"  type="number" value={form.metrics.adSpend}      onChange={e => setMetric('adSpend', e.target.value)} />
+              <Input label="Revenue ($)"   type="number" value={form.metrics.revenue}      onChange={e => setMetric('revenue', e.target.value)} />
+              <Input label="Leads"         type="number" value={form.metrics.leads}        onChange={e => setMetric('leads', e.target.value)} />
+              <Input label="Conversions"   type="number" value={form.metrics.conversions}  onChange={e => setMetric('conversions', e.target.value)} />
+              <Input label="Impressions"   type="number" value={form.metrics.impressions}  onChange={e => setMetric('impressions', e.target.value)} />
+              <Input label="Clicks"        type="number" value={form.metrics.clicks}       onChange={e => setMetric('clicks', e.target.value)} />
             </div>
           </div>
           <Textarea label="Notes" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={3} />
@@ -183,18 +400,33 @@ export function ReportsAdminPage() {
   );
 }
 
-// ────── Files Page ──────
+// ────── Files Page ────────────────────────────────────────────────────────────
 export function FilesAdminPage() {
   const [files, setFiles] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [filterClient, setFilterClient] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
   const [uploadForm, setUploadForm] = useState({ clientId: '', category: 'other', description: '', isPublic: true });
   const [selectedFile, setSelectedFile] = useState(null);
 
-  const load = () => { setLoading(true); api.get('/files?limit=50').then(r => { setFiles(r.data.files); setLoading(false); }); };
-  useEffect(() => { load(); api.get('/clients?limit=100').then(r => setClients(r.data.clients)); }, []);
+  const CATEGORIES = ['report', 'creative', 'contract', 'invoice', 'presentation', 'media', 'other'];
+
+  const load = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams({ limit: 50 });
+    if (filterClient)   params.set('clientId', filterClient);
+    if (filterCategory) params.set('category', filterCategory);
+    api.get(`/files?${params}`).then(r => {
+      setFiles(r.data.files || []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [filterClient, filterCategory]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { api.get('/clients?limit=100').then(r => setClients(r.data.clients || [])); }, []);
 
   const handleUpload = async () => {
     if (!selectedFile || !uploadForm.clientId) return;
@@ -215,12 +447,63 @@ export function FilesAdminPage() {
     setFiles(prev => prev.filter(f => f._id !== id));
   };
 
+  const hasFilters = filterClient || filterCategory;
+
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHeader title="Files" subtitle="All uploaded files" actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />Upload File</Button>} />
+      <PageHeader
+        title="Files"
+        subtitle="All uploaded files"
+        actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />Upload File</Button>}
+      />
 
-      {loading ? <div className="flex justify-center py-16"><Spinner /></div> : files.length === 0 ? (
-        <EmptyState icon={Upload} title="No files yet" />
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <ClientFilterBar clients={clients} value={filterClient} onChange={v => setFilterClient(v)} />
+
+        {/* Category filter */}
+        <div className="relative inline-flex items-center">
+          <select
+            value={filterCategory}
+            onChange={e => setFilterCategory(e.target.value)}
+            className="appearance-none text-[12px] font-medium px-3 py-1.5 rounded-lg cursor-pointer capitalize"
+            style={{
+              background: filterCategory ? '#eff0fe' : 'var(--fd-surface)',
+              border: `1px solid ${filterCategory ? '#4f6ef0' : 'var(--fd-border)'}`,
+              color: filterCategory ? '#3a56d4' : 'var(--fd-ink-3)',
+            }}
+          >
+            <option value="">All Categories</option>
+            {CATEGORIES.map(c => (
+              <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+            ))}
+          </select>
+          {filterCategory && (
+            <button onClick={() => setFilterCategory('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: '#3a56d4' }}>
+              <X size={10} />
+            </button>
+          )}
+        </div>
+
+        {hasFilters && (
+          <button
+            onClick={() => { setFilterClient(''); setFilterCategory(''); }}
+            className="flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-lg transition-all hover:opacity-70"
+            style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)', border: '1px solid var(--fd-border)' }}
+          >
+            <X size={10} /> Clear
+          </button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-16"><Spinner /></div>
+      ) : files.length === 0 ? (
+        <EmptyState
+          icon={Upload}
+          title="No files found"
+          description={hasFilters ? 'Try adjusting your filters.' : 'No files uploaded yet.'}
+        />
       ) : (
         <>
           {/* Desktop table */}
@@ -228,9 +511,11 @@ export function FilesAdminPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-[var(--fd-surface-raised)] border-b border-[var(--fd-border)]">
-                  <tr>{['File', 'Client', 'Category', 'Size', 'Uploaded By', 'Date', 'Actions'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-[var(--fd-ink-3)] uppercase tracking-wide">{h}</th>
-                  ))}</tr>
+                  <tr>
+                    {['File', 'Client', 'Category', 'Size', 'Uploaded By', 'Date', 'Actions'].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-[var(--fd-ink-3)] uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--fd-border)]">
                   {files.map(f => (
@@ -244,8 +529,10 @@ export function FilesAdminPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-[var(--fd-ink-2)]">{f.client?.company || '—'}</td>
-                      <td className="px-4 py-3.5"><span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded text-xs capitalize">{f.category}</span></td>
+                      <td className="px-4 py-3.5 text-[var(--fd-ink-2)]">{f.client?.company || f.client?.name || '—'}</td>
+                      <td className="px-4 py-3.5">
+                        <span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded text-xs capitalize">{f.category}</span>
+                      </td>
                       <td className="px-4 py-3.5 text-[var(--fd-ink-3)]">{formatFileSize(f.size)}</td>
                       <td className="px-4 py-3.5 text-[var(--fd-ink-2)]">{f.uploadedBy?.name || '—'}</td>
                       <td className="px-4 py-3.5 text-[var(--fd-ink-3)] text-xs">{formatDate(f.createdAt)}</td>
@@ -272,7 +559,7 @@ export function FilesAdminPage() {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{f.name}</div>
                       <div className="flex flex-wrap gap-2 mt-1 text-xs text-[var(--fd-ink-3)]">
-                        <span>{f.client?.company || '—'}</span>
+                        <span>{f.client?.company || f.client?.name || '—'}</span>
                         <span>·</span>
                         <span className="px-1.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded capitalize">{f.category}</span>
                         <span>·</span>
@@ -292,15 +579,28 @@ export function FilesAdminPage() {
         </>
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Upload File" size="md"
-        footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button><Button loading={uploading} onClick={handleUpload} disabled={!selectedFile || !uploadForm.clientId}>Upload</Button></div>}>
+      <Modal
+        isOpen={showModal} onClose={() => setShowModal(false)} title="Upload File" size="md"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button loading={uploading} onClick={handleUpload} disabled={!selectedFile || !uploadForm.clientId}>Upload</Button>
+          </div>
+        }
+      >
         <div className="space-y-4">
-          <div className="border-2 border-dashed border-[var(--fd-border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-brand-400 transition-colors" onClick={() => document.getElementById('fileInput').click()}>
+          <div
+            className="border-2 border-dashed border-[var(--fd-border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-brand-400 transition-colors"
+            onClick={() => document.getElementById('fileInput').click()}
+          >
             <input id="fileInput" type="file" className="hidden" onChange={e => setSelectedFile(e.target.files[0])} />
             {selectedFile ? (
               <div className="text-sm font-medium text-[var(--fd-ink-2)]">{selectedFile.name} ({formatFileSize(selectedFile.size)})</div>
             ) : (
-              <div><Upload size={24} className="mx-auto text-[var(--fd-ink-4)] mb-2" /><div className="text-sm text-[var(--fd-ink-3)]">Tap to select file (max 50MB)</div></div>
+              <div>
+                <Upload size={24} className="mx-auto text-[var(--fd-ink-4)] mb-2" />
+                <div className="text-sm text-[var(--fd-ink-3)]">Tap to select file (max 50MB)</div>
+              </div>
             )}
           </div>
           <Select label="Client *" value={uploadForm.clientId} onChange={e => setUploadForm(p => ({ ...p, clientId: e.target.value }))}>
@@ -308,7 +608,7 @@ export function FilesAdminPage() {
             {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
           </Select>
           <Select label="Category" value={uploadForm.category} onChange={e => setUploadForm(p => ({ ...p, category: e.target.value }))}>
-            {['report','creative','contract','invoice','presentation','media','other'].map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase()+c.slice(1)}</option>)}
+            {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
           </Select>
           <Textarea label="Description" value={uploadForm.description} onChange={e => setUploadForm(p => ({ ...p, description: e.target.value }))} rows={2} />
           <label className="flex items-center gap-2 cursor-pointer">

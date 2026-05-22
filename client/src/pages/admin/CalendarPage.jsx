@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus, Check, Edit2, Trash2,
-  Clock, AlignLeft, List,
+  Clock, AlignLeft, List, Filter, X, AlertTriangle, User,
+  CheckCircle2, Circle, Loader, XCircle, Building2,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   startOfWeek, endOfWeek, isSameMonth, isSameDay, isToday,
-  addMonths, subMonths, parseISO, startOfDay, endOfDay,
+  addMonths, subMonths, parseISO, startOfDay, endOfDay, isPast,
 } from 'date-fns';
 import api from '../../lib/api';
 import { useToast, Button, Input, Modal } from '../../components/ui/index';
 import { Spinner } from '../../components/shared/LoadingScreen';
+import useAuthStore from '../../context/authStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EVENT_COLORS = {
@@ -33,7 +35,6 @@ const TYPE_LABELS = {
   other:         'Other',
 };
 
-// Shoot sub-types
 const SHOOT_SUBTYPES = [
   { value: 'photo_shoot',   label: 'Photo Shoot',    icon: '📷' },
   { value: 'video_shoot',   label: 'Video Shoot',    icon: '🎬' },
@@ -48,23 +49,83 @@ const SHOOT_SUBTYPES = [
 const SHOOT_SUBTYPE_LABELS = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value, s.label]));
 const SHOOT_SUBTYPE_ICONS  = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value, s.icon]));
 
+const STATUS_CONFIG = {
+  pending:     { label: 'Pending',     icon: Circle,       color: '#94a3b8', bg: '#f8fafc' },
+  in_progress: { label: 'In Progress', icon: Loader,       color: '#f59e0b', bg: '#fffbeb' },
+  done:        { label: 'Done',        icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
+  cancelled:   { label: 'Cancelled',   icon: XCircle,      color: '#ef4444', bg: '#fef2f2' },
+};
+
 const DAY_LABELS_LONG  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_LABELS_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+// ─── Overdue badge ────────────────────────────────────────────────────────────
+function OverdueBadge() {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-[1px] rounded"
+      style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+      <AlertTriangle size={7} /> OVERDUE
+    </span>
+  );
+}
+
+// ─── Status Toggle ────────────────────────────────────────────────────────────
+function StatusToggle({ status, onChange, compact = false }) {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const Icon = cfg.icon;
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        className={`flex items-center gap-1 font-semibold rounded-full transition-all ${compact ? 'text-[10px] px-1.5 py-0.5' : 'text-[12px] px-2.5 py-1'}`}
+        style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}
+      >
+        <Icon size={compact ? 8 : 11} />
+        {!compact && <span>{cfg.label}</span>}
+        {!compact && <ChevronRight size={9} style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />}
+      </button>
+      {open && (
+        <div
+          className="absolute z-50 top-full mt-1 left-0 rounded-xl overflow-hidden shadow-lg"
+          style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', minWidth: 140 }}
+          onClick={e => e.stopPropagation()}
+        >
+          {Object.entries(STATUS_CONFIG).map(([val, s]) => {
+            const I = s.icon;
+            return (
+              <button key={val} onClick={() => { onChange(val); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:opacity-70 transition-opacity text-left"
+                style={{ background: val === status ? s.bg : 'transparent' }}>
+                <I size={12} style={{ color: s.color }} />
+                <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{s.label}</span>
+                {val === status && <Check size={10} className="ml-auto" style={{ color: s.color }} />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Event Chip (desktop) ─────────────────────────────────────────────────────
 function EventChip({ event, isStart, isEnd, onClick }) {
   const color = EVENT_COLORS[event.type] || EVENT_COLORS.other;
+  const overdue = event.isOverdue;
+
   return (
     <button
       onClick={e => { e.stopPropagation(); onClick(event); }}
       className="w-full text-left text-[10px] font-semibold px-1 py-[2px] flex items-center gap-1 overflow-hidden mt-[2px] transition-opacity hover:opacity-80"
       style={{
-        background: color.light,
-        color: color.text,
-        borderTop:    `2px solid ${color.bg}`,
-        borderBottom: `2px solid ${color.bg}`,
-        borderLeft:   isStart ? `2px solid ${color.bg}` : 'none',
-        borderRight:  isEnd   ? `2px solid ${color.bg}` : 'none',
+        background: overdue ? '#fef2f2' : color.light,
+        color:      overdue ? '#b91c1c' : color.text,
+        borderTop:    `2px solid ${overdue ? '#ef4444' : color.bg}`,
+        borderBottom: `2px solid ${overdue ? '#ef4444' : color.bg}`,
+        borderLeft:   isStart ? `2px solid ${overdue ? '#ef4444' : color.bg}` : 'none',
+        borderRight:  isEnd   ? `2px solid ${overdue ? '#ef4444' : color.bg}` : 'none',
         borderRadius: isStart && isEnd ? 4 : isStart ? '4px 0 0 4px' : isEnd ? '0 4px 4px 0' : 0,
         marginLeft:   isStart ? 0 : -1,
         marginRight:  isEnd   ? 0 : -1,
@@ -73,8 +134,12 @@ function EventChip({ event, isStart, isEnd, onClick }) {
     >
       {isStart && (
         <>
-          <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color.bg }} />
+          {overdue
+            ? <AlertTriangle size={8} className="flex-shrink-0" style={{ color: '#ef4444' }} />
+            : <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color.bg }} />
+          }
           <span className="truncate">{event.title}</span>
+          {event.status === 'done' && <Check size={8} className="flex-shrink-0 ml-auto" style={{ color: '#22c55e' }} />}
         </>
       )}
     </button>
@@ -82,7 +147,7 @@ function EventChip({ event, isStart, isEnd, onClick }) {
 }
 
 // ─── View Modal ───────────────────────────────────────────────────────────────
-function EventViewModal({ event, onClose, onEdit, onDelete }) {
+function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange }) {
   const [deleting, setDeleting] = useState(false);
   const color = EVENT_COLORS[event.type] || EVENT_COLORS.other;
 
@@ -107,31 +172,40 @@ function EventViewModal({ event, onClose, onEdit, onDelete }) {
         </div>
       }
     >
-      <div className="flex items-start gap-3 mb-5">
+      <div className="flex items-start gap-3 mb-4">
         <div
           className="w-3 h-3 rounded-full mt-1 flex-shrink-0"
           style={{ background: color.bg, boxShadow: `0 0 0 3px ${color.light}` }}
         />
-        <div>
+        <div className="flex-1 min-w-0">
           <h3 className="text-[17px] font-bold leading-tight" style={{ color: 'var(--fd-ink-1)' }}>
             {event.title}
           </h3>
-          <span
-            className="inline-block mt-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-            style={{ background: color.light, color: color.text }}
-          >
-            {TYPE_LABELS[event.type] || event.type}
-          </span>
-          {event.type === 'shoot' && event.shootSubtype && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             <span
-              className="inline-block mt-1 ml-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-              style={{ background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}
+              className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: color.light, color: color.text }}
             >
-              {SHOOT_SUBTYPE_ICONS[event.shootSubtype]} {SHOOT_SUBTYPE_LABELS[event.shootSubtype] || event.shootSubtype}
+              {TYPE_LABELS[event.type] || event.type}
             </span>
-          )}
+            {event.type === 'shoot' && event.shootSubtype && (
+              <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}>
+                {SHOOT_SUBTYPE_ICONS[event.shootSubtype]} {SHOOT_SUBTYPE_LABELS[event.shootSubtype] || event.shootSubtype}
+              </span>
+            )}
+            {event.isOverdue && <OverdueBadge />}
+          </div>
         </div>
       </div>
+
+      {/* Status */}
+      <div className="flex items-center justify-between p-3 rounded-xl mb-3"
+        style={{ background: 'var(--fd-surface-sunken)' }}>
+        <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>Status</span>
+        <StatusToggle status={event.status || 'pending'} onChange={val => onStatusChange(event._id, val)} />
+      </div>
+
       <div className="space-y-3">
         <div className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'var(--fd-surface-sunken)' }}>
           <Clock size={13} style={{ color: 'var(--fd-ink-4)', marginTop: 1 }} />
@@ -146,6 +220,16 @@ function EventViewModal({ event, onClose, onEdit, onDelete }) {
             )}
           </div>
         </div>
+
+        {event.client && (
+          <div className="flex items-center gap-2.5 p-3 rounded-xl" style={{ background: 'var(--fd-surface-sunken)' }}>
+            <Building2 size={13} style={{ color: 'var(--fd-ink-4)' }} />
+            <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
+              {event.client.company || event.client.name || 'Client'}
+            </span>
+          </div>
+        )}
+
         {event.description && (
           <div className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'var(--fd-surface-sunken)' }}>
             <AlignLeft size={13} style={{ color: 'var(--fd-ink-4)', marginTop: 1 }} />
@@ -160,7 +244,7 @@ function EventViewModal({ event, onClose, onEdit, onDelete }) {
 }
 
 // ─── Edit / Create Modal ──────────────────────────────────────────────────────
-function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
+function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients, prefillClientId }) {
   const isNew = !event?._id;
 
   const buildDefaults = () => {
@@ -174,9 +258,10 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
         description:  event.description || '',
         visibility:   event.visibility || 'all',
         visibleTo:    (event.visibleTo || []).map(u => (typeof u === 'object' ? u._id : u)),
+        client:       event.client ? (typeof event.client === 'object' ? event.client._id : event.client) : '',
+        status:       event.status || 'pending',
       };
     }
-    // When creating from a clicked date — lock to that day
     const base = defaultDate ? new Date(defaultDate) : new Date();
     base.setHours(9, 0, 0, 0);
     const end = new Date(base);
@@ -186,6 +271,8 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
       startDate: base.toISOString(),
       endDate:   end.toISOString(),
       description: '', visibility: 'all', visibleTo: [],
+      client: prefillClientId || '',
+      status: 'pending',
     };
   };
 
@@ -210,7 +297,32 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
     if (!form.title?.trim()) return;
     if (form.visibility === 'specific' && form.visibleTo.length === 0) return;
     setSaving(true);
-    try { await onSave({ ...event, ...form }, isNew); onClose(); }
+
+    // Build a clean payload — only scalar/ID fields from form, never spread the
+    // populated event object (which has nested objects like client:{_id,company}).
+    const payload = {
+      title:        form.title,
+      type:         form.type,
+      shootSubtype: form.shootSubtype || null,
+      startDate:    form.startDate,
+      endDate:      form.endDate,
+      description:  form.description,
+      visibility:   form.visibility,
+      visibleTo:    form.visibleTo,
+      status:       form.status,
+    };
+
+    // client: only include if set, and always send the bare ID string
+    if (form.client) {
+      payload.client = typeof form.client === 'object' ? form.client._id : form.client;
+    }
+
+    // For edits, attach the document _id so handleSave can route to PUT
+    if (!isNew && event?._id) {
+      payload._id = event._id;
+    }
+
+    try { await onSave(payload, isNew); onClose(); }
     finally { setSaving(false); }
   };
 
@@ -227,7 +339,6 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
     { value: 'private',  label: 'Only me',         desc: 'Private — only you can see this' },
   ];
 
-  // Display the locked date nicely
   const displayDate = defaultDate
     ? format(new Date(defaultDate), 'EEEE, MMMM d')
     : event?.startDate ? format(parseISO(event.startDate), 'EEEE, MMMM d') : '';
@@ -253,7 +364,6 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
       }
     >
       <div className="space-y-4">
-        {/* Show the date this event is being added to */}
         {displayDate && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium"
             style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>
@@ -261,11 +371,59 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
             {displayDate}
           </div>
         )}
+
         <Input
           label="Title" value={form.title} autoFocus
           onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
           placeholder="Event title"
         />
+
+        {/* Client selector — shown when not pre-filled from client detail page */}
+        {!prefillClientId && clients && clients.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
+              Client <span className="text-[11px] font-normal" style={{ color: 'var(--fd-ink-4)' }}>(optional)</span>
+            </label>
+            <div className="relative">
+              <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fd-ink-4)' }} />
+              <select
+                className="fd-input pl-8 appearance-none"
+                value={form.client || ''}
+                onChange={e => setForm(f => ({ ...f, client: e.target.value }))}
+                style={{ paddingLeft: 30 }}
+              >
+                <option value="">— No client —</option>
+                {clients.map(c => (
+                  <option key={c._id} value={c._id}>{c.company || c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+
+        {/* Status */}
+        <div className="space-y-1.5">
+          <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Status</label>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(STATUS_CONFIG).map(([val, s]) => {
+              const Icon = s.icon;
+              return (
+                <button key={val}
+                  onClick={() => setForm(f => ({ ...f, status: val }))}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all"
+                  style={form.status === val
+                    ? { background: s.color, color: '#fff' }
+                    : { background: s.bg, color: s.color, border: `1px solid ${s.color}40` }
+                  }
+                >
+                  <Icon size={10} /> {s.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Type */}
         <div className="space-y-1.5">
           <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Type</label>
           <div className="flex flex-wrap gap-1.5">
@@ -285,7 +443,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
             ))}
           </div>
         </div>
-        {/* Shoot sub-type selector — only shown when type === 'shoot' */}
+
         {form.type === 'shoot' && (
           <div className="space-y-1.5">
             <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Shoot Type</label>
@@ -307,6 +465,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
             </div>
           </div>
         )}
+
         <div className="space-y-1.5">
           <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Notes</label>
           <textarea
@@ -317,7 +476,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
           />
         </div>
 
-        {/* ── Visibility ── */}
+        {/* Visibility */}
         <div className="space-y-2">
           <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Visibility</label>
           <div className="grid grid-cols-1 gap-1.5">
@@ -387,6 +546,102 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
   );
 }
 
+// ─── Filter Bar ───────────────────────────────────────────────────────────────
+function FilterBar({ clients, filters, onChange, overdueCount }) {
+  const hasActive = filters.client || filters.type || filters.status;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-3">
+      {/* Client filter */}
+      {clients.length > 0 && (
+        <div className="relative">
+          <Building2 size={12} className="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fd-ink-4)' }} />
+          <select
+            className="text-[12px] font-medium pl-6 pr-6 py-1.5 rounded-lg appearance-none cursor-pointer"
+            style={{
+              background: filters.client ? '#eff0fe' : 'var(--fd-surface)',
+              border: `1px solid ${filters.client ? '#4f6ef0' : 'var(--fd-border)'}`,
+              color: filters.client ? '#3a56d4' : 'var(--fd-ink-3)',
+            }}
+            value={filters.client || ''}
+            onChange={e => onChange({ ...filters, client: e.target.value })}
+          >
+            <option value="">All Clients</option>
+            {clients.map(c => (
+              <option key={c._id} value={c._id}>{c.company || c.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Type filter */}
+      <div className="relative">
+        <select
+          className="text-[12px] font-medium px-3 py-1.5 rounded-lg appearance-none cursor-pointer"
+          style={{
+            background: filters.type ? (EVENT_COLORS[filters.type]?.light || '#eff0fe') : 'var(--fd-surface)',
+            border: `1px solid ${filters.type ? (EVENT_COLORS[filters.type]?.bg || '#4f6ef0') : 'var(--fd-border)'}`,
+            color: filters.type ? (EVENT_COLORS[filters.type]?.text || '#3a56d4') : 'var(--fd-ink-3)',
+          }}
+          value={filters.type || ''}
+          onChange={e => onChange({ ...filters, type: e.target.value })}
+        >
+          <option value="">All Types</option>
+          {Object.entries(TYPE_LABELS).map(([val, label]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Status filter */}
+      <div className="relative">
+        <select
+          className="text-[12px] font-medium px-3 py-1.5 rounded-lg appearance-none cursor-pointer"
+          style={{
+            background: filters.status ? (STATUS_CONFIG[filters.status]?.bg || '#f8fafc') : 'var(--fd-surface)',
+            border: `1px solid ${filters.status ? (STATUS_CONFIG[filters.status]?.color || '#94a3b8') : 'var(--fd-border)'}`,
+            color: filters.status ? (STATUS_CONFIG[filters.status]?.color || '#475569') : 'var(--fd-ink-3)',
+          }}
+          value={filters.status || ''}
+          onChange={e => onChange({ ...filters, status: e.target.value })}
+        >
+          <option value="">All Statuses</option>
+          {Object.entries(STATUS_CONFIG).map(([val, s]) => (
+            <option key={val} value={val}>{s.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Overdue quick-filter */}
+      {overdueCount > 0 && (
+        <button
+          onClick={() => onChange(filters.overdueOnly ? { ...filters, overdueOnly: false } : { ...filters, overdueOnly: true })}
+          className="flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
+          style={{
+            background: filters.overdueOnly ? '#fef2f2' : 'var(--fd-surface)',
+            border: `1px solid ${filters.overdueOnly ? '#ef4444' : '#fecaca'}`,
+            color: '#b91c1c',
+          }}
+        >
+          <AlertTriangle size={11} />
+          Overdue ({overdueCount})
+        </button>
+      )}
+
+      {/* Clear filters */}
+      {hasActive && (
+        <button
+          onClick={() => onChange({ client: '', type: '', status: '', overdueOnly: false })}
+          className="flex items-center gap-1 text-[11px] font-medium px-2 py-1.5 rounded-lg transition-all hover:opacity-70"
+          style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)', border: '1px solid var(--fd-border)' }}
+        >
+          <X size={10} /> Clear
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ─── Mobile Day Bottom Sheet ──────────────────────────────────────────────────
 function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
   const dayEvents = events.filter(ev => {
@@ -403,9 +658,7 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
         style={{ background: 'var(--fd-surface)', boxShadow: '0 -8px 40px rgba(0,0,0,0.15)', maxHeight: '75vh' }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Handle */}
         <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: 'var(--fd-border-strong)' }} />
-
         <div className="flex items-start justify-between mb-5">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--fd-ink-4)' }}>
@@ -427,11 +680,7 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
         {dayEvents.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-[14px]" style={{ color: 'var(--fd-ink-4)' }}>No events this day</p>
-            <button
-              onClick={() => onNewEvent(day)}
-              className="mt-3 text-[13px] font-semibold"
-              style={{ color: '#4f6ef0' }}
-            >
+            <button onClick={() => onNewEvent(day)} className="mt-3 text-[13px] font-semibold" style={{ color: '#4f6ef0' }}>
               + Add an event
             </button>
           </div>
@@ -439,23 +688,32 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
           <div className="space-y-2">
             {dayEvents.map(ev => {
               const color = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
+              const overdue = ev.isOverdue;
               return (
                 <button
                   key={ev._id}
                   onClick={() => onViewEvent(ev)}
                   className="w-full text-left flex items-start gap-3 p-3.5 rounded-2xl active:opacity-60 transition-opacity"
-                  style={{ background: 'var(--fd-surface-sunken)' }}
+                  style={{ background: overdue ? '#fef2f2' : 'var(--fd-surface-sunken)' }}
                 >
-                  <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: color.bg, minHeight: 40 }} />
+                  <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: overdue ? '#ef4444' : color.bg, minHeight: 40 }} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[14px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>
-                      {ev.title}
-                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[14px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                        {ev.title}
+                      </p>
+                      {overdue && <AlertTriangle size={12} style={{ color: '#ef4444', flexShrink: 0 }} />}
+                    </div>
                     <p className="text-[12px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
                       {format(parseISO(ev.startDate), 'h:mm a')}
                       {ev.endDate && ev.endDate !== ev.startDate &&
                         ` – ${format(parseISO(ev.endDate), 'h:mm a')}`}
                     </p>
+                    {ev.client && (
+                      <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: 'var(--fd-ink-4)' }}>
+                        <Building2 size={9} /> {ev.client.company || ev.client.name}
+                      </p>
+                    )}
                   </div>
                   <span
                     className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 self-center"
@@ -478,25 +736,47 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function CalendarPage() {
   const toast = useToast();
+  const { user } = useAuthStore();
   const [current, setCurrent]   = useState(new Date());
   const [events, setEvents]     = useState([]);
   const [loading, setLoading]   = useState(true);
   const [modal, setModal]       = useState(null);
-  const [sheetDay, setSheetDay] = useState(null);   // mobile day sheet
+  const [sheetDay, setSheetDay] = useState(null);
   const [showSidebar, setShowSidebar] = useState(true);
+  const [clients, setClients]   = useState([]);
+  const [filters, setFilters]   = useState({ client: '', type: '', status: '', overdueOnly: false });
+
+  // Fetch clients scoped to current user's role
+  useEffect(() => {
+    api.get('/calendar/clients')
+      .then(({ data }) => setClients(data.clients || []))
+      .catch(() => {});
+  }, []);
 
   const fetchEvents = useCallback(async () => {
     setLoading(true);
     try {
       const from = startOfWeek(startOfMonth(current), { weekStartsOn: 1 }).toISOString();
       const to   = endOfWeek(endOfMonth(current),   { weekStartsOn: 1 }).toISOString();
-      const { data } = await api.get(`/calendar?from=${from}&to=${to}`);
+      const params = new URLSearchParams({ from, to });
+      if (filters.client) params.set('client', filters.client);
+      if (filters.type)   params.set('type',   filters.type);
+      if (filters.status) params.set('status', filters.status);
+      const { data } = await api.get(`/calendar?${params.toString()}`);
       setEvents(data.events || []);
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, [current]);
+  }, [current, filters.client, filters.type, filters.status]);
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  // Overdue count (client-side, across loaded events)
+  const overdueCount = events.filter(ev => ev.isOverdue).length;
+
+  // Client-side overdue filter (only for overdueOnly toggle since it's a UI filter)
+  const displayedEvents = filters.overdueOnly
+    ? events.filter(ev => ev.isOverdue)
+    : events;
 
   const handleSave = async (form, isNew) => {
     try {
@@ -525,6 +805,18 @@ export default function CalendarPage() {
     }
   };
 
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const { data } = await api.put(`/calendar/${id}`, { status: newStatus });
+      setEvents(prev => prev.map(e => e._id === id ? data.event : e));
+      // Update modal if open
+      setModal(m => m?.event?._id === id ? { ...m, event: data.event } : m);
+      toast({ type: 'success', title: `Marked as ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
+    } catch {
+      toast({ type: 'error', title: 'Failed to update status' });
+    }
+  };
+
   // Grid
   const monthStart = startOfMonth(current);
   const monthEnd   = endOfMonth(current);
@@ -534,40 +826,47 @@ export default function CalendarPage() {
 
   const eventsOnDay = (day) => {
     const ds = startOfDay(day), de = endOfDay(day);
-    return events.filter(ev => {
+    return displayedEvents.filter(ev => {
       const s = parseISO(ev.startDate);
       const e = ev.endDate ? parseISO(ev.endDate) : s;
       return s <= de && e >= ds;
     });
   };
 
-  const todayEvents = events
+  const todayEvents = displayedEvents
     .filter(ev => isSameDay(parseISO(ev.startDate), new Date()))
     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
 
-  const upcomingEvents = events
+  const upcomingEvents = displayedEvents
     .filter(ev => { const d = parseISO(ev.startDate); return d > new Date() && d <= endOfMonth(current); })
     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+    .slice(0, 5);
+
+  const overdueEvents = displayedEvents
+    .filter(ev => ev.isOverdue)
+    .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
     .slice(0, 5);
 
   return (
     <div className="animate-fade-in">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2 sm:gap-3">
+      <div className="flex items-center justify-between mb-3 sm:mb-5 gap-2 sm:gap-3">
         <div className="min-w-0">
-          <h1
-            className="text-[18px] sm:text-[22px] font-bold tracking-[-0.02em]"
-            style={{ color: 'var(--fd-ink-1)' }}
-          >
+          <h1 className="text-[18px] sm:text-[22px] font-bold tracking-[-0.02em]" style={{ color: 'var(--fd-ink-1)' }}>
             Calendar
           </h1>
           <p className="text-[11px] sm:text-[13px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
-            {format(current, 'MMMM yyyy')} · {events.length} event{events.length !== 1 ? 's' : ''}
+            {format(current, 'MMMM yyyy')} · {displayedEvents.length} event{displayedEvents.length !== 1 ? 's' : ''}
+            {overdueCount > 0 && !filters.overdueOnly && (
+              <span className="ml-2 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: '#fef2f2', color: '#b91c1c' }}>
+                <AlertTriangle size={9} /> {overdueCount} overdue
+              </span>
+            )}
           </p>
         </div>
 
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          {/* Today — hidden on xs */}
           <button
             onClick={() => setCurrent(new Date())}
             className="hidden sm:block text-[12px] font-semibold px-3 py-1.5 rounded-lg"
@@ -576,7 +875,6 @@ export default function CalendarPage() {
             Today
           </button>
 
-          {/* Month nav */}
           <div className="flex items-center rounded-lg overflow-hidden" style={{ border: '1px solid var(--fd-border)' }}>
             <button
               className="p-1.5 sm:p-2 hover:bg-[var(--fd-surface-sunken)] transition-colors"
@@ -585,10 +883,8 @@ export default function CalendarPage() {
             >
               <ChevronLeft size={14} />
             </button>
-            <span
-              className="px-2 sm:px-3 text-[12px] sm:text-[13px] font-semibold whitespace-nowrap"
-              style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}
-            >
+            <span className="px-2 sm:px-3 text-[12px] sm:text-[13px] font-semibold whitespace-nowrap"
+              style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}>
               <span className="sm:hidden">{format(current, 'MMM yy')}</span>
               <span className="hidden sm:inline">{format(current, 'MMMM yyyy')}</span>
             </span>
@@ -601,13 +897,11 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          {/* Add event */}
           <Button size="sm" onClick={() => setModal({ mode: 'new', defaultDate: new Date() })}>
             <Plus size={13} />
             <span className="hidden sm:inline ml-1">Add Event</span>
           </Button>
 
-          {/* Sidebar toggle — lg only */}
           <button
             onClick={() => setShowSidebar(v => !v)}
             className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
@@ -621,6 +915,14 @@ export default function CalendarPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Filter Bar ── */}
+      <FilterBar
+        clients={clients}
+        filters={filters}
+        onChange={setFilters}
+        overdueCount={overdueCount}
+      />
 
       {/* ── Body ── */}
       <div className="flex gap-5">
@@ -659,6 +961,7 @@ export default function CalendarPage() {
                   const inMonth   = isSameMonth(day, current);
                   const today     = isToday(day);
                   const isWeekend = i % 7 >= 5;
+                  const hasOverdue = dayEvts.some(ev => ev.isOverdue);
 
                   return (
                     <div
@@ -668,7 +971,6 @@ export default function CalendarPage() {
                         borderRight:  i % 7 < 6 ? '1px solid var(--fd-border-subtle)' : 'none',
                         borderBottom: '1px solid var(--fd-border-subtle)',
                         background:   !inMonth ? 'var(--fd-surface-sunken)' : isWeekend ? 'rgba(0,0,0,0.005)' : 'transparent',
-                        // Fluid height: compact on mobile, tall on desktop
                         minHeight: 'clamp(48px, 12vw, 108px)',
                       }}
                       onClick={() => {
@@ -695,14 +997,18 @@ export default function CalendarPage() {
                         >
                           {format(day, 'd')}
                         </span>
-                        {/* Desktop hover + button */}
-                        <button
-                          onClick={e => { e.stopPropagation(); setModal({ mode: 'new', defaultDate: day }); }}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center w-5 h-5 rounded"
-                          style={{ color: 'var(--fd-ink-4)', background: 'var(--fd-surface-sunken)' }}
-                        >
-                          <Plus size={10} />
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          {hasOverdue && (
+                            <span className="text-[8px]" title="Has overdue events">⚠️</span>
+                          )}
+                          <button
+                            onClick={e => { e.stopPropagation(); setModal({ mode: 'new', defaultDate: day }); }}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center w-5 h-5 rounded"
+                            style={{ color: 'var(--fd-ink-4)', background: 'var(--fd-surface-sunken)' }}
+                          >
+                            <Plus size={10} />
+                          </button>
+                        </div>
                       </div>
 
                       {/* Mobile: colored dots only */}
@@ -713,7 +1019,7 @@ export default function CalendarPage() {
                             <span
                               key={ev._id}
                               className="inline-block w-[5px] h-[5px] rounded-full flex-shrink-0"
-                              style={{ background: c.bg }}
+                              style={{ background: ev.isOverdue ? '#ef4444' : c.bg }}
                             />
                           );
                         })}
@@ -762,12 +1068,48 @@ export default function CalendarPage() {
                 </span>
               </div>
             ))}
+            <div className="flex items-center gap-1">
+              <AlertTriangle size={8} style={{ color: '#ef4444' }} />
+              <span className="text-[10px] sm:text-[11px] font-medium" style={{ color: 'var(--fd-ink-4)' }}>Overdue</span>
+            </div>
           </div>
         </div>
 
         {/* Sidebar — desktop only, toggleable */}
         {showSidebar && (
           <div className="hidden lg:flex flex-col gap-4 w-[220px] flex-shrink-0">
+            {/* Overdue — only shown when there are overdue events */}
+            {overdueEvents.length > 0 && (
+              <div className="rounded-2xl p-4" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
+                <div className="flex items-center gap-1.5 mb-3">
+                  <AlertTriangle size={12} style={{ color: '#ef4444' }} />
+                  <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#b91c1c' }}>Overdue</span>
+                </div>
+                <div className="space-y-2">
+                  {overdueEvents.map(ev => {
+                    const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
+                    return (
+                      <button key={ev._id} onClick={() => setModal({ mode: 'view', event: ev })}
+                        className="w-full text-left flex items-start gap-2 hover:opacity-80 transition-opacity">
+                        <div className="w-0.5 self-stretch rounded-full flex-shrink-0 mt-0.5" style={{ background: '#ef4444' }} />
+                        <div className="min-w-0">
+                          <p className="text-[12px] font-medium truncate" style={{ color: '#7f1d1d' }}>{ev.title}</p>
+                          <p className="text-[11px]" style={{ color: '#b91c1c' }}>
+                            Due {format(parseISO(ev.endDate), 'MMM d')}
+                          </p>
+                          {ev.client && (
+                            <p className="text-[10px]" style={{ color: '#b91c1c', opacity: 0.7 }}>
+                              {ev.client.company || ev.client.name}
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Today */}
             <div className="rounded-2xl p-4" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
               <div className="flex items-center justify-between mb-3">
@@ -780,13 +1122,19 @@ export default function CalendarPage() {
                 <div className="space-y-2">
                   {todayEvents.map(ev => {
                     const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
+                    const statusCfg = STATUS_CONFIG[ev.status] || STATUS_CONFIG.pending;
                     return (
                       <button key={ev._id} onClick={() => setModal({ mode: 'view', event: ev })}
                         className="w-full text-left flex items-start gap-2 hover:opacity-80 transition-opacity">
                         <div className="w-0.5 self-stretch rounded-full flex-shrink-0 mt-0.5" style={{ background: c.bg }} />
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="text-[12px] font-medium truncate" style={{ color: 'var(--fd-ink-2)' }}>{ev.title}</p>
-                          <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{format(parseISO(ev.startDate), 'h:mm a')}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{format(parseISO(ev.startDate), 'h:mm a')}</p>
+                            <span className="text-[9px] font-semibold px-1 py-[1px] rounded" style={{ background: statusCfg.bg, color: statusCfg.color }}>
+                              {statusCfg.label}
+                            </span>
+                          </div>
                         </div>
                       </button>
                     );
@@ -816,6 +1164,11 @@ export default function CalendarPage() {
                         <div className="min-w-0">
                           <p className="text-[12px] font-medium truncate" style={{ color: 'var(--fd-ink-2)' }}>{ev.title}</p>
                           <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{format(parseISO(ev.startDate), 'h:mm a')}</p>
+                          {ev.client && (
+                            <p className="text-[10px]" style={{ color: 'var(--fd-ink-5)' }}>
+                              {ev.client.company || ev.client.name}
+                            </p>
+                          )}
                         </div>
                       </button>
                     );
@@ -827,7 +1180,7 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Mobile today strip (below grid) */}
+      {/* Mobile today strip */}
       {todayEvents.length > 0 && (
         <div className="lg:hidden mt-4 rounded-xl overflow-hidden" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
           <div className="px-4 pt-3 pb-1">
@@ -843,11 +1196,14 @@ export default function CalendarPage() {
                   key={ev._id}
                   onClick={() => setModal({ mode: 'view', event: ev })}
                   className="w-full text-left flex items-center gap-3 p-2.5 rounded-xl active:opacity-60 transition-opacity"
-                  style={{ background: 'var(--fd-surface-sunken)' }}
+                  style={{ background: ev.isOverdue ? '#fef2f2' : 'var(--fd-surface-sunken)' }}
                 >
-                  <div className="w-1 self-stretch rounded-full" style={{ background: c.bg, minHeight: 32 }} />
+                  <div className="w-1 self-stretch rounded-full" style={{ background: ev.isOverdue ? '#ef4444' : c.bg, minHeight: 32 }} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>{ev.title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>{ev.title}</p>
+                      {ev.isOverdue && <AlertTriangle size={11} style={{ color: '#ef4444', flexShrink: 0 }} />}
+                    </div>
                     <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{format(parseISO(ev.startDate), 'h:mm a')}</p>
                   </div>
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: c.light, color: c.text }}>
@@ -866,7 +1222,7 @@ export default function CalendarPage() {
       {sheetDay && (
         <DaySheet
           day={sheetDay}
-          events={events}
+          events={displayedEvents}
           onClose={() => setSheetDay(null)}
           onViewEvent={ev => { setSheetDay(null); setModal({ mode: 'view', event: ev }); }}
           onNewEvent={day => { setSheetDay(null); setModal({ mode: 'new', defaultDate: day }); }}
@@ -880,6 +1236,7 @@ export default function CalendarPage() {
           onClose={() => setModal(null)}
           onEdit={() => setModal({ mode: 'edit', event: modal.event })}
           onDelete={handleDelete}
+          onStatusChange={handleStatusChange}
         />
       )}
       {(modal?.mode === 'edit' || modal?.mode === 'new') && (
@@ -889,6 +1246,8 @@ export default function CalendarPage() {
           onClose={() => setModal(null)}
           onSave={handleSave}
           onDelete={handleDelete}
+          clients={clients}
+          prefillClientId={null} // null = show client selector
         />
       )}
     </div>

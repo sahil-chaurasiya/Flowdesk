@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp, FileText, MessageCircle, ClipboardList,
@@ -6,7 +6,7 @@ import {
   Users, Zap, ArrowUpRight, ArrowDownRight, Rss,
   ThumbsUp, Share2, Bookmark, Globe, Star, Activity,
   TrendingDown, Radio, Award, Flame, MousePointer,
-  Bell, CalendarClock, Phone,
+  Bell, CalendarClock, Phone, Calendar, ChevronDown,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -17,8 +17,6 @@ import {
 import { formatDate, timeAgo, SERVICE_LABELS, PLAN_LABELS } from '../../lib/utils';
 
 // ─── Color tokens — now use CSS variables so dark mode works ──────────────────
-// These are used for inline SVG/canvas elements that can't use CSS classes directly.
-// For everything else we use var(--fd-*) directly.
 function getTokens() {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   return {
@@ -74,6 +72,60 @@ const PLATFORM_ICON = {
 
 const STATUS_ORDER = ['new', 'contacted', 'qualified', 'converted', 'lost'];
 
+// ─── Month filter options ──────────────────────────────────────────────────────
+const MONTH_OPTIONS = [
+  { label: 'Last 30 days', value: 'last30', days: 30 },
+  { label: 'This Month', value: 'thisMonth', days: null },
+  { label: 'Last Month', value: 'lastMonth', days: null },
+  { label: 'Last 3 Months', value: 'last3months', days: 90 },
+  { label: 'Last 6 Months', value: 'last6months', days: 180 },
+  { label: 'This Year', value: 'thisYear', days: null },
+];
+
+function getDateRange(filterValue) {
+  const now = new Date();
+  let startDate, endDate, days;
+
+  switch (filterValue) {
+    case 'last30':
+      days = 30;
+      endDate = now;
+      startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+      break;
+    case 'thisMonth':
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = now;
+      days = Math.ceil((now - startDate) / (24 * 60 * 60 * 1000));
+      break;
+    case 'lastMonth':
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+      days = Math.ceil((endDate - startDate) / (24 * 60 * 60 * 1000));
+      break;
+    case 'last3months':
+      days = 90;
+      endDate = now;
+      startDate = new Date(now - 90 * 24 * 60 * 60 * 1000);
+      break;
+    case 'last6months':
+      days = 180;
+      endDate = now;
+      startDate = new Date(now - 180 * 24 * 60 * 60 * 1000);
+      break;
+    case 'thisYear':
+      startDate = new Date(now.getFullYear(), 0, 1);
+      endDate = now;
+      days = Math.ceil((now - startDate) / (24 * 60 * 60 * 1000));
+      break;
+    default:
+      days = 30;
+      endDate = now;
+      startDate = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  }
+
+  return { startDate, endDate, days };
+}
+
 // ─── Mini components ──────────────────────────────────────────────────────────
 function SectionHeader({ title, icon: Icon, linkTo, subtitle }) {
   return (
@@ -92,6 +144,66 @@ function SectionHeader({ title, icon: Icon, linkTo, subtitle }) {
         >
           View all <ChevronRight size={12} />
         </Link>
+      )}
+    </div>
+  );
+}
+
+// ─── Month Filter Dropdown ─────────────────────────────────────────────────────
+function MonthFilter({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+  const C = getTokens();
+  const selected = MONTH_OPTIONS.find(o => o.value === value) || MONTH_OPTIONS[0];
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-semibold border transition-all hover:opacity-80"
+        style={{
+          background: C.blueSoft,
+          color: C.blue,
+          borderColor: `${C.blue}40`,
+        }}
+      >
+        <Calendar size={13} />
+        {selected.label}
+        <ChevronDown size={12} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-1.5 z-50 rounded-2xl shadow-xl overflow-hidden min-w-[175px]"
+          style={{
+            background: 'var(--fd-surface)',
+            border: '1px solid var(--fd-border)',
+          }}
+        >
+          {MONTH_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className="w-full text-left flex items-center gap-2 px-4 py-2.5 text-[12.5px] transition-colors hover:bg-[var(--fd-surface-raised)]"
+              style={{
+                fontWeight: opt.value === value ? 700 : 400,
+                color: opt.value === value ? C.blue : 'var(--fd-ink-2)',
+                background: opt.value === value ? C.blueSoft : 'transparent',
+              }}
+            >
+              {opt.value === value && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: C.blue }} />}
+              {opt.value !== value && <span className="w-1.5 h-1.5 flex-shrink-0" />}
+              {opt.label}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
@@ -349,16 +461,22 @@ export default function ClientDashboard() {
   const [socialAnalytics, setSocialAnalytics] = useState(null);
   const [recentPosts, setRecentPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [monthFilter, setMonthFilter] = useState('last30');
+  const [filterLoading, setFilterLoading] = useState(false);
 
-  useEffect(() => {
+  const fetchData = useCallback((filter = 'last30') => {
     if (!user?.clientId) return;
+    const { days } = getDateRange(filter);
+    const socialDays = days || 30;
+
+    setFilterLoading(true);
     Promise.all([
       api.get(`/clients/${user.clientId}/overview`),
       api.get('/leads/stats').catch(() => ({ data: null })),
       api.get('/leads?limit=8').catch(() => ({ data: { leads: [] } })),
       api.get('/leads/follow-ups-today').catch(() => ({ data: { leads: [] } })),
-      api.get('/social/analytics?days=30').catch(() => ({ data: null })),
-      api.get('/social/posts?status=published&limit=4').catch(() => ({ data: { posts: [] } })),
+      api.get(`/social/analytics?days=${socialDays}`).catch(() => ({ data: null })),
+      api.get(`/social/posts?status=published&limit=4`).catch(() => ({ data: { posts: [] } })),
     ]).then(([ov, ls, l, fu, sa, p]) => {
       setOverview(ov.data);
       setLeadStats(ls.data);
@@ -366,8 +484,20 @@ export default function ClientDashboard() {
       setFollowUpLeads(fu.data?.leads || []);
       setSocialAnalytics(sa.data?.analytics || null);
       setRecentPosts(p.data.posts || []);
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      setLoading(false);
+      setFilterLoading(false);
+    });
   }, [user?.clientId]);
+
+  useEffect(() => {
+    fetchData(monthFilter);
+  }, [user?.clientId]);
+
+  const handleFilterChange = (newFilter) => {
+    setMonthFilter(newFilter);
+    fetchData(newFilter);
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
@@ -407,8 +537,10 @@ export default function ClientDashboard() {
   const engRate = totals.avgEngagementRate || 0;
   const engColor = engRate >= 5 ? C.green : engRate >= 2 ? C.amber : C.red;
 
+  const selectedMonthLabel = MONTH_OPTIONS.find(o => o.value === monthFilter)?.label || 'Last 30 days';
+
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-5 animate-fade-in" style={{ opacity: filterLoading ? 0.7 : 1, transition: 'opacity 0.2s' }}>
 
       {/* ─── HEADER ─────────────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
@@ -428,15 +560,76 @@ export default function ClientDashboard() {
             )}
           </div>
         </div>
-        <div
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-semibold capitalize flex-shrink-0"
-          style={client?.status === 'active'
-            ? { background: C.greenSoft, color: C.green, border: `1px solid ${C.green}40` }
-            : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }
-          }
-        >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: client?.status === 'active' ? C.green : C.inkFaint }} />
-          {client?.status || 'active'}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <MonthFilter value={monthFilter} onChange={handleFilterChange} />
+          <div
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11.5px] font-semibold capitalize"
+            style={client?.status === 'active'
+              ? { background: C.greenSoft, color: C.green, border: `1px solid ${C.green}40` }
+              : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }
+            }
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: client?.status === 'active' ? C.green : C.inkFaint }} />
+            {client?.status || 'active'}
+          </div>
+        </div>
+      </div>
+
+      {/* ─── ACCOUNT MANAGER + QUICK ACTIONS ROW ────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+
+        {/* Account Manager */}
+        {manager && (
+          <div className="fd-card rounded-2xl p-4 flex flex-col gap-3">
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider text-[var(--fd-ink-4)]">
+              Your Account Manager
+            </p>
+            <div className="flex items-center gap-3">
+              <Avatar name={manager.name} size="md" />
+              <div>
+                <div className="text-[13.5px] font-semibold text-[var(--fd-ink-1)]">{manager.name}</div>
+                <div className="text-[11.5px] text-[var(--fd-ink-4)]">Project Manager</div>
+              </div>
+            </div>
+            <Link
+              to="/portal/chat"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12.5px] font-medium border transition-all hover:opacity-80 mt-auto"
+              style={{ background: C.blueSoft, color: C.blue, borderColor: `${C.blue}40` }}
+            >
+              <MessageCircle size={13} />
+              Send Message
+            </Link>
+          </div>
+        )}
+
+        {/* Quick Actions — spans remaining columns */}
+        <div className={`fd-card rounded-2xl p-4 ${manager ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+          <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
+            Quick Actions
+          </p>
+          <div className={`grid gap-1 ${manager ? 'grid-cols-2' : 'grid-cols-4'}`}>
+            {[
+              { to: '/portal/requests', icon: ClipboardList, label: 'Submit a Request', desc: 'New task or revision' },
+              { to: '/portal/chat',     icon: MessageCircle, label: 'Open Chat',         desc: 'Message your team' },
+              { to: '/portal/files',    icon: FileText,      label: 'View Files',         desc: 'Deliverables & assets' },
+              { to: '/portal/reports',  icon: BarChart3,     label: 'Reports',             desc: 'Performance data' },
+            ].map(({ to, icon: Icon, label, desc }) => (
+              <Link
+                key={to}
+                to={to}
+                className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--fd-surface-raised)]"
+              >
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-[var(--fd-surface-sunken)]">
+                  <Icon size={13} className="text-[var(--fd-ink-4)]" strokeWidth={1.7} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-medium text-[var(--fd-ink-2)]">{label}</div>
+                  <div className="text-[11px] text-[var(--fd-ink-4)]">{desc}</div>
+                </div>
+                <ChevronRight size={12} className="text-[var(--fd-ink-5)]" />
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -544,7 +737,7 @@ export default function ClientDashboard() {
 
         {/* Social Overview */}
         <div className="fd-card rounded-2xl p-5 flex flex-col gap-4">
-          <SectionHeader title="Social Media Overview" icon={Activity} linkTo="/portal/social" subtitle="Last 30 days" />
+          <SectionHeader title="Social Media Overview" icon={Activity} linkTo="/portal/social" subtitle={selectedMonthLabel} />
 
           <div className="grid grid-cols-2 gap-2.5">
             {[
@@ -745,62 +938,8 @@ export default function ClientDashboard() {
           )}
         </div>
 
-        {/* Right sidebar */}
+        {/* Right sidebar — Active Services only (AM + QA moved to top) */}
         <div className="space-y-4">
-
-          {/* Account Manager */}
-          {manager && (
-            <div className="fd-card rounded-2xl p-4">
-              <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
-                Your Account Manager
-              </p>
-              <div className="flex items-center gap-3 mb-4">
-                <Avatar name={manager.name} size="md" />
-                <div>
-                  <div className="text-[13.5px] font-semibold text-[var(--fd-ink-1)]">{manager.name}</div>
-                  <div className="text-[11.5px] text-[var(--fd-ink-4)]">Project Manager</div>
-                </div>
-              </div>
-              <Link
-                to="/portal/chat"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-[12.5px] font-medium border transition-all hover:opacity-80"
-                style={{ background: C.blueSoft, color: C.blue, borderColor: `${C.blue}40` }}
-              >
-                <MessageCircle size={13} />
-                Send Message
-              </Link>
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          <div className="fd-card rounded-2xl p-4">
-            <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
-              Quick Actions
-            </p>
-            <div className="space-y-1">
-              {[
-                { to: '/portal/requests', icon: ClipboardList, label: 'Submit a Request', desc: 'New task or revision' },
-                { to: '/portal/chat',     icon: MessageCircle, label: 'Open Chat',         desc: 'Message your team' },
-                { to: '/portal/files',    icon: FileText,      label: 'View Files',         desc: 'Deliverables & assets' },
-                { to: '/portal/reports',  icon: BarChart3,     label: 'Reports',             desc: 'Performance data' },
-              ].map(({ to, icon: Icon, label, desc }) => (
-                <Link
-                  key={to}
-                  to={to}
-                  className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--fd-surface-raised)]"
-                >
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-[var(--fd-surface-sunken)]">
-                    <Icon size={13} className="text-[var(--fd-ink-4)]" strokeWidth={1.7} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[12.5px] font-medium text-[var(--fd-ink-2)]">{label}</div>
-                    <div className="text-[11px] text-[var(--fd-ink-4)]">{desc}</div>
-                  </div>
-                  <ChevronRight size={12} className="text-[var(--fd-ink-5)]" />
-                </Link>
-              ))}
-            </div>
-          </div>
 
           {/* Active Services */}
           {client?.services?.length > 0 && (

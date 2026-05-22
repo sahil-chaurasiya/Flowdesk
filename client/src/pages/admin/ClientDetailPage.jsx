@@ -1016,14 +1016,17 @@ function RichToolbar({ editorRef }) {
 
   const insertTable = (rows = 3, cols = 3) => {
     editorRef.current?.focus();
-    let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0"><tbody>';
+    const id = `tbl-${Date.now()}`;
+    let html = `<table id="${id}" style="border-collapse:collapse;width:100%;margin:8px 0;table-layout:fixed" data-fd-table="1"><colgroup>`;
+    for (let c = 0; c < cols; c++) html += `<col style="width:${(100/cols).toFixed(2)}%">`;
+    html += '</colgroup><tbody>';
     for (let r = 0; r < rows; r++) {
       html += '<tr>';
       for (let c = 0; c < cols; c++) {
         if (r === 0) {
-          html += `<th style="border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left">Header ${c+1}</th>`;
+          html += `<th style="border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left;position:relative">Header ${c+1}</th>`;
         } else {
-          html += `<td style="border:1px solid #d1d5db;padding:6px 10px;font-size:13px" contenteditable="true">&nbsp;</td>`;
+          html += `<td style="border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative">&nbsp;</td>`;
         }
       }
       html += '</tr>';
@@ -1162,21 +1165,73 @@ function RichToolbar({ editorRef }) {
 
       {sep}
 
-      {/* Table insert */}
-      <button
-        onMouseDown={e => { e.preventDefault(); insertTable(3, 3); }}
-        title="Insert table (3×3)"
-        className="flex items-center gap-1 px-2 h-[26px] rounded text-[11px] font-semibold transition-all"
-        style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-2)', flexShrink: 0 }}>
-        <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
-          <rect x="0" y="0" width="12" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2"/>
-          <line x1="4" y1="0" x2="4" y2="12" stroke="currentColor" strokeWidth="1"/>
-          <line x1="8" y1="0" x2="8" y2="12" stroke="currentColor" strokeWidth="1"/>
-          <line x1="0" y1="4" x2="12" y2="4" stroke="currentColor" strokeWidth="1"/>
-          <line x1="0" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth="1"/>
-        </svg>
-        Table
-      </button>
+      {/* Table insert with grid picker */}
+      {(() => {
+        const [showPicker, setShowPicker] = React.useState(false);
+        const [hover, setHover] = React.useState({ r: 0, c: 0 });
+        const pickerRef = React.useRef(null);
+        React.useEffect(() => {
+          if (!showPicker) return;
+          const close = (e) => { if (pickerRef.current && !pickerRef.current.contains(e.target)) setShowPicker(false); };
+          window.addEventListener('mousedown', close);
+          return () => window.removeEventListener('mousedown', close);
+        }, [showPicker]);
+        return (
+          <div style={{ position: 'relative', flexShrink: 0 }} ref={pickerRef}>
+            <button
+              onMouseDown={e => { e.preventDefault(); setShowPicker(v => !v); }}
+              title="Insert table"
+              className="flex items-center gap-1 px-2 h-[26px] rounded text-[11px] font-semibold transition-all"
+              style={{ background: showPicker ? '#4f6ef0' : 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', color: showPicker ? '#fff' : 'var(--fd-ink-2)', flexShrink: 0 }}>
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
+                <rect x="0" y="0" width="12" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2"/>
+                <line x1="4" y1="0" x2="4" y2="12" stroke="currentColor" strokeWidth="1"/>
+                <line x1="8" y1="0" x2="8" y2="12" stroke="currentColor" strokeWidth="1"/>
+                <line x1="0" y1="4" x2="12" y2="4" stroke="currentColor" strokeWidth="1"/>
+                <line x1="0" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth="1"/>
+              </svg>
+              Table
+            </button>
+            {showPicker && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, zIndex: 9999, marginTop: 4,
+                background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: 10,
+              }}>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, fontWeight: 600 }}>
+                  {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c} table` : 'Select table size'}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 18px)', gap: 2 }}>
+                  {Array.from({ length: 64 }, (_, i) => {
+                    const r = Math.floor(i / 8) + 1;
+                    const c = (i % 8) + 1;
+                    const active = r <= hover.r && c <= hover.c;
+                    return (
+                      <div
+                        key={i}
+                        onMouseEnter={() => setHover({ r, c })}
+                        onMouseDown={e => {
+                          e.preventDefault();
+                          insertTable(r, c);
+                          setShowPicker(false);
+                          setHover({ r: 0, c: 0 });
+                        }}
+                        style={{
+                          width: 18, height: 18, borderRadius: 2,
+                          border: `1.5px solid ${active ? '#4f6ef0' : '#e5e7eb'}`,
+                          background: active ? '#eff0fe' : '#f9fafb',
+                          cursor: 'pointer',
+                          transition: 'all 0.05s',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {sep}
 
@@ -1198,11 +1253,196 @@ function RichToolbar({ editorRef }) {
   );
 }
 
+// ── Table context menu helpers ─────────────────────────────────────────────
+function getTableFromCell(cell) {
+  let el = cell;
+  while (el && el.tagName !== 'TABLE') el = el.parentElement;
+  return el;
+}
+function getCellCoords(cell) {
+  const row = cell.parentElement;
+  const tbody = row.parentElement;
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const ri = rows.indexOf(row);
+  const cells = Array.from(row.querySelectorAll('td,th'));
+  const ci = cells.indexOf(cell);
+  return { ri, ci, rows, cells };
+}
+
+function TableContextMenu({ menu, onClose, editorRef }) {
+  if (!menu) return null;
+  const { x, y, cell } = menu;
+
+  const action = (fn) => { fn(); onClose(); };
+
+  const addRowBelow = () => action(() => {
+    const table = getTableFromCell(cell);
+    const { ri, rows, cells } = getCellCoords(cell);
+    const colCount = rows[0].querySelectorAll('td,th').length;
+    const tr = document.createElement('tr');
+    for (let i = 0; i < colCount; i++) {
+      const td = document.createElement('td');
+      td.style.cssText = 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
+      td.innerHTML = '&nbsp;';
+      tr.appendChild(td);
+    }
+    const refRow = rows[ri];
+    refRow.parentElement.insertBefore(tr, refRow.nextSibling);
+  });
+
+  const addRowAbove = () => action(() => {
+    const table = getTableFromCell(cell);
+    const { ri, rows } = getCellCoords(cell);
+    const colCount = rows[0].querySelectorAll('td,th').length;
+    const tr = document.createElement('tr');
+    for (let i = 0; i < colCount; i++) {
+      const td = document.createElement('td');
+      td.style.cssText = 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
+      td.innerHTML = '&nbsp;';
+      tr.appendChild(td);
+    }
+    rows[ri].parentElement.insertBefore(tr, rows[ri]);
+  });
+
+  const addColRight = () => action(() => {
+    const table = getTableFromCell(cell);
+    const { ri, ci, rows } = getCellCoords(cell);
+    const colgroup = table.querySelector('colgroup');
+    if (colgroup) {
+      const col = document.createElement('col');
+      const cols = colgroup.querySelectorAll('col');
+      const pct = (100 / (cols.length + 1)).toFixed(2) + '%';
+      cols.forEach(c => c.style.width = pct);
+      col.style.width = pct;
+      colgroup.insertBefore(col, cols[ci]?.nextSibling || null);
+    }
+    rows.forEach((row, rIdx) => {
+      const rowCells = Array.from(row.querySelectorAll('td,th'));
+      const refCell = rowCells[ci];
+      const newCell = document.createElement(rIdx === 0 ? 'th' : 'td');
+      newCell.style.cssText = rIdx === 0
+        ? 'border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left;position:relative'
+        : 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
+      newCell.innerHTML = rIdx === 0 ? 'Header' : '&nbsp;';
+      if (refCell) refCell.parentElement.insertBefore(newCell, refCell.nextSibling);
+      else row.appendChild(newCell);
+    });
+  });
+
+  const addColLeft = () => action(() => {
+    const table = getTableFromCell(cell);
+    const { ci, rows } = getCellCoords(cell);
+    const colgroup = table.querySelector('colgroup');
+    if (colgroup) {
+      const col = document.createElement('col');
+      const cols = colgroup.querySelectorAll('col');
+      const pct = (100 / (cols.length + 1)).toFixed(2) + '%';
+      cols.forEach(c => c.style.width = pct);
+      col.style.width = pct;
+      colgroup.insertBefore(col, cols[ci] || null);
+    }
+    rows.forEach((row, rIdx) => {
+      const rowCells = Array.from(row.querySelectorAll('td,th'));
+      const refCell = rowCells[ci];
+      const newCell = document.createElement(rIdx === 0 ? 'th' : 'td');
+      newCell.style.cssText = rIdx === 0
+        ? 'border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left;position:relative'
+        : 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
+      newCell.innerHTML = rIdx === 0 ? 'Header' : '&nbsp;';
+      if (refCell) row.insertBefore(newCell, refCell);
+      else row.appendChild(newCell);
+    });
+  });
+
+  const deleteRow = () => action(() => {
+    const { ri, rows } = getCellCoords(cell);
+    if (rows.length > 1) rows[ri].remove();
+  });
+
+  const deleteCol = () => action(() => {
+    const table = getTableFromCell(cell);
+    const { ci, rows } = getCellCoords(cell);
+    const colgroup = table.querySelector('colgroup');
+    if (colgroup) {
+      const cols = colgroup.querySelectorAll('col');
+      if (cols.length > 1) cols[ci]?.remove();
+      const remaining = colgroup.querySelectorAll('col');
+      const pct = (100 / remaining.length).toFixed(2) + '%';
+      remaining.forEach(c => c.style.width = pct);
+    }
+    rows.forEach(row => {
+      const rowCells = Array.from(row.querySelectorAll('td,th'));
+      if (rowCells.length > 1) rowCells[ci]?.remove();
+    });
+  });
+
+  const deleteTable = () => action(() => {
+    const table = getTableFromCell(cell);
+    table?.remove();
+  });
+
+  const menuItems = [
+    { label: '↑ Insert row above', fn: addRowAbove, icon: '⬆' },
+    { label: '↓ Insert row below', fn: addRowBelow, icon: '⬇' },
+    { label: '← Insert column left', fn: addColLeft, icon: '⬅' },
+    { label: '→ Insert column right', fn: addColRight, icon: '➡' },
+    null, // separator
+    { label: 'Delete row', fn: deleteRow, danger: true },
+    { label: 'Delete column', fn: deleteCol, danger: true },
+    { label: 'Delete table', fn: deleteTable, danger: true },
+  ];
+
+  return (
+    <div
+      style={{
+        position: 'fixed', left: x, top: y, zIndex: 99999,
+        background: '#fff', border: '1px solid #e5e7eb',
+        borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.16)',
+        minWidth: 200, overflow: 'hidden',
+      }}
+      onMouseDown={e => e.stopPropagation()}
+    >
+      <div style={{ padding: '4px 0' }}>
+        {menuItems.map((item, i) =>
+          item === null ? (
+            <div key={i} style={{ height: 1, background: '#f3f4f6', margin: '3px 0' }} />
+          ) : (
+            <button
+              key={i}
+              onClick={() => item.fn()}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '7px 14px', fontSize: 13, cursor: 'pointer',
+                background: 'transparent', border: 'none',
+                color: item.danger ? '#dc2626' : '#111',
+                fontWeight: item.danger ? 500 : 400,
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = item.danger ? '#fef2f2' : '#f3f4f6'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {item.label}
+            </button>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Add-Row/Col ghost buttons that appear at table edges ──────────────────────
+function TableAddButtons({ editorRef, tableContextTrigger }) {
+  // We attach real DOM listeners to the editor for hover detection on table edges
+  // This component just renders a portal-like overlay div
+  return null; // Handled via CSS/DOM manipulation in BoardEditorModal
+}
+
 function BoardEditorModal({ board, onClose, onSave }) {
   const editorRef  = React.useRef(null);
   const [saving, setSaving] = React.useState(false);
   const [title, setTitle]   = React.useState(board.title || 'Untitled Board');
   const initialized = React.useRef(false);
+  const [ctxMenu, setCtxMenu] = React.useState(null); // { x, y, cell }
+  const resizeState = React.useRef(null); // { col, table, startX, startWidths }
 
   // Load saved HTML into the editor on first mount
   React.useEffect(() => {
@@ -1213,6 +1453,7 @@ function BoardEditorModal({ board, onClose, onSave }) {
   }, [board.html]);
 
   const handleSave = async () => {
+    // Clean up any resize handles before saving
     setSaving(true);
     const html = editorRef.current?.innerHTML || '';
     await onSave({ html, title });
@@ -1221,10 +1462,165 @@ function BoardEditorModal({ board, onClose, onSave }) {
 
   // Close on Escape
   React.useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape') { setCtxMenu(null); onClose(); } };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // Right-click on table cell → context menu
+  React.useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const onCtx = (e) => {
+      const cell = e.target.closest('td,th');
+      if (!cell) return;
+      e.preventDefault();
+      // Keep caret in cell
+      setCtxMenu({ x: e.clientX, y: e.clientY, cell });
+    };
+    editor.addEventListener('contextmenu', onCtx);
+    return () => editor.removeEventListener('contextmenu', onCtx);
+  }, []);
+
+  // Column resize via mousedown on cell right border
+  React.useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    const onMouseMove = (e) => {
+      // Show resize cursor when near right edge of a cell
+      const cell = e.target.closest('td,th');
+      if (!cell) { editor.style.cursor = ''; return; }
+      const rect = cell.getBoundingClientRect();
+      const nearRight = e.clientX > rect.right - 6;
+      editor.style.cursor = nearRight ? 'col-resize' : '';
+    };
+
+    const onMouseDown = (e) => {
+      const cell = e.target.closest('td,th');
+      if (!cell) return;
+      const rect = cell.getBoundingClientRect();
+      if (e.clientX <= rect.right - 6) return; // not near right edge
+      e.preventDefault();
+      e.stopPropagation();
+
+      const table = getTableFromCell(cell);
+      const colgroup = table.querySelector('colgroup');
+      if (!colgroup) return;
+
+      const { ci } = getCellCoords(cell);
+      const cols = Array.from(colgroup.querySelectorAll('col'));
+      const tableRect = table.getBoundingClientRect();
+      const tableWidth = tableRect.width;
+
+      // Convert % widths to px for dragging
+      const widthsPx = cols.map(col => {
+        const pct = parseFloat(col.style.width) / 100;
+        return pct * tableWidth;
+      });
+
+      resizeState.current = { ci, cols, widthsPx, startX: e.clientX, tableWidth };
+
+      const onMove = (ev) => {
+        const rs = resizeState.current;
+        if (!rs) return;
+        const dx = ev.clientX - rs.startX;
+        const newWidths = [...rs.widthsPx];
+        const minWidth = 30;
+
+        if (rs.ci < rs.cols.length - 1) {
+          // Resize between ci and ci+1
+          const total = newWidths[rs.ci] + newWidths[rs.ci + 1];
+          newWidths[rs.ci] = Math.max(minWidth, Math.min(total - minWidth, rs.widthsPx[rs.ci] + dx));
+          newWidths[rs.ci + 1] = total - newWidths[rs.ci];
+        } else {
+          // Last column — just expand/shrink it
+          newWidths[rs.ci] = Math.max(minWidth, rs.widthsPx[rs.ci] + dx);
+        }
+
+        const totalPx = newWidths.reduce((a, b) => a + b, 0);
+        rs.cols.forEach((col, i) => {
+          col.style.width = ((newWidths[i] / totalPx) * 100).toFixed(2) + '%';
+        });
+      };
+
+      const onUp = () => {
+        resizeState.current = null;
+        editor.style.cursor = '';
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    };
+
+    editor.addEventListener('mousemove', onMouseMove);
+    editor.addEventListener('mousedown', onMouseDown);
+    return () => {
+      editor.removeEventListener('mousemove', onMouseMove);
+      editor.removeEventListener('mousedown', onMouseDown);
+    };
+  }, []);
+
+  // Click-outside to close context menu
+  React.useEffect(() => {
+    if (!ctxMenu) return;
+    const close = () => setCtxMenu(null);
+    window.addEventListener('mousedown', close);
+    return () => window.removeEventListener('mousedown', close);
+  }, [ctxMenu]);
+
+  // Tab key: navigate between table cells (Tab = next, Shift+Tab = prev)
+  React.useEffect(() => {
+    const editor = editorRef.current;
+    if (!editor) return;
+    const onKeyDown = (e) => {
+      if (e.key !== 'Tab') return;
+      const selNode = window.getSelection()?.anchorNode;
+      const td = selNode?.nodeType === 1 ? selNode.closest('td,th') : selNode?.parentElement?.closest('td,th');
+      if (!td) return;
+      e.preventDefault();
+      const table = getTableFromCell(td);
+      const allCells = Array.from(table.querySelectorAll('td,th'));
+      const idx = allCells.indexOf(td);
+      const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
+      if (nextIdx >= 0 && nextIdx < allCells.length) {
+        const nextCell = allCells[nextIdx];
+        nextCell.focus();
+        const range = document.createRange();
+        range.selectNodeContents(nextCell);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else if (!e.shiftKey && nextIdx >= allCells.length) {
+        const rows = Array.from(table.querySelectorAll('tr'));
+        const lastRow = rows[rows.length - 1];
+        const colCount = lastRow.querySelectorAll('td,th').length;
+        const tr = document.createElement('tr');
+        for (let i = 0; i < colCount; i++) {
+          const newTd = document.createElement('td');
+          newTd.style.cssText = 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
+          newTd.innerHTML = '&nbsp;';
+          tr.appendChild(newTd);
+        }
+        lastRow.parentElement.appendChild(tr);
+        const firstNew = tr.querySelector('td');
+        if (firstNew) {
+          firstNew.focus();
+          const range = document.createRange();
+          range.selectNodeContents(firstNew);
+          range.collapse(false);
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      }
+    };
+    editor.addEventListener('keydown', onKeyDown);
+    return () => editor.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center"
@@ -1268,6 +1664,12 @@ function BoardEditorModal({ board, onClose, onSave }) {
         {/* Toolbar */}
         <RichToolbar editorRef={editorRef} />
 
+        {/* Table editing hint */}
+        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '4px 14px', fontSize: 11, color: '#92600a', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><strong>Table tips:</strong> Right-click any cell to add/delete rows &amp; columns · Drag column borders to resize</span>
+        </div>
+
         {/* Page-like document area */}
         <div className="flex-1 overflow-y-auto py-8 px-6"
           style={{ background: '#f0f0f0' }}>
@@ -1288,7 +1690,7 @@ function BoardEditorModal({ board, onClose, onSave }) {
               contentEditable
               suppressContentEditableWarning
               spellCheck
-              className="outline-none"
+              className="outline-none fd-rich-editor"
               style={{
                 minHeight: 480,
                 fontSize: 14,
@@ -1303,23 +1705,71 @@ function BoardEditorModal({ board, onClose, onSave }) {
         </div>
       </div>
 
+      {/* Context menu */}
+      {ctxMenu && (
+        <TableContextMenu
+          menu={ctxMenu}
+          onClose={() => setCtxMenu(null)}
+          editorRef={editorRef}
+        />
+      )}
+
       {/* Rich text styles scoped to editor */}
       <style>{`
-        [contenteditable] h1 { font-size: 2em; font-weight: 700; margin: 0.67em 0; line-height: 1.2; }
-        [contenteditable] h2 { font-size: 1.5em; font-weight: 700; margin: 0.75em 0; line-height: 1.3; }
-        [contenteditable] h3 { font-size: 1.17em; font-weight: 700; margin: 0.83em 0; }
-        [contenteditable] h4 { font-size: 1em; font-weight: 700; margin: 1em 0; }
-        [contenteditable] p  { margin: 0.5em 0; }
-        [contenteditable] ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
-        [contenteditable] ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
-        [contenteditable] li { margin: 0.25em 0; }
-        [contenteditable] pre { font-family: ui-monospace, monospace; background: #f3f4f6; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
-        [contenteditable] blockquote { border-left: 3px solid #c7d2fe; margin: 8px 0; padding-left: 14px; color: #6b7280; font-style: italic; }
-        [contenteditable] table { border-collapse: collapse; width: 100%; margin: 10px 0; }
-        [contenteditable] th { border: 1px solid #d1d5db; padding: 7px 10px; background: #f9fafb; font-weight: 700; font-size: 13px; text-align: left; }
-        [contenteditable] td { border: 1px solid #d1d5db; padding: 7px 10px; font-size: 13px; }
-        [contenteditable] td:focus, [contenteditable] th:focus { outline: 2px solid #4f6ef0; outline-offset: -2px; }
-        [contenteditable]:empty:before { content: 'Start typing your document…'; color: #9ca3af; pointer-events: none; }
+        .fd-rich-editor h1 { font-size: 2em; font-weight: 700; margin: 0.67em 0; line-height: 1.2; }
+        .fd-rich-editor h2 { font-size: 1.5em; font-weight: 700; margin: 0.75em 0; line-height: 1.3; }
+        .fd-rich-editor h3 { font-size: 1.17em; font-weight: 700; margin: 0.83em 0; }
+        .fd-rich-editor h4 { font-size: 1em; font-weight: 700; margin: 1em 0; }
+        .fd-rich-editor p  { margin: 0.5em 0; }
+        .fd-rich-editor ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+        .fd-rich-editor ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+        .fd-rich-editor li { margin: 0.25em 0; }
+        .fd-rich-editor pre { font-family: ui-monospace, monospace; background: #f3f4f6; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+        .fd-rich-editor blockquote { border-left: 3px solid #c7d2fe; margin: 8px 0; padding-left: 14px; color: #6b7280; font-style: italic; }
+        .fd-rich-editor table { border-collapse: collapse; width: 100%; margin: 10px 0; table-layout: fixed; }
+        .fd-rich-editor th { border: 1px solid #d1d5db; padding: 7px 10px; background: #f9fafb; font-weight: 700; font-size: 13px; text-align: left; position: relative; }
+        .fd-rich-editor td { border: 1px solid #d1d5db; padding: 7px 10px; font-size: 13px; position: relative; }
+        .fd-rich-editor td:focus, .fd-rich-editor th:focus { outline: 2px solid #4f6ef0; outline-offset: -2px; background: #eff0fe !important; }
+        .fd-rich-editor td:hover, .fd-rich-editor th:hover { background: rgba(79,110,240,0.04); }
+        .fd-rich-editor tr:last-child td::after {
+          content: '+';
+          position: absolute;
+          bottom: -14px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 18px; height: 14px;
+          background: #4f6ef0;
+          color: #fff;
+          font-size: 11px;
+          line-height: 14px;
+          text-align: center;
+          border-radius: 3px;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.15s;
+          z-index: 10;
+        }
+        .fd-rich-editor table:hover tr:last-child td:first-child::after { opacity: 1; }
+        .fd-rich-editor tr td:last-child::before {
+          content: '+';
+          position: absolute;
+          right: -14px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 14px; height: 18px;
+          background: #4f6ef0;
+          color: #fff;
+          font-size: 11px;
+          line-height: 18px;
+          text-align: center;
+          border-radius: 3px;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.15s;
+          z-index: 10;
+        }
+        .fd-rich-editor table:hover tr td:last-child::before { opacity: 1; }
+        .fd-rich-editor:empty:before { content: 'Start typing your document…'; color: #9ca3af; pointer-events: none; }
       `}</style>
     </div>
   );

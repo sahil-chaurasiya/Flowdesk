@@ -42,6 +42,7 @@ const apiLogsRouter       = require('./routes/apiLogs');
 const credentialsRouter   = require('./routes/credentials');
 const contactsRouter      = require('./routes/contacts');
 const targetsRouter       = require('./routes/targets');
+const documentsRouter     = require('./routes/documents');
 
 const app    = express();
 const server = http.createServer(app);
@@ -120,6 +121,7 @@ app.use('/api/logs',           apiLogsRouter);
 app.use('/api/credentials',    credentialsRouter);
 app.use('/api/contacts',       contactsRouter);
 app.use('/api/targets',        targetsRouter);
+app.use('/api/documents',      documentsRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

@@ -1786,135 +1786,140 @@ function sanitizeHtml(dirty) {
   return clean;
 }
 
-// ── NEW Draggable Boards Section ─────────────────────────────────────────────
+// ── API-backed Documents Section (admin side) ─────────────────────────────────
 function ClientBoardsSection({ clientId }) {
   const [boards, setBoards] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [openBoard, setOpenBoard] = React.useState(null);
-  const [showCreate, setShowCreate] = React.useState(false);
+  const [showCreateModal, setShowCreateModal] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
   const [newName, setNewName] = React.useState('');
-  const dragIndex = React.useRef(null);
+  const [newClientVisible, setNewClientVisible] = React.useState(false);
+  const [newClientCanEdit, setNewClientCanEdit] = React.useState(false);
   const toast = useToast ? useToast() : null;
-  const storageKey = `fd-boards-v2-${clientId}`;
 
-  React.useEffect(() => {
-    try { setBoards(JSON.parse(localStorage.getItem(storageKey) || '[]')); } catch { setBoards([]); }
-    setLoading(false);
-  }, [storageKey]);
+  const fetchBoards = React.useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/documents?client=${clientId}`);
+      setBoards(data.documents || []);
+    } catch {
+      setBoards([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId]);
 
-  const persist = (b) => {
-    setBoards(b);
-    try { localStorage.setItem(storageKey, JSON.stringify(b)); } catch {}
+  React.useEffect(() => { fetchBoards(); }, [fetchBoards]);
+
+  const openCreateModal = () => {
+    setNewName('');
+    setNewClientVisible(false);
+    setNewClientCanEdit(false);
+    setShowCreateModal(true);
   };
 
-  const createBoard = () => {
-    const name = newName.trim() || 'Untitled Document';
-    const nb = { id: `bd-${Date.now()}`, title: name, html: '', updatedAt: new Date().toISOString() };
-    const next = [...boards, nb];
-    persist(next);
-    setNewName(''); setShowCreate(false);
-    setOpenBoard(nb);
+  const createBoard = async () => {
+    const title = newName.trim() || 'Untitled Document';
+    setCreating(true);
+    try {
+      const { data } = await api.post('/documents', {
+        client: clientId,
+        title,
+        html: '',
+        clientVisible: newClientVisible,
+        clientCanEdit: newClientCanEdit,
+      });
+      setBoards(prev => [data.document, ...prev]);
+      setShowCreateModal(false);
+      setOpenBoard(data.document);
+    } catch {
+      if (toast) toast({ type: 'error', title: 'Failed to create document' });
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const saveBoard = ({ html, title }) => {
-    const next = boards.map(b => b.id === openBoard?.id
-      ? { ...b, html, title, updatedAt: new Date().toISOString() } : b);
-    persist(next);
-    setOpenBoard(prev => prev ? { ...prev, html, title } : null);
-    if (toast) toast({ type: 'success', title: 'Saved' });
+  const saveBoard = async ({ html, title }) => {
+    if (!openBoard) return;
+    try {
+      const { data } = await api.put(`/documents/${openBoard._id}`, { html, title });
+      setBoards(prev => prev.map(b => b._id === openBoard._id ? data.document : b));
+      setOpenBoard(data.document);
+      if (toast) toast({ type: 'success', title: 'Saved' });
+    } catch {
+      if (toast) toast({ type: 'error', title: 'Failed to save' });
+    }
   };
 
-  const deleteBoard = (e, id) => {
+  const updatePermissions = async (docId, clientVisible, clientCanEdit) => {
+    try {
+      const { data } = await api.put(`/documents/${docId}`, { clientVisible, clientCanEdit });
+      setBoards(prev => prev.map(b => b._id === docId ? data.document : b));
+      if (toast) toast({ type: 'success', title: 'Permissions updated' });
+    } catch {
+      if (toast) toast({ type: 'error', title: 'Failed to update permissions' });
+    }
+  };
+
+  const deleteBoard = async (e, id) => {
     e.stopPropagation();
-    const next = boards.filter(b => b.id !== id);
-    persist(next);
-    if (openBoard?.id === id) setOpenBoard(null);
+    try {
+      await api.delete(`/documents/${id}`);
+      setBoards(prev => prev.filter(b => b._id !== id));
+      if (openBoard?._id === id) setOpenBoard(null);
+    } catch {
+      if (toast) toast({ type: 'error', title: 'Failed to delete' });
+    }
   };
 
-  const handleDragStart = (e, index) => {
-    dragIndex.current = index;
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', '');
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleDrop = (e, toIndex) => {
-    e.preventDefault();
-    const fromIndex = dragIndex.current;
-    if (fromIndex == null || fromIndex === toIndex) return;
-    const reordered = [...boards];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-    persist(reordered);
-    dragIndex.current = null;
-  };
-
-  if (loading) return null;
+  if (loading) return <div className="flex justify-center py-8"><Spinner /></div>;
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-sm" style={{ color: 'var(--fd-ink-1)' }}>📄 Documents</h3>
-        <Button size="xs" variant="secondary" onClick={() => setShowCreate(v => !v)}>
-          <Plus size={12} />{showCreate ? 'Cancel' : 'New Document'}
+        <Button size="xs" variant="secondary" onClick={openCreateModal}>
+          <Plus size={12} /> New Document
         </Button>
       </div>
 
-      {showCreate && (
-        <div className="flex gap-2">
-          <input
-            autoFocus
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') createBoard(); if (e.key === 'Escape') setShowCreate(false); }}
-            placeholder="Document name…"
-            className="fd-input flex-1 text-[13px]"
-          />
-          <button onClick={createBoard} className="px-3 py-1.5 rounded-xl text-[12px] font-semibold"
-            style={{ background: '#4f6ef0', color: '#fff' }}>
-            Create
-          </button>
-        </div>
-      )}
-
-      {boards.length === 0 && !showCreate ? (
+      {boards.length === 0 ? (
         <div className="text-center py-10 rounded-2xl" style={{ background: 'var(--fd-surface)', border: '1px dashed var(--fd-border-strong)' }}>
           <div className="text-3xl mb-2">📄</div>
           <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>No documents yet</div>
           <div className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>Create a document to add rich text notes, tables and more</div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {boards.map((board, index) => (
+        <div style={{ columns: '320px', columnGap: 16 }}>
+          {boards.map((board) => (
             <div
-              key={board.id}
+              key={board._id}
               onClick={() => setOpenBoard(board)}
-              className="group relative rounded-xl border overflow-hidden transition-shadow hover:shadow-md cursor-pointer"
-              style={{ background: '#ffffff', borderColor: 'var(--fd-border)' }}
+              className="group relative rounded-xl border transition-shadow hover:shadow-md cursor-pointer"
+              style={{
+                background: 'var(--fd-surface)',
+                borderColor: board.clientVisible ? '#c7d2fe' : 'var(--fd-border)',
+                breakInside: 'avoid',
+                marginBottom: 16,
+                display: 'inline-block',
+                width: '100%',
+              }}
             >
-              {/* Drag handle */}
-              <div
-                draggable="true"
-                onDragStart={e => handleDragStart(e, index)}
-                onDragOver={handleDragOver}
-                onDrop={e => handleDrop(e, index)}
-                className="absolute top-2 left-2 p-1 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                style={{ background: 'rgba(0,0,0,0.05)' }}
-                title="Drag to reorder"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ color: 'var(--fd-ink-3)' }}>
-                  <circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/>
-                  <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
-                  <circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>
-                </svg>
+              {/* Permission badge */}
+              <div className="absolute top-2 left-2 flex gap-1 z-10">
+                {board.clientVisible && (
+                  <span
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: board.clientCanEdit ? '#dcfce7' : '#eff0fe', color: board.clientCanEdit ? '#15803d' : '#4338ca' }}
+                  >
+                    {board.clientCanEdit ? '✏️ Client Edit' : '👁 Client View'}
+                  </span>
+                )}
               </div>
 
               <button
-                onClick={e => deleteBoard(e, board.id)}
+                onClick={e => deleteBoard(e, board._id)}
                 className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
                 style={{ background: '#fee2e2', color: '#ef4444' }}
                 title="Delete document"
@@ -1923,27 +1928,154 @@ function ClientBoardsSection({ clientId }) {
               </button>
 
               <div className="p-4 pt-8">
-                <div className="font-semibold text-[14px] mb-2 truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                <div className="font-semibold text-[14px] mb-3 truncate" style={{ color: 'var(--fd-ink-1)' }}>
                   {board.title}
                 </div>
+                {/* Full content — no height cap, card grows to fit */}
                 <div
-                  className="text-[13px] leading-relaxed prose-like"
-                  style={{ color: '#111', overflow: 'visible' }}
+                  className="prose-like"
+                  style={{ color: 'var(--fd-ink-2)', fontSize: 13, lineHeight: 1.7 }}
                   dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(board.html) || '<p style="color:#9ca3af;font-style:italic;">Empty document</p>'
                   }}
                 />
-                <div className="mt-3 flex items-center justify-between">
+                <div className="mt-3 pt-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid var(--fd-border-subtle)' }}>
                   <span className="text-[11px]" style={{ color: 'var(--fd-ink-5)' }}>
                     {board.updatedAt ? new Date(board.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#f3f4f6', color: '#6b7280' }}>
-                    {board.html?.length > 100 ? `${Math.ceil(board.html.length / 500)} sections` : 'Short doc'}
-                  </span>
+                  {/* Inline permission toggles */}
+                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => updatePermissions(board._id, !board.clientVisible, board.clientVisible ? false : board.clientCanEdit)}
+                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full transition-all"
+                      style={{
+                        background: board.clientVisible ? '#eff0fe' : 'var(--fd-surface-sunken)',
+                        color: board.clientVisible ? '#4338ca' : 'var(--fd-ink-4)',
+                        border: '1px solid ' + (board.clientVisible ? '#c7d2fe' : 'var(--fd-border)'),
+                      }}
+                      title="Toggle client visibility"
+                    >
+                      👁 Visible
+                    </button>
+                    {board.clientVisible && (
+                      <button
+                        onClick={() => updatePermissions(board._id, true, !board.clientCanEdit)}
+                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full transition-all"
+                        style={{
+                          background: board.clientCanEdit ? '#dcfce7' : 'var(--fd-surface-sunken)',
+                          color: board.clientCanEdit ? '#15803d' : 'var(--fd-ink-4)',
+                          border: '1px solid ' + (board.clientCanEdit ? '#86efac' : 'var(--fd-border)'),
+                        }}
+                        title="Toggle client edit permission"
+                      >
+                        ✏️ Editable
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Create modal with permission options */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+          onClick={e => { if (e.target === e.currentTarget) setShowCreateModal(false); }}
+        >
+          <div className="rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-5"
+            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-[16px]" style={{ color: 'var(--fd-ink-1)' }}>New Document</h3>
+              <button onClick={() => setShowCreateModal(false)} className="p-1.5 rounded-lg" style={{ color: 'var(--fd-ink-3)' }}>
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Document Name</label>
+              <input
+                autoFocus
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') createBoard(); if (e.key === 'Escape') setShowCreateModal(false); }}
+                placeholder="e.g. Monthly Report, Strategy Doc…"
+                className="fd-input w-full text-[13px]"
+              />
+            </div>
+
+            {/* Client panel permissions */}
+            <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <div className="text-[12px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>Client Portal Permissions</div>
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="relative mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={newClientVisible}
+                    onChange={e => { setNewClientVisible(e.target.checked); if (!e.target.checked) setNewClientCanEdit(false); }}
+                    className="sr-only"
+                  />
+                  <div
+                    className="w-4 h-4 rounded flex items-center justify-center transition-all"
+                    style={{
+                      background: newClientVisible ? '#4f6ef0' : 'var(--fd-surface)',
+                      border: '2px solid ' + (newClientVisible ? '#4f6ef0' : 'var(--fd-border-strong)'),
+                    }}
+                  >
+                    {newClientVisible && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>Visible in client portal</div>
+                  <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>Client will see this document in their portal</div>
+                </div>
+              </label>
+
+              {newClientVisible && (
+                <label className="flex items-start gap-3 cursor-pointer ml-7">
+                  <div className="relative mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={newClientCanEdit}
+                      onChange={e => setNewClientCanEdit(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div
+                      className="w-4 h-4 rounded flex items-center justify-center transition-all"
+                      style={{
+                        background: newClientCanEdit ? '#22c55e' : 'var(--fd-surface)',
+                        border: '2px solid ' + (newClientCanEdit ? '#22c55e' : 'var(--fd-border-strong)'),
+                      }}
+                    >
+                      {newClientCanEdit && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>Allow client to edit</div>
+                    <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>Client can make changes to this document</div>
+                  </div>
+                </label>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 rounded-xl text-[13px] font-medium"
+                style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' }}>
+                Cancel
+              </button>
+              <button onClick={createBoard} disabled={creating}
+                className="px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2"
+                style={{ background: '#4f6ef0', color: '#fff', opacity: creating ? 0.7 : 1 }}>
+                {creating && <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />}
+                Create Document
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -2181,6 +2313,7 @@ export default function ClientDetailPage() {
     { id: 'reports',   label: `Reports (${reports.length})` },
     { id: 'files',     label: `Files (${files.length})` },
     { id: 'gmb',       label: 'GMB Panel' },
+    { id: 'documents', label: 'Documents' },
   ];
 
   return (
@@ -2856,6 +2989,11 @@ export default function ClientDetailPage() {
       {/* GMB PANEL TAB */}
       {activeTab === 'gmb' && (
         <GmbPanelTab clientId={id} client={client} />
+      )}
+
+      {/* DOCUMENTS TAB */}
+      {activeTab === 'documents' && (
+        <ClientBoardsSection clientId={id} />
       )}
 
       {/* Modals */}

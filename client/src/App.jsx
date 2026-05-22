@@ -50,6 +50,7 @@ import ClientChatPage     from './pages/client/ChatPage';
 import ClientRequestsPage from './pages/client/RequestsPage';
 import ClientLeadsPage    from './pages/client/LeadsPage';
 import ClientSocialPage   from './pages/client/SocialPage';
+import ClientDocumentsPage from './pages/client/DocumentsPage';
 
 // Shared
 import NotFoundPage  from './pages/NotFoundPage';
@@ -170,6 +171,7 @@ export default function App() {
                 <Route path="requests"  element={<ClientRequestsPage />} />
                 <Route path="leads"     element={<ClientLeadsPage />} />
                 <Route path="social"    element={<ClientSocialPage />} />
+                <Route path="documents" element={<ClientDocumentsPage />} />
                 <Route path="credentials" element={<CredentialsPage />} />
               </Route>
 

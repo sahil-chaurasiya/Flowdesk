@@ -4,6 +4,7 @@ import {
   LayoutDashboard, Rss, FileText, BarChart3,
   MessageCircle, ClipboardList, Bell, LogOut,
   Menu, X, Target, Instagram, Sun, Moon, Key,
+  BookOpen,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/portal/leads',        icon: Target,          label: 'My Leads' },
   { to: '/portal/reports',      icon: BarChart3,       label: 'Reports' },
   { to: '/portal/files',        icon: FileText,        label: 'Files' },
+  { to: '/portal/documents',    icon: BookOpen,        label: 'Documents' },
   { to: '/portal/requests',     icon: ClipboardList,   label: 'Requests' },
   { to: '/portal/credentials',  icon: Key,             label: 'Credentials' },
   { to: '/portal/chat',         icon: MessageCircle,   label: 'Chat' },

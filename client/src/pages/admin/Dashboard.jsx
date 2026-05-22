@@ -4,6 +4,7 @@ import {
   Building2, CheckSquare, Clock, Users, Target,
   TrendingUp, AlertCircle, Play, ChevronRight, Plus,
   ArrowUpRight, Zap, BarChart2, Activity, Bell, Phone, Flame,
+  Camera, ChevronLeft, CalendarDays,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis,
@@ -16,6 +17,11 @@ import {
 } from '../../components/shared/LoadingScreen';
 import { Button } from '../../components/ui/index';
 import { formatDate, timeAgo } from '../../lib/utils';
+import {
+  format as fmtDate, startOfMonth, endOfMonth, eachDayOfInterval,
+  startOfWeek, endOfWeek, isSameMonth, isSameDay, isToday,
+  addMonths, subMonths, parseISO, startOfDay, endOfDay, isBefore, isAfter,
+} from 'date-fns';
 
 const ROLE_LABELS = {
   admin: 'Admin', manager: 'Project Manager',
@@ -523,6 +529,322 @@ const STAGE_CONFIG = {
   lost:              { label: 'Lost',       color: '#ef4444' },
 };
 
+// ── Shoot Schedule Widget ─────────────────────────────────────────────────────
+const SHOOT_TYPE_META = {
+  photo_shoot:   { label: 'Photo',    icon: '📷', color: '#ec4899' },
+  video_shoot:   { label: 'Video',    icon: '🎬', color: '#8b5cf6' },
+  reel_shoot:    { label: 'Reel',     icon: '📱', color: '#f97316' },
+  product_shoot: { label: 'Product',  icon: '📦', color: '#0ea5e9' },
+  event_shoot:   { label: 'Event',    icon: '🎉', color: '#10b981' },
+  interview:     { label: 'Interview',icon: '🎙️', color: '#6366f1' },
+  bts:           { label: 'BTS',      icon: '🎥', color: '#f59e0b' },
+  other_shoot:   { label: 'Other',    icon: '🎞️', color: '#94a3b8' },
+};
+
+function ShootScheduleWidget() {
+  const [shoots,  setShoots]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [month,   setMonth]   = useState(new Date());
+  const [filter,  setFilter]  = useState('all'); // 'all' | 'pending' | 'done' | 'overdue'
+
+  useEffect(() => {
+    api.get('/calendar?type=shoot&limit=200')
+      .then(r => setShoots(r.data.events || r.data || []))
+      .catch(() => setShoots([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const now = new Date();
+
+  // Attach computed status to each shoot
+  const withStatus = shoots.map(s => {
+    const start = parseISO(s.startDate);
+    let status = 'pending';
+    if (s.status === 'done' || s.completed) {
+      status = 'done';
+    } else if (isBefore(start, startOfDay(now))) {
+      status = 'overdue';
+    }
+    return { ...s, _status: status, _start: start };
+  });
+
+  // Shoots in current calendar month
+  const mStart = startOfMonth(month);
+  const mEnd   = endOfMonth(month);
+  const monthShoots = withStatus.filter(s => s._start >= mStart && s._start <= mEnd);
+
+  // Apply filter
+  const filtered = filter === 'all' ? monthShoots : monthShoots.filter(s => s._status === filter);
+
+  // Calendar grid
+  const calStart = startOfWeek(mStart, { weekStartsOn: 1 });
+  const calEnd   = endOfWeek(mEnd, { weekStartsOn: 1 });
+  const days = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  const shootsOnDay = (day) => {
+    const ds = startOfDay(day), de = endOfDay(day);
+    return withStatus.filter(s => s._start >= ds && s._start <= de);
+  };
+
+  const statusConfig = {
+    pending: { label: 'Pending', bg: 'rgba(245,158,11,0.1)', color: '#f59e0b', dot: '#f59e0b' },
+    done:    { label: 'Done',    bg: 'rgba(34,197,94,0.1)',  color: '#22c55e', dot: '#22c55e' },
+    overdue: { label: 'Overdue', bg: 'rgba(239,68,68,0.1)',  color: '#ef4444', dot: '#ef4444' },
+  };
+
+  const counts = {
+    all:     monthShoots.length,
+    pending: monthShoots.filter(s => s._status === 'pending').length,
+    done:    monthShoots.filter(s => s._status === 'done').length,
+    overdue: monthShoots.filter(s => s._status === 'overdue').length,
+  };
+
+  if (loading) return null;
+  if (shoots.length === 0) return null;
+
+  return (
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{
+        background: 'var(--fd-card-bg)',
+        border: '1px solid var(--fd-border)',
+        boxShadow: '0 2px 16px rgba(0,0,0,0.05)',
+      }}
+    >
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid var(--fd-border)' }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(236,72,153,0.12)', border: '1px solid rgba(236,72,153,0.2)' }}
+            >
+              <Camera size={16} style={{ color: '#ec4899' }} />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-bold tracking-[-0.01em]" style={{ color: 'var(--fd-ink-1)' }}>
+                Shoot Schedule
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+                {fmtDate(month, 'MMMM yyyy')} · {counts.all} shoot{counts.all !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          {/* Month nav */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setMonth(m => subMonths(m, 1))}
+              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-3)' }}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <button
+              onClick={() => setMonth(new Date())}
+              className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-4)' }}
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setMonth(m => addMonths(m, 1))}
+              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-3)' }}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+
+        {/* Status filter pills */}
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          {[['all', 'All', null], ['pending', 'Pending', '#f59e0b'], ['done', 'Done', '#22c55e'], ['overdue', 'Overdue', '#ef4444']].map(([val, lbl, clr]) => (
+            <button
+              key={val}
+              onClick={() => setFilter(val)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-all"
+              style={
+                filter === val
+                  ? { background: clr ? clr + '22' : 'var(--fd-sidebar-active)', color: clr || 'var(--fd-sidebar-link-active)', border: `1.5px solid ${clr || 'var(--fd-accent, #4f6ef0)'}` }
+                  : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1.5px solid transparent' }
+              }
+            >
+              {clr && <span className="w-1.5 h-1.5 rounded-full" style={{ background: clr }} />}
+              {lbl}
+              <span className="opacity-60">({counts[val]})</span>
+            </button>
+          ))}
+          <Link
+            to="/admin/calendar"
+            className="ml-auto flex items-center gap-1 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+            style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
+          >
+            Full Calendar <ArrowUpRight size={11} />
+          </Link>
+        </div>
+      </div>
+
+      {/* Two-column layout: mini calendar + list */}
+      <div className="flex flex-col lg:flex-row">
+        {/* ── Mini Calendar ── */}
+        <div className="p-4 lg:w-[340px] flex-shrink-0" style={{ borderRight: '1px solid var(--fd-border)' }}>
+          {/* Day labels */}
+          <div className="grid grid-cols-7 mb-1">
+            {['M','T','W','T','F','S','S'].map((d, i) => (
+              <div key={i} className="text-center py-1 text-[9.5px] font-bold uppercase tracking-wider"
+                style={{ color: i >= 5 ? 'var(--fd-ink-5)' : 'var(--fd-ink-4)' }}>{d}</div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div className="grid grid-cols-7 gap-[2px]">
+            {days.map((day, idx) => {
+              const dayShts = shootsOnDay(day);
+              const inMo = isSameMonth(day, month);
+              const todayDay = isToday(day);
+              const hasOverdue = dayShts.some(s => s._status === 'overdue');
+              const hasDone    = dayShts.some(s => s._status === 'done');
+              const hasPending = dayShts.some(s => s._status === 'pending');
+              const dotColor = hasOverdue ? '#ef4444' : hasPending ? '#ec4899' : hasDone ? '#22c55e' : null;
+
+              return (
+                <div
+                  key={idx}
+                  className="relative flex flex-col items-center justify-start pt-1 pb-1 rounded-lg transition-colors"
+                  style={{
+                    minHeight: 36,
+                    background: todayDay ? 'rgba(236,72,153,0.08)' : 'transparent',
+                    border: todayDay ? '1px solid rgba(236,72,153,0.25)' : '1px solid transparent',
+                    opacity: inMo ? 1 : 0.3,
+                  }}
+                >
+                  <span
+                    className="text-[11px] font-semibold w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{
+                      background: todayDay ? '#ec4899' : 'transparent',
+                      color: todayDay ? '#fff' : 'var(--fd-ink-2)',
+                    }}
+                  >
+                    {fmtDate(day, 'd')}
+                  </span>
+                  {dotColor && dayShts.length > 0 && (
+                    <div className="flex gap-[2px] mt-[2px] flex-wrap justify-center">
+                      {dayShts.slice(0, 3).map((s, si) => {
+                        const sc = statusConfig[s._status];
+                        return (
+                          <Link
+                            key={si}
+                            to={s.clientId ? `/admin/clients/${typeof s.clientId === 'object' ? s.clientId._id : s.clientId}?tab=calendar` : '/admin/calendar'}
+                            title={`${s.title}${s.clientId?.company ? ` · ${s.clientId.company}` : ''}`}
+                            onClick={e => e.stopPropagation()}
+                            className="w-1.5 h-1.5 rounded-full block hover:scale-150 transition-transform"
+                            style={{ background: sc.dot }}
+                          />
+                        );
+                      })}
+                      {dayShts.length > 3 && (
+                        <span className="text-[8px] font-bold" style={{ color: 'var(--fd-ink-5)' }}>+{dayShts.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: '1px solid var(--fd-border)' }}>
+            {Object.entries(statusConfig).map(([k, v]) => (
+              <div key={k} className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full" style={{ background: v.dot }} />
+                <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>{v.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Shoot List ── */}
+        <div className="flex-1 overflow-hidden">
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full py-10 gap-2">
+              <Camera size={22} style={{ color: 'var(--fd-ink-5)' }} />
+              <p className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>
+                No {filter !== 'all' ? filter : ''} shoots in {fmtDate(month, 'MMMM')}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: 'var(--fd-border)' }}>
+              {filtered
+                .sort((a, b) => a._start - b._start)
+                .map(shoot => {
+                  const sc = statusConfig[shoot._status];
+                  const meta = SHOOT_TYPE_META[shoot.shootSubtype] || SHOOT_TYPE_META.other_shoot;
+                  const clientId = shoot.clientId
+                    ? (typeof shoot.clientId === 'object' ? shoot.clientId._id : shoot.clientId)
+                    : null;
+                  const clientName = shoot.clientId?.company || shoot.clientId?.name || null;
+
+                  return (
+                    <Link
+                      key={shoot._id}
+                      to={clientId ? `/admin/clients/${clientId}?tab=calendar` : '/admin/calendar'}
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--fd-table-row-hover)] group"
+                    >
+                      {/* Icon bubble */}
+                      <div
+                        className="w-9 h-9 rounded-xl flex items-center justify-center text-[16px] flex-shrink-0"
+                        style={{ background: meta.color + '15', border: `1px solid ${meta.color}30` }}
+                      >
+                        {meta.icon}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[12.5px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                            {shoot.title}
+                          </span>
+                          <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded-md flex items-center gap-1"
+                            style={{ background: sc.bg, color: sc.color }}
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ background: sc.dot }} />
+                            {sc.label}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap" style={{ color: 'var(--fd-ink-4)', fontSize: 11 }}>
+                          <span>{fmtDate(shoot._start, 'EEE, MMM d · h:mm a')}</span>
+                          {clientName && (
+                            <>
+                              <span>·</span>
+                              <span className="font-medium" style={{ color: 'var(--fd-ink-3)' }}>{clientName}</span>
+                            </>
+                          )}
+                          {meta.label && (
+                            <>
+                              <span>·</span>
+                              <span style={{ color: meta.color }}>{meta.label}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Arrow */}
+                      <ChevronRight
+                        size={13}
+                        className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: 'var(--fd-ink-4)' }}
+                      />
+                    </Link>
+                  );
+                })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Internal Leads Follow-Up Widget ──────────────────────────────────────────
 function FollowUpsWidget() {
   const [leads, setLeads] = useState([]);
@@ -795,6 +1117,9 @@ export default function AdminDashboard() {
 
       {/* Follow-up reminders: admin + performance_marketer */}
       {showFollowUps && <FollowUpsWidget />}
+
+      {/* Shoot schedule: visible to admin & manager */}
+      {isManagerOrAdmin && <ShootScheduleWidget />}
 
       {isManagerOrAdmin ? <ManagerDashboard /> : <TeamMemberDashboard user={user} />}
     </div>

@@ -52,12 +52,25 @@ const EVENT_COLORS = {
   reminder:      { bg: '#f59e0b', light: '#fffbeb', text: '#92600a' },
   follow_up:     { bg: '#a855f7', light: '#faf5ff', text: '#7e22ce' },
   campaign:      { bg: '#22c55e', light: '#f0fdf4', text: '#15803d' },
+  shoot:         { bg: '#ec4899', light: '#fdf2f8', text: '#be185d' },
   other:         { bg: '#94a3b8', light: '#f8fafc', text: '#475569' },
 };
 const TYPE_LABELS = {
   task_deadline: 'Task Deadline', meeting: 'Meeting', reminder: 'Reminder',
-  follow_up: 'Follow Up', campaign: 'Campaign', other: 'Other',
+  follow_up: 'Follow Up', campaign: 'Campaign', shoot: 'Shoot', other: 'Other',
 };
+const SHOOT_SUBTYPES = [
+  { value: 'photo_shoot',   label: 'Photo Shoot',    icon: '📷' },
+  { value: 'video_shoot',   label: 'Video Shoot',    icon: '🎬' },
+  { value: 'reel_shoot',    label: 'Reel Shoot',     icon: '📱' },
+  { value: 'product_shoot', label: 'Product Shoot',  icon: '📦' },
+  { value: 'event_shoot',   label: 'Event Shoot',    icon: '🎉' },
+  { value: 'interview',     label: 'Interview',      icon: '🎙️' },
+  { value: 'bts',           label: 'BTS / Behind the Scenes', icon: '🎥' },
+  { value: 'other_shoot',   label: 'Other Shoot',    icon: '🎞️' },
+];
+const SHOOT_SUBTYPE_LABELS = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value, s.label]));
+const SHOOT_SUBTYPE_ICONS  = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value, s.icon]));
 const EVENT_TYPES = Object.keys(EVENT_COLORS);
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -87,7 +100,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
     const base = new Date(day);
     base.setHours(9, 0, 0, 0);
     const end = new Date(base); end.setHours(10, 0, 0, 0);
-    setForm({ title: '', type: 'meeting', description: '', startDate: base.toISOString(), endDate: end.toISOString() });
+    setForm({ title: '', type: 'meeting', shootSubtype: '', description: '', startDate: base.toISOString(), endDate: end.toISOString() });
     setModal({ mode: 'new', date: day });
   };
 
@@ -231,6 +244,12 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                 style={{ background: (EVENT_COLORS[form.type] || EVENT_COLORS.other).light, color: (EVENT_COLORS[form.type] || EVENT_COLORS.other).text }}>
                 {TYPE_LABELS[form.type] || form.type}
               </span>
+              {form.type === 'shoot' && form.shootSubtype && (
+                <span className="inline-block ml-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}>
+                  {SHOOT_SUBTYPE_ICONS[form.shootSubtype]} {SHOOT_SUBTYPE_LABELS[form.shootSubtype] || form.shootSubtype}
+                </span>
+              )}
             </div>
           ) : (
             <div className="space-y-4">
@@ -256,6 +275,20 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                   })}
                 </div>
               </div>
+              {form.type === 'shoot' && (
+                <div className="space-y-1.5">
+                  <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Shoot Type</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SHOOT_SUBTYPES.map(sub => (
+                      <button key={sub.value} onClick={() => setForm(f => ({ ...f, shootSubtype: sub.value }))}
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all flex items-center gap-1"
+                        style={form.shootSubtype === sub.value ? { background: '#ec4899', color: '#fff' } : { background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}>
+                        <span>{sub.icon}</span> {sub.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Notes</label>
                 <textarea className="fd-input resize-none" rows={2} value={form.description || ''}

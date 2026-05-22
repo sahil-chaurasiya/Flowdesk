@@ -19,6 +19,7 @@ const EVENT_COLORS = {
   reminder:      { bg: '#f59e0b', light: '#fffbeb', text: '#92600a', border: '#fde68a' },
   follow_up:     { bg: '#a855f7', light: '#faf5ff', text: '#7e22ce', border: '#e9d5ff' },
   campaign:      { bg: '#22c55e', light: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
+  shoot:         { bg: '#ec4899', light: '#fdf2f8', text: '#be185d', border: '#fbcfe8' },
   other:         { bg: '#94a3b8', light: '#f8fafc', text: '#475569', border: '#e2e8f0' },
 };
 
@@ -28,8 +29,24 @@ const TYPE_LABELS = {
   reminder:      'Reminder',
   follow_up:     'Follow Up',
   campaign:      'Campaign',
+  shoot:         'Shoot',
   other:         'Other',
 };
+
+// Shoot sub-types
+const SHOOT_SUBTYPES = [
+  { value: 'photo_shoot',   label: 'Photo Shoot',    icon: '📷' },
+  { value: 'video_shoot',   label: 'Video Shoot',    icon: '🎬' },
+  { value: 'reel_shoot',    label: 'Reel Shoot',     icon: '📱' },
+  { value: 'product_shoot', label: 'Product Shoot',  icon: '📦' },
+  { value: 'event_shoot',   label: 'Event Shoot',    icon: '🎉' },
+  { value: 'interview',     label: 'Interview',      icon: '🎙️' },
+  { value: 'bts',           label: 'BTS / Behind the Scenes', icon: '🎥' },
+  { value: 'other_shoot',   label: 'Other Shoot',    icon: '🎞️' },
+];
+
+const SHOOT_SUBTYPE_LABELS = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value, s.label]));
+const SHOOT_SUBTYPE_ICONS  = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value, s.icon]));
 
 const DAY_LABELS_LONG  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_LABELS_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -105,6 +122,14 @@ function EventViewModal({ event, onClose, onEdit, onDelete }) {
           >
             {TYPE_LABELS[event.type] || event.type}
           </span>
+          {event.type === 'shoot' && event.shootSubtype && (
+            <span
+              className="inline-block mt-1 ml-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}
+            >
+              {SHOOT_SUBTYPE_ICONS[event.shootSubtype]} {SHOOT_SUBTYPE_LABELS[event.shootSubtype] || event.shootSubtype}
+            </span>
+          )}
         </div>
       </div>
       <div className="space-y-3">
@@ -141,13 +166,14 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
   const buildDefaults = () => {
     if (!isNew && event) {
       return {
-        title:       event.title || '',
-        type:        event.type || 'meeting',
-        startDate:   event.startDate || '',
-        endDate:     event.endDate   || '',
-        description: event.description || '',
-        visibility:  event.visibility || 'all',
-        visibleTo:   (event.visibleTo || []).map(u => (typeof u === 'object' ? u._id : u)),
+        title:        event.title || '',
+        type:         event.type || 'meeting',
+        shootSubtype: event.shootSubtype || '',
+        startDate:    event.startDate || '',
+        endDate:      event.endDate   || '',
+        description:  event.description || '',
+        visibility:   event.visibility || 'all',
+        visibleTo:    (event.visibleTo || []).map(u => (typeof u === 'object' ? u._id : u)),
       };
     }
     // When creating from a clicked date — lock to that day
@@ -156,7 +182,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
     const end = new Date(base);
     end.setHours(10, 0, 0, 0);
     return {
-      title: '', type: 'meeting',
+      title: '', type: 'meeting', shootSubtype: '',
       startDate: base.toISOString(),
       endDate:   end.toISOString(),
       description: '', visibility: 'all', visibleTo: [],
@@ -259,6 +285,28 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
             ))}
           </div>
         </div>
+        {/* Shoot sub-type selector — only shown when type === 'shoot' */}
+        {form.type === 'shoot' && (
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Shoot Type</label>
+            <div className="flex flex-wrap gap-1.5">
+              {SHOOT_SUBTYPES.map(sub => (
+                <button
+                  key={sub.value}
+                  onClick={() => setForm(f => ({ ...f, shootSubtype: sub.value }))}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all flex items-center gap-1"
+                  style={
+                    form.shootSubtype === sub.value
+                      ? { background: '#ec4899', color: '#fff' }
+                      : { background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }
+                  }
+                >
+                  <span>{sub.icon}</span> {sub.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="space-y-1.5">
           <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Notes</label>
           <textarea
@@ -413,7 +461,9 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
                     className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 self-center"
                     style={{ background: color.light, color: color.text }}
                   >
-                    {TYPE_LABELS[ev.type] || ev.type}
+                    {ev.type === 'shoot' && ev.shootSubtype
+                      ? (SHOOT_SUBTYPE_ICONS[ev.shootSubtype] + ' ' + (SHOOT_SUBTYPE_LABELS[ev.shootSubtype] || TYPE_LABELS[ev.type]))
+                      : (TYPE_LABELS[ev.type] || ev.type)}
                   </span>
                 </button>
               );
@@ -801,7 +851,9 @@ export default function CalendarPage() {
                     <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{format(parseISO(ev.startDate), 'h:mm a')}</p>
                   </div>
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: c.light, color: c.text }}>
-                    {TYPE_LABELS[ev.type]}
+                    {ev.type === 'shoot' && ev.shootSubtype
+                      ? (SHOOT_SUBTYPE_ICONS[ev.shootSubtype] + ' ' + (SHOOT_SUBTYPE_LABELS[ev.shootSubtype] || TYPE_LABELS[ev.type]))
+                      : TYPE_LABELS[ev.type]}
                   </span>
                 </button>
               );

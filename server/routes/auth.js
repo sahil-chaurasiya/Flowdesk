@@ -6,6 +6,7 @@ const { sendTokenResponse, generateAccessToken } = require('../utils/jwt');
 const { protect } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { logActivity } = require('../utils/activityLog');
+const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
 
 // @route POST /api/auth/login
 router.post('/login', asyncHandler(async (req, res) => {
@@ -101,6 +102,48 @@ router.put('/profile', protect, asyncHandler(async (req, res) => {
   logActivity({ req, action: 'settings.updated', entity: { type: 'user', id: user._id, name: user.name }, meta: { fields: Object.keys(updates) } });
 
   res.json({ success: true, user });
+}));
+
+// @route POST /api/auth/avatar  — upload profile photo (for logged-in user)
+router.post('/avatar', protect, asyncHandler(async (req, res) => {
+  const uploader = getUploader();
+  uploader.single('avatar')(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+    let avatarUrl;
+    if (process.env.FILE_STORAGE === 'cloudinary') {
+      avatarUrl = req.file.path;
+    } else {
+      avatarUrl = getFileUrl(req, req.file.filename);
+    }
+
+    const user = await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl }, { new: true });
+    res.json({ success: true, avatar: avatarUrl, user });
+  });
+}));
+
+// @route POST /api/auth/avatar/:userId  — admin uploads avatar for any user
+router.post('/avatar/:userId', protect, asyncHandler(async (req, res) => {
+  if (req.user.role !== 'admin' && String(req.params.userId) !== String(req.user._id)) {
+    return res.status(403).json({ success: false, message: 'Not authorized' });
+  }
+  const uploader = getUploader();
+  uploader.single('avatar')(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+    let avatarUrl;
+    if (process.env.FILE_STORAGE === 'cloudinary') {
+      avatarUrl = req.file.path;
+    } else {
+      avatarUrl = getFileUrl(req, req.file.filename);
+    }
+
+    const user = await User.findByIdAndUpdate(req.params.userId, { avatar: avatarUrl }, { new: true });
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    res.json({ success: true, avatar: avatarUrl, user });
+  });
 }));
 
 module.exports = router;

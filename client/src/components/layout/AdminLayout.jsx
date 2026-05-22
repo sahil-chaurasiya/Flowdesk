@@ -6,7 +6,7 @@ import {
   ChevronRight, Menu, X, Rss, Building2, Target,
   ListChecks, Instagram, Sun, Moon, Search,
   Kanban, Calendar, Activity, Settings, Briefcase,
-  FileSearch,
+  FileSearch, Key, BookUser,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -42,6 +42,8 @@ const navItems = [
   { to: '/admin/files',      icon: Upload,          label: 'Files' },
   { to: '/admin/messages',   icon: MessageSquare,   label: 'Messages' },
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
+  { to: '/admin/credentials', icon: Key,            label: 'Credentials',  managerOnly: true },
+  { to: '/admin/contacts',   icon: BookUser,        label: 'Contacts',     adminOnly: true },
   { to: '/admin/activity',   icon: Activity,        label: 'Activity',     adminOnly: true },
   { to: '/admin/logs',       icon: FileSearch,      label: 'API Logs',     adminOnly: true },
   { to: '/admin/settings',   icon: Settings,        label: 'Settings' },
@@ -58,7 +60,7 @@ const NAV_SECTIONS = [
   },
   {
     label: 'Connect',
-    keys: ['/admin/messages', '/admin/team'],
+    keys: ['/admin/messages', '/admin/team', '/admin/credentials', '/admin/contacts'],
   },
   {
     label: 'System',

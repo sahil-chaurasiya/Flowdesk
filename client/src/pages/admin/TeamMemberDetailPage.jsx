@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Mail, Phone, Shield, Calendar, CheckCircle,
-  Clock, AlertCircle, Users, Building2, BarChart2, Edit3, X, Save
+  Clock, AlertCircle, Users, Building2, BarChart2, Edit3, X, Save, Camera
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { Avatar, Card, CardHeader, CardContent, Spinner, EmptyState, Badge } from '../../components/shared/LoadingScreen';
-import { Button, Modal, Input, Select } from '../../components/ui/index';
+import { Button, Modal, Input, Select, useToast } from '../../components/ui/index';
 import { formatDate, getTaskStatusColor, getPriorityColor, timeAgo, getStatusColor, PLAN_LABELS, PLAN_COLORS } from '../../lib/utils';
 
 const ROLE_LABELS = {
@@ -58,6 +58,9 @@ export default function TeamMemberDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({});
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef(null);
+  const toast = useToast();
 
   const loadData = async () => {
     setLoading(true);
@@ -98,6 +101,24 @@ export default function TeamMemberDetailPage() {
 
   useEffect(() => { loadData(); }, [id]);
 
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+      await api.post(`/auth/avatar/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await loadData();
+      toast({ type: 'success', title: 'Photo updated', message: 'Profile photo has been saved.' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Upload failed', message: err?.response?.data?.message || 'Could not upload photo.' });
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
+
   const handleSaveEdit = async () => {
     setSaving(true);
     try {
@@ -132,7 +153,21 @@ export default function TeamMemberDetailPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <Avatar name={member.name} size="lg" />
+            <div className="relative group" style={{ cursor: isAdmin ? 'pointer' : 'default' }}
+              onClick={() => isAdmin && avatarInputRef.current?.click()}>
+              <Avatar name={member.name} src={member.avatar} size="lg" />
+              {isAdmin && (
+                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {uploadingAvatar
+                    ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Camera size={14} color="white" />}
+                </div>
+              )}
+              {isAdmin && (
+                <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden" onChange={handleAvatarUpload} />
+              )}
+            </div>
             <div>
               <h1 className="text-xl font-bold text-[var(--fd-ink-1)]">{member.name}</h1>
               <p className="text-[var(--fd-ink-3)] text-sm">{member.jobTitle || '—'} {member.department ? `· ${member.department}` : ''}</p>

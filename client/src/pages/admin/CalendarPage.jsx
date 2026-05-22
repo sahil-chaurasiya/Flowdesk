@@ -34,12 +34,6 @@ const TYPE_LABELS = {
 const DAY_LABELS_LONG  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_LABELS_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-function toDatetimeLocal(date) {
-  if (!date) return '';
-  const d = date instanceof Date ? date : new Date(date);
-  return format(d, "yyyy-MM-dd'T'HH:mm");
-}
-
 // ─── Event Chip (desktop) ─────────────────────────────────────────────────────
 function EventChip({ event, isStart, isEnd, onClick }) {
   const color = EVENT_COLORS[event.type] || EVENT_COLORS.other;
@@ -149,25 +143,30 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
       return {
         title:       event.title || '',
         type:        event.type || 'meeting',
-        startDate:   event.startDate ? toDatetimeLocal(parseISO(event.startDate)) : '',
-        endDate:     event.endDate   ? toDatetimeLocal(parseISO(event.endDate))   : '',
+        startDate:   event.startDate || '',
+        endDate:     event.endDate   || '',
         description: event.description || '',
         visibility:  event.visibility || 'all',
         visibleTo:   (event.visibleTo || []).map(u => (typeof u === 'object' ? u._id : u)),
       };
     }
+    // When creating from a clicked date — lock to that day
     const base = defaultDate ? new Date(defaultDate) : new Date();
     base.setHours(9, 0, 0, 0);
     const end = new Date(base);
     end.setHours(10, 0, 0, 0);
-    return { title: '', type: 'meeting', startDate: toDatetimeLocal(base), endDate: toDatetimeLocal(end), description: '', visibility: 'all', visibleTo: [] };
+    return {
+      title: '', type: 'meeting',
+      startDate: base.toISOString(),
+      endDate:   end.toISOString(),
+      description: '', visibility: 'all', visibleTo: [],
+    };
   };
 
   const [form, setForm] = useState(buildDefaults);
   const [saving, setSaving] = useState(false);
   const [teamMembers, setTeamMembers] = useState([]);
 
-  // Load team members once for the "specific people" picker
   useEffect(() => {
     api.get('/users?role=team').then(({ data }) => {
       setTeamMembers(data.users || []);
@@ -197,10 +196,15 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
   };
 
   const VISIBILITY_OPTIONS = [
-    { value: 'all',      label: 'Everyone', desc: 'All team members can see this' },
+    { value: 'all',      label: 'Everyone',        desc: 'All team members can see this' },
     { value: 'specific', label: 'Specific people', desc: 'Choose who can see this' },
-    { value: 'private',  label: 'Only me', desc: 'Private — only you can see this' },
+    { value: 'private',  label: 'Only me',         desc: 'Private — only you can see this' },
   ];
+
+  // Display the locked date nicely
+  const displayDate = defaultDate
+    ? format(new Date(defaultDate), 'EEEE, MMMM d')
+    : event?.startDate ? format(parseISO(event.startDate), 'EEEE, MMMM d') : '';
 
   return (
     <Modal
@@ -223,6 +227,14 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
       }
     >
       <div className="space-y-4">
+        {/* Show the date this event is being added to */}
+        {displayDate && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-medium"
+            style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>
+            <Clock size={13} style={{ color: 'var(--fd-ink-4)' }} />
+            {displayDate}
+          </div>
+        )}
         <Input
           label="Title" value={form.title} autoFocus
           onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
@@ -246,13 +258,6 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
               </button>
             ))}
           </div>
-        </div>
-        {/* Stack vertically on mobile */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input label="Start" type="datetime-local" value={form.startDate}
-            onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
-          <Input label="End" type="datetime-local" value={form.endDate}
-            onChange={e => setForm(f => ({ ...f, endDate: e.target.value }))} />
         </div>
         <div className="space-y-1.5">
           <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Notes</label>
@@ -293,7 +298,6 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete }) {
             ))}
           </div>
 
-          {/* People picker for 'specific' */}
           {form.visibility === 'specific' && (
             <div className="mt-1 space-y-1">
               <p className="text-[11px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>

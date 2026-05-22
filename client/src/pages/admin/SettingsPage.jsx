@@ -76,6 +76,8 @@ function ProfileTab({ user, onUpdate }) {
     department: user?.department  || '',
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = React.useRef(null);
 
   const handleSave = async () => {
     setSaving(true);
@@ -88,19 +90,53 @@ function ProfileTab({ user, onUpdate }) {
     } finally { setSaving(false); }
   };
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+      const { data } = await api.post('/auth/avatar', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      onUpdate({ avatar: data.avatar });
+      toast({ type: 'success', title: 'Photo updated', message: 'Your profile photo has been saved.' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Upload failed', message: err?.response?.data?.message || 'Could not upload photo.' });
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Section title="Personal Information" description="Update your name, phone and role details.">
-        {/* Avatar display */}
+        {/* Avatar upload */}
         <div className="flex items-center gap-4 mb-5">
-          <Avatar name={user?.name} src={user?.avatar} size={64} />
+          <div className="relative group cursor-pointer" onClick={() => avatarInputRef.current?.click()}>
+            <Avatar name={user?.name} src={user?.avatar} size={64} />
+            <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              {uploadingAvatar
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <Camera size={16} color="white" />}
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
           <div>
             <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{user?.name}</div>
             <div className="text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
               {ROLE_LABELS[user?.role] || user?.role} · {user?.email}
             </div>
             <p className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>
-              To change your avatar, contact your administrator.
+              Click your photo to upload a new one.
             </p>
           </div>
         </div>

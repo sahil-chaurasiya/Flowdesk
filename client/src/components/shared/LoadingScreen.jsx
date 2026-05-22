@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 function cn(...classes) { return classes.filter(Boolean).join(' '); }
@@ -83,14 +84,18 @@ const AVATAR_PALETTES_DARK = [
 ];
 
 export function Avatar({ name, src, size = 'md', className }) {
-  const sizes = {
+  // Support numeric size (px) as well as named sizes
+  const isNumeric = typeof size === 'number';
+  const namedSizes = {
     xs:  { container: 'w-5 h-5 text-[8px]' },
     sm:  { container: 'w-7 h-7 text-[10px]' },
     md:  { container: 'w-9 h-9 text-[12px]' },
     lg:  { container: 'w-11 h-11 text-[14px]' },
     xl:  { container: 'w-14 h-14 text-[18px]' },
   };
-  const { container } = sizes[size] || sizes.md;
+  const container = isNumeric ? '' : (namedSizes[size]?.container || namedSizes.md.container);
+  const inlineStyle = isNumeric ? { width: size, height: size, fontSize: Math.round(size * 0.35) } : {};
+
   const initials = name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
   const idx = (name?.charCodeAt(0) || 0) % AVATAR_PALETTES.length;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -102,6 +107,8 @@ export function Avatar({ name, src, size = 'md', className }) {
         src={src}
         alt={name}
         className={cn('rounded-full object-cover flex-shrink-0', container, className)}
+        style={inlineStyle}
+        onError={e => { e.target.style.display = 'none'; }}
       />
     );
   }
@@ -109,7 +116,7 @@ export function Avatar({ name, src, size = 'md', className }) {
   return (
     <div
       className={cn('rounded-full flex items-center justify-center font-semibold flex-shrink-0', container, className)}
-      style={{ background: palette.bg, color: palette.color }}
+      style={{ background: palette.bg, color: palette.color, ...inlineStyle }}
     >
       {initials}
     </div>
@@ -125,14 +132,14 @@ const STAT_PALETTES = {
   red:    { icon: '#b91c1c', iconBg: '#fef2f2', iconBgDark: 'rgba(185,28,28,0.15)' },
 };
 
-export function StatCard({ title, value, subtitle, icon: Icon, trend, color = 'blue' }) {
+export function StatCard({ title, value, subtitle, icon: Icon, trend, color = 'blue', linkTo }) {
   const p = STAT_PALETTES[color] || STAT_PALETTES.blue;
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const iconColor = isDark ? p.icon.replace('#', '#') : p.icon;
   const iconBg = isDark ? p.iconBgDark : p.iconBg;
 
-  return (
-    <div className="stat-card animate-fade-in">
+  const inner = (
+    <>
       <div className="flex items-start justify-between mb-4">
         <div
           className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -161,6 +168,24 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, color = 'b
       </div>
       <div className="text-[13px] font-medium mt-1.5" style={{ color: 'var(--fd-ink-2)' }}>{title}</div>
       {subtitle && <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{subtitle}</div>}
+    </>
+  );
+
+  if (linkTo) {
+    return (
+      <Link
+        to={linkTo}
+        className="stat-card animate-fade-in block transition-transform hover:scale-[1.02] hover:shadow-md cursor-pointer"
+        style={{ textDecoration: 'none' }}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="stat-card animate-fade-in">
+      {inner}
     </div>
   );
 }

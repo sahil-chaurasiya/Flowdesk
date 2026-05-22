@@ -184,9 +184,9 @@ function Delta({ value, suffix = '%' }) {
 }
 
 // ─── Big stat card ────────────────────────────────────────────────────────────
-function BigStatCard({ title, value, icon: Icon, color, bg, delta, subtitle, sparkData }) {
-  return (
-    <div className="fd-card rounded-2xl p-4 flex flex-col gap-2">
+function BigStatCard({ title, value, icon: Icon, color, bg, delta, subtitle, sparkData, linkTo }) {
+  const inner = (
+    <>
       <div className="flex items-start justify-between">
         <div
           className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -208,6 +208,24 @@ function BigStatCard({ title, value, icon: Icon, color, bg, delta, subtitle, spa
           <Sparkline data={sparkData} color={color} width={120} height={30} />
         </div>
       )}
+    </>
+  );
+
+  if (linkTo) {
+    return (
+      <Link
+        to={linkTo}
+        className="fd-card rounded-2xl p-4 flex flex-col gap-2 block transition-transform hover:scale-[1.02] hover:shadow-md"
+        style={{ textDecoration: 'none' }}
+      >
+        {inner}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="fd-card rounded-2xl p-4 flex flex-col gap-2">
+      {inner}
     </div>
   );
 }
@@ -433,6 +451,7 @@ export default function ClientDashboard() {
           delta={12}
           subtitle={`${newLeads} new this month`}
           sparkData={mockSpark(totalLeads || 42)}
+          linkTo="/portal/leads"
         />
         <BigStatCard
           title="Qualified Leads"
@@ -443,6 +462,7 @@ export default function ClientDashboard() {
           delta={8}
           subtitle={`${pct(qualifiedLeads, totalLeads)} of pipeline`}
           sparkData={mockSpark(qualifiedLeads || 22)}
+          linkTo="/portal/leads?status=qualified"
         />
         <BigStatCard
           title="Conversions"
@@ -453,6 +473,7 @@ export default function ClientDashboard() {
           delta={Number(conversionRate)}
           subtitle={`${conversionRate}% close rate`}
           sparkData={mockSpark(convertedLeads || 11)}
+          linkTo="/portal/leads?status=converted"
         />
         <BigStatCard
           title="Total Reach"
@@ -463,6 +484,7 @@ export default function ClientDashboard() {
           delta={5}
           subtitle="Across all platforms"
           sparkData={mockSpark((totals.totalReach || 0) % 80 + 10)}
+          linkTo="/portal/social"
         />
       </div>
 

@@ -39,6 +39,8 @@ const aiRouter = require('./routes/ai');
 const internalLeadsRouter = require('./routes/internalLeads');
 const servicesRouter      = require('./routes/services');
 const apiLogsRouter       = require('./routes/apiLogs');
+const credentialsRouter   = require('./routes/credentials');
+const contactsRouter      = require('./routes/contacts');
 
 const app    = express();
 const server = http.createServer(app);
@@ -114,6 +116,8 @@ app.use('/api/ai', aiRouter);
 app.use('/api/internal-leads', internalLeadsRouter);
 app.use('/api/services',       servicesRouter);
 app.use('/api/logs',           apiLogsRouter);
+app.use('/api/credentials',    credentialsRouter);
+app.use('/api/contacts',       contactsRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

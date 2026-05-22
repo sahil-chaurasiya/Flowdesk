@@ -4,11 +4,17 @@ import {
   ArrowLeft, Edit3, MessageSquare, Mail, Phone, Globe, Calendar,
   DollarSign, Plus, CheckCircle, Clock, AlertCircle, Users, X, UserPlus,
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye,
-  Heart, MessageCircle, Share2, BarChart2, IndianRupee
+  Heart, MessageCircle, Share2, BarChart2, IndianRupee,
+  ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2,
 } from 'lucide-react';
+import {
+  format, startOfMonth, endOfMonth, eachDayOfInterval,
+  startOfWeek, endOfWeek, isSameMonth, isSameDay, isToday,
+  addMonths, subMonths, parseISO, startOfDay, endOfDay,
+} from 'date-fns';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
-import { Button, Modal, Input, Textarea, Select } from '../../components/ui/index';
+import { Button, Modal, Input, Textarea, Select, useToast } from '../../components/ui/index';
 import { Avatar, Badge, Card, CardHeader, CardContent, Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 import {
   formatDate, getStatusColor, PLAN_LABELS, PLAN_COLORS, SERVICE_LABELS,
@@ -39,6 +45,357 @@ const CATEGORY_LABELS = {
   other: '📌 Other',
 };
 
+// ─── Event colors (same palette as CalendarPage) ─────────────────────────────
+const EVENT_COLORS = {
+  task_deadline: { bg: '#ef4444', light: '#fef2f2', text: '#b91c1c' },
+  meeting:       { bg: '#4f6ef0', light: '#eff0fe', text: '#3a56d4' },
+  reminder:      { bg: '#f59e0b', light: '#fffbeb', text: '#92600a' },
+  follow_up:     { bg: '#a855f7', light: '#faf5ff', text: '#7e22ce' },
+  campaign:      { bg: '#22c55e', light: '#f0fdf4', text: '#15803d' },
+  other:         { bg: '#94a3b8', light: '#f8fafc', text: '#475569' },
+};
+const TYPE_LABELS = {
+  task_deadline: 'Task Deadline', meeting: 'Meeting', reminder: 'Reminder',
+  follow_up: 'Follow Up', campaign: 'Campaign', other: 'Other',
+};
+const EVENT_TYPES = Object.keys(EVENT_COLORS);
+const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// ─── Client-scoped mini calendar ─────────────────────────────────────────────
+function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
+  const toast = useToast ? useToast() : null;
+  const [modal, setModal]   = useState(null); // { mode: 'new'|'view'|'edit', event?, date? }
+  const [saving, setSaving] = useState(false);
+  const [form, setForm]     = useState({});
+
+  const monthStart = startOfMonth(month);
+  const monthEnd   = endOfMonth(month);
+  const calStart   = startOfWeek(monthStart, { weekStartsOn: 1 });
+  const calEnd     = endOfWeek(monthEnd,     { weekStartsOn: 1 });
+  const days       = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  const eventsOnDay = (day) => {
+    const ds = startOfDay(day), de = endOfDay(day);
+    return events.filter(ev => {
+      const s = parseISO(ev.startDate);
+      const e = ev.endDate ? parseISO(ev.endDate) : s;
+      return s <= de && e >= ds;
+    });
+  };
+
+  const openNew = (day) => {
+    const base = new Date(day);
+    base.setHours(9, 0, 0, 0);
+    const end = new Date(base); end.setHours(10, 0, 0, 0);
+    setForm({ title: '', type: 'meeting', description: '', startDate: base.toISOString(), endDate: end.toISOString() });
+    setModal({ mode: 'new', date: day });
+  };
+
+  const openView = (ev) => { setForm({ ...ev }); setModal({ mode: 'view', event: ev }); };
+
+  const handleSave = async () => {
+    if (!form.title?.trim()) return;
+    setSaving(true);
+    try {
+      if (modal.mode === 'new') {
+        const { data } = await api.post('/calendar', { ...form, clientId });
+        setEvents(prev => [...prev, data.event]);
+      } else {
+        const { data } = await api.put(`/calendar/${form._id}`, form);
+        setEvents(prev => prev.map(e => e._id === form._id ? data.event : e));
+      }
+      setModal(null);
+    } catch (err) {
+      if (toast) toast({ type: 'error', title: 'Failed to save' });
+    } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (evId) => {
+    try {
+      await api.delete(`/calendar/${evId}`);
+      setEvents(prev => prev.filter(e => e._id !== evId));
+      setModal(null);
+    } catch {}
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Month nav */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button onClick={() => setMonth(subMonths(month, 1))}
+            className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
+            style={{ color: 'var(--fd-ink-3)' }}><ChevronLeft size={16} /></button>
+          <span className="text-[14px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>
+            {format(month, 'MMMM yyyy')}
+          </span>
+          <button onClick={() => setMonth(addMonths(month, 1))}
+            className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
+            style={{ color: 'var(--fd-ink-3)' }}><ChevronRight size={16} /></button>
+        </div>
+        <Button size="sm" onClick={() => openNew(new Date())}>
+          <Plus size={13} /> Add Event
+        </Button>
+      </div>
+
+      {/* Grid */}
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--fd-border)' }}>
+        <div className="grid grid-cols-7" style={{ borderBottom: '1px solid var(--fd-border)' }}>
+          {DAY_LABELS.map((d, i) => (
+            <div key={d} className="py-2 text-center text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: i >= 5 ? 'var(--fd-ink-5)' : 'var(--fd-ink-4)', borderRight: i < 6 ? '1px solid var(--fd-border-subtle)' : 'none' }}>
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {days.map((day, i) => {
+            const dayEvts = eventsOnDay(day);
+            const inMonth = isSameMonth(day, month);
+            const today   = isToday(day);
+            return (
+              <div key={i} onClick={() => openNew(day)}
+                className="cursor-pointer hover:bg-[var(--fd-surface-sunken)] transition-colors group"
+                style={{
+                  minHeight: 80, borderRight: i % 7 < 6 ? '1px solid var(--fd-border-subtle)' : 'none',
+                  borderBottom: '1px solid var(--fd-border-subtle)',
+                  background: !inMonth ? 'var(--fd-surface-sunken)' : 'transparent',
+                }}
+              >
+                <div className="p-1.5">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-semibold"
+                    style={{ background: today ? '#4f6ef0' : 'transparent', color: today ? '#fff' : !inMonth ? 'var(--fd-ink-5)' : 'var(--fd-ink-2)' }}>
+                    {format(day, 'd')}
+                  </span>
+                </div>
+                <div className="px-1 pb-1 space-y-[2px]">
+                  {dayEvts.slice(0, 2).map(ev => {
+                    const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
+                    return (
+                      <button key={ev._id} onClick={e => { e.stopPropagation(); openView(ev); }}
+                        className="w-full text-left text-[10px] font-semibold px-1.5 py-[2px] rounded truncate"
+                        style={{ background: c.light, color: c.text }}>
+                        {ev.title}
+                      </button>
+                    );
+                  })}
+                  {dayEvts.length > 2 && (
+                    <div className="text-[10px] px-1" style={{ color: 'var(--fd-ink-5)' }}>+{dayEvts.length - 2} more</div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Modal */}
+      {modal && (
+        <Modal
+          isOpen onClose={() => setModal(null)}
+          title={modal.mode === 'view' ? form.title : modal.mode === 'new' ? 'New Event' : 'Edit Event'}
+          size="sm"
+          footer={
+            <div className="flex items-center justify-between gap-2">
+              {modal.mode === 'view' && (
+                <Button variant="danger" size="sm" onClick={() => handleDelete(form._id)}>
+                  <Trash2 size={12} /> Delete
+                </Button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                {modal.mode === 'view' ? (
+                  <>
+                    <Button variant="secondary" size="sm" onClick={() => setModal(null)}>Close</Button>
+                    <Button size="sm" onClick={() => setModal(m => ({ ...m, mode: 'edit' }))}><Edit3 size={12} /> Edit</Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="secondary" size="sm" onClick={() => setModal(null)}>Cancel</Button>
+                    <Button size="sm" loading={saving} onClick={handleSave}>Save</Button>
+                  </>
+                )}
+              </div>
+            </div>
+          }
+        >
+          {modal.mode === 'view' ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                <Clock size={13} />
+                {format(parseISO(form.startDate), 'EEE, MMM d · h:mm a')}
+              </div>
+              {form.description && (
+                <p className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>{form.description}</p>
+              )}
+              <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: (EVENT_COLORS[form.type] || EVENT_COLORS.other).light, color: (EVENT_COLORS[form.type] || EVENT_COLORS.other).text }}>
+                {TYPE_LABELS[form.type] || form.type}
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px]"
+                style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>
+                <Clock size={13} />
+                {modal.date ? format(modal.date, 'EEEE, MMMM d') : form.startDate ? format(parseISO(form.startDate), 'EEEE, MMMM d') : ''}
+              </div>
+              <Input label="Title" value={form.title || ''} autoFocus
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Event title" />
+              <div className="space-y-1.5">
+                <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Type</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {EVENT_TYPES.map(type => {
+                    const c = EVENT_COLORS[type];
+                    return (
+                      <button key={type} onClick={() => setForm(f => ({ ...f, type }))}
+                        className="text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all"
+                        style={form.type === type ? { background: c.bg, color: '#fff' } : { background: c.light, color: c.text }}>
+                        {TYPE_LABELS[type]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Notes</label>
+                <textarea className="fd-input resize-none" rows={2} value={form.description || ''}
+                  onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional notes…" />
+              </div>
+            </div>
+          )}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// ─── GMB Panel Tab ────────────────────────────────────────────────────────────
+function GmbPanelTab({ clientId, client }) {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm]       = useState({});
+  const [saving, setSaving]   = useState(false);
+  const toast = useToast ? useToast() : null;
+
+  useEffect(() => {
+    setLoading(true);
+    api.get(`/clients/${clientId}/gmb`)
+      .then(r => { setData(r.data.gmb || {}); setForm(r.data.gmb || {}); })
+      .catch(() => { setData({}); setForm({}); })
+      .finally(() => setLoading(false));
+  }, [clientId]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.put(`/clients/${clientId}/gmb`, form);
+      setData(form);
+      setEditing(false);
+      if (toast) toast({ type: 'success', title: 'GMB data saved' });
+    } catch {
+      if (toast) toast({ type: 'error', title: 'Save failed' });
+    } finally { setSaving(false); }
+  };
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-[15px]" style={{ color: 'var(--fd-ink-1)' }}>Google Business Profile</h3>
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>Track GMB metrics and listing details for {client?.company}</p>
+        </div>
+        {!editing
+          ? <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Edit3 size={13} /> Edit</Button>
+          : (
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => { setEditing(false); setForm(data); }}>Cancel</Button>
+              <Button size="sm" loading={saving} onClick={handleSave}>Save</Button>
+            </div>
+          )
+        }
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: 'Total Reviews', key: 'totalReviews',   icon: Star,      color: '#f59e0b', bg: '#fffbeb' },
+          { label: 'Avg Rating',    key: 'avgRating',      icon: ThumbsUp,  color: '#22c55e', bg: '#f0fdf4' },
+          { label: 'Total Views',   key: 'totalViews',     icon: Eye,       color: '#4f6ef0', bg: '#eff0fe' },
+          { label: 'Total Clicks',  key: 'totalClicks',    icon: TrendingUp,color: '#a855f7', bg: '#faf5ff' },
+        ].map(({ label, key, icon: Icon, color, bg }) => (
+          <div key={key} className="rounded-xl p-4 space-y-2" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: bg }}>
+              <Icon size={15} color={color} />
+            </div>
+            {editing ? (
+              <input type="number" className="fd-input text-[13px] w-full" value={form[key] || ''}
+                onChange={e => set(key, e.target.value)} placeholder="0" />
+            ) : (
+              <div className="text-[22px] font-bold tabular-nums" style={{ color: 'var(--fd-ink-1)' }}>
+                {data[key] ?? '—'}
+              </div>
+            )}
+            <div className="text-[11px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Details */}
+      <Card>
+        <CardHeader><h3 className="font-semibold text-sm text-[var(--fd-ink-1)]">Listing Details</h3></CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { label: 'Business Name',    key: 'businessName'  },
+              { label: 'Category',         key: 'category'      },
+              { label: 'Phone',            key: 'phone'         },
+              { label: 'Website',          key: 'website'       },
+              { label: 'Address',          key: 'address'       },
+              { label: 'GMB Profile URL',  key: 'profileUrl'    },
+              { label: 'New Reviews (Month)', key: 'newReviews' },
+              { label: 'Calls (Month)',    key: 'calls'         },
+              { label: 'Direction Requests', key: 'directions'  },
+              { label: 'Messages (Month)', key: 'messages'      },
+            ].map(({ label, key }) => (
+              <div key={key}>
+                <div className="text-[11px] font-medium mb-1" style={{ color: 'var(--fd-ink-4)' }}>{label}</div>
+                {editing ? (
+                  <input className="fd-input w-full text-[13px]" value={form[key] || ''}
+                    onChange={e => set(key, e.target.value)} placeholder={label} />
+                ) : (
+                  <div className="text-[13px]" style={{ color: data[key] ? 'var(--fd-ink-1)' : 'var(--fd-ink-5)' }}>
+                    {data[key] || '—'}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notes */}
+      <Card>
+        <CardHeader><h3 className="font-semibold text-sm text-[var(--fd-ink-1)]">Notes &amp; Observations</h3></CardHeader>
+        <CardContent>
+          {editing ? (
+            <textarea className="fd-input resize-none w-full" rows={4} value={form.notes || ''}
+              onChange={e => set('notes', e.target.value)} placeholder="Any notes about GMB performance, issues, actions taken..." />
+          ) : (
+            <p className="text-[13px]" style={{ color: data.notes ? 'var(--fd-ink-2)' : 'var(--fd-ink-5)' }}>
+              {data.notes || 'No notes added yet.'}
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams();
   const { user } = useAuthStore();
@@ -56,6 +413,8 @@ export default function ClientDetailPage() {
   const [socialAnalytics, setSocialAnalytics] = useState(null);
   const [socialPosts, setSocialPosts] = useState([]);
   const [socialDays, setSocialDays] = useState(30);
+  const [calendarEvents, setCalendarEvents] = useState([]);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
 
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -88,6 +447,16 @@ export default function ClientDetailPage() {
         .catch(() => {});
     }
   }, [socialDays, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'calendar' && id) {
+      const from = startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 }).toISOString();
+      const to   = endOfWeek(endOfMonth(calendarMonth),   { weekStartsOn: 1 }).toISOString();
+      api.get(`/calendar?from=${from}&to=${to}&clientId=${id}`)
+        .then(r => setCalendarEvents(r.data.events || []))
+        .catch(() => {});
+    }
+  }, [activeTab, calendarMonth, id]);
 
   const loadData = async () => {
     setLoading(true);
@@ -194,13 +563,15 @@ export default function ClientDetailPage() {
   const teamCount = (client.teamMembers?.length || 0) + (client.accountManager ? 1 : 0);
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'tasks', label: `Tasks (${tasks.length})` },
-    { id: 'updates', label: `Updates (${updates.length})` },
-    { id: 'social', label: `Social (${socialAccounts.length})` },
-    { id: 'files', label: `Files (${files.length})` },
-    { id: 'reports', label: `Reports (${reports.length})` },
+    { id: 'overview',  label: 'Overview' },
+    { id: 'calendar',  label: 'Calendar' },
+    { id: 'social',    label: `Social (${socialAccounts.length})` },
+    { id: 'tasks',     label: `Tasks (${tasks.length})` },
     ...(isManager ? [{ id: 'team', label: `Team (${teamCount})` }] : []),
+    { id: 'updates',   label: `Updates (${updates.length})` },
+    { id: 'reports',   label: `Reports (${reports.length})` },
+    { id: 'files',     label: `Files (${files.length})` },
+    { id: 'gmb',       label: 'GMB Panel' },
   ];
 
   return (
@@ -793,6 +1164,22 @@ export default function ClientDetailPage() {
             <strong>Access Note:</strong> Assigned team members will only see this client's tasks, social posts, and files. Removing a member immediately revokes their access.
           </div>
         </div>
+      )}
+
+      {/* CALENDAR TAB */}
+      {activeTab === 'calendar' && (
+        <ClientCalendarTab
+          clientId={id}
+          events={calendarEvents}
+          setEvents={setCalendarEvents}
+          month={calendarMonth}
+          setMonth={setCalendarMonth}
+        />
+      )}
+
+      {/* GMB PANEL TAB */}
+      {activeTab === 'gmb' && (
+        <GmbPanelTab clientId={id} client={client} />
       )}
 
       {/* Modals */}

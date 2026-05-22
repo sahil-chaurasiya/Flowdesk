@@ -371,10 +371,10 @@ function ManagerDashboard() {
     <div className="space-y-5">
       {/* KPI row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Active Clients" value={stats?.activeClients ?? 0} icon={Building2}    color="blue" />
-        <StatCard title="Open Tasks"     value={stats?.openTasks    ?? 0} icon={CheckSquare}   color="orange" subtitle="Pending + In Progress" />
-        <StatCard title="In Review"      value={stats?.reviewTasks  ?? 0} icon={Clock}         color="purple" subtitle="Awaiting approval" />
-        <StatCard title="Team Members"   value={stats?.teamCount    ?? 0} icon={Users}         color="green" />
+        <StatCard title="Active Clients" value={stats?.activeClients ?? 0} icon={Building2}    color="blue"   linkTo="/admin/clients?status=active" />
+        <StatCard title="Open Tasks"     value={stats?.openTasks    ?? 0} icon={CheckSquare}   color="orange" subtitle="Pending + In Progress" linkTo="/admin/tasks?status=pending" />
+        <StatCard title="In Review"      value={stats?.reviewTasks  ?? 0} icon={Clock}         color="purple" subtitle="Awaiting approval"     linkTo="/admin/tasks?status=in_review" />
+        <StatCard title="Team Members"   value={stats?.teamCount    ?? 0} icon={Users}         color="green"  linkTo="/admin/team" />
       </div>
 
       {/* Analytics charts */}
@@ -481,10 +481,10 @@ function TeamMemberDashboard({ user }) {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="To Do"       value={pending.length}    icon={AlertCircle} color="orange" />
-        <StatCard title="In Progress" value={inProgress.length} icon={Play}        color="blue" />
-        <StatCard title="In Review"   value={review.length}     icon={Clock}       color="purple" />
-        <StatCard title="Completed"   value={completed.length}  icon={CheckSquare} color="green" />
+        <StatCard title="To Do"       value={pending.length}    icon={AlertCircle} color="orange" linkTo="/admin/my-tasks?status=pending" />
+        <StatCard title="In Progress" value={inProgress.length} icon={Play}        color="blue"   linkTo="/admin/my-tasks?status=in_progress" />
+        <StatCard title="In Review"   value={review.length}     icon={Clock}       color="purple" linkTo="/admin/my-tasks?status=in_review" />
+        <StatCard title="Completed"   value={completed.length}  icon={CheckSquare} color="green"  linkTo="/admin/my-tasks?status=completed" />
       </div>
 
       {/* Active tasks */}

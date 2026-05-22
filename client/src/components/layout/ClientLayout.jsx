@@ -3,7 +3,7 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Rss, FileText, BarChart3,
   MessageCircle, ClipboardList, Bell, LogOut,
-  Menu, X, Target, Instagram, Sun, Moon,
+  Menu, X, Target, Instagram, Sun, Moon, Key,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -14,14 +14,15 @@ import { getInitials } from '../../lib/utils';
 import AIAssistant from '../ai/AIAssistant';
 
 const navItems = [
-  { to: '/portal/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/portal/updates',   icon: Rss,             label: 'Updates' },
-  { to: '/portal/social',    icon: Instagram,       label: 'Social Media' },
-  { to: '/portal/leads',     icon: Target,          label: 'My Leads' },
-  { to: '/portal/reports',   icon: BarChart3,       label: 'Reports' },
-  { to: '/portal/files',     icon: FileText,        label: 'Files' },
-  { to: '/portal/requests',  icon: ClipboardList,   label: 'Requests' },
-  { to: '/portal/chat',      icon: MessageCircle,   label: 'Chat' },
+  { to: '/portal/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/portal/updates',      icon: Rss,             label: 'Updates' },
+  { to: '/portal/social',       icon: Instagram,       label: 'Social Media' },
+  { to: '/portal/leads',        icon: Target,          label: 'My Leads' },
+  { to: '/portal/reports',      icon: BarChart3,       label: 'Reports' },
+  { to: '/portal/files',        icon: FileText,        label: 'Files' },
+  { to: '/portal/requests',     icon: ClipboardList,   label: 'Requests' },
+  { to: '/portal/credentials',  icon: Key,             label: 'Credentials' },
+  { to: '/portal/chat',         icon: MessageCircle,   label: 'Chat' },
 ];
 
 export default function ClientLayout() {

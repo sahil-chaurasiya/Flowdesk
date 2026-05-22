@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Search, Building2, ChevronRight } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner } from '../../components/shared/LoadingScreen';
@@ -166,6 +166,7 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
 }
 
 export default function ClientsPage() {
+  const navigate = useNavigate();
   const [clients, setClients] = useState([]);
   const [managers, setManagers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -272,7 +273,11 @@ export default function ClientsPage() {
                 </thead>
                 <tbody>
                   {clients.map(client => (
-                    <tr key={client._id}>
+                    <tr
+                      key={client._id}
+                      onClick={() => navigate(`/admin/clients/${client._id}`)}
+                      className="cursor-pointer hover:bg-[var(--fd-table-row-hover)] transition-colors"
+                    >
                       <td>
                         <div className="flex items-center gap-3">
                           <Avatar name={client.company} size="sm" />
@@ -337,12 +342,7 @@ export default function ClientsPage() {
                         {formatDate(client.startDate)}
                       </td>
                       <td>
-                        <Link
-                          to={`/admin/clients/${client._id}`}
-                          className="btn-ghost p-1.5"
-                        >
-                          <ChevronRight size={15} />
-                        </Link>
+                        <ChevronRight size={15} style={{ color: 'var(--fd-ink-5)' }} />
                       </td>
                     </tr>
                   ))}

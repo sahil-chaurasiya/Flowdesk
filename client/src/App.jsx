@@ -38,6 +38,8 @@ import SettingsPage         from './pages/admin/SettingsPage';
 import ActivityPage         from './pages/admin/ActivityPage';
 import InternalLeadsPage    from './pages/admin/InternalLeadsPage';
 import ApiLogsPage          from './pages/admin/ApiLogsPage';
+import ContactsPage         from './pages/admin/ContactsPage';
+import CredentialsPage      from './pages/admin/CredentialsPage';
 
 // Client Pages
 import ClientDashboard    from './pages/client/Dashboard';
@@ -120,6 +122,20 @@ export default function App() {
                 <Route path="settings"   element={<SettingsPage />} />
                 <Route path="activity"   element={<ActivityPage />} />
 
+                {/* ── Credentials Vault (admin + manager + client) ─────── */}
+                <Route path="credentials" element={
+                  <ProtectedRoute roles={['admin', 'manager', 'client']}>
+                    <CredentialsPage />
+                  </ProtectedRoute>
+                } />
+
+                {/* ── Contacts / Vendors (admin only) ──────────────────── */}
+                <Route path="contacts" element={
+                  <ProtectedRoute roles={['admin']}>
+                    <ContactsPage />
+                  </ProtectedRoute>
+                } />
+
                 {/* ── API Logs (admin only) ────────────────────────────── */}
                 <Route path="logs" element={
                   <ProtectedRoute roles={['admin']}>
@@ -150,6 +166,7 @@ export default function App() {
                 <Route path="requests"  element={<ClientRequestsPage />} />
                 <Route path="leads"     element={<ClientLeadsPage />} />
                 <Route path="social"    element={<ClientSocialPage />} />
+                <Route path="credentials" element={<CredentialsPage />} />
               </Route>
 
               <Route path="/unauthorized" element={

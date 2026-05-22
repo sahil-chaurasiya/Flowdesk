@@ -529,6 +529,308 @@ const STAGE_CONFIG = {
   lost:              { label: 'Lost',       color: '#ef4444' },
 };
 
+
+// ── Event type colours (mirrors CalendarPage) ─────────────────────────────────
+const EVENT_TYPE_META = {
+  task_deadline: { label: 'Task Deadline', icon: '✅', color: '#f59e0b' },
+  meeting:       { label: 'Meeting',       icon: '🤝', color: '#6366f1' },
+  reminder:      { label: 'Reminder',      icon: '🔔', color: '#06b6d4' },
+  follow_up:     { label: 'Follow-up',     icon: '📞', color: '#8b5cf6' },
+  campaign:      { label: 'Campaign',      icon: '📣', color: '#0ea5e9' },
+  shoot:         { label: 'Shoot',         icon: '📷', color: '#ec4899' },
+  other:         { label: 'Event',         icon: '📌', color: '#94a3b8' },
+};
+
+function CalendarWidget() {
+  const [events,  setEvents]  = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [month,   setMonth]   = useState(new Date());
+  const [selDay,  setSelDay]  = useState(null); // date clicked on mini-cal
+
+  useEffect(() => {
+    // Wide window: 1 month back → 5 months forward
+    const from = subMonths(new Date(), 1).toISOString();
+    const to   = addMonths(new Date(), 5).toISOString();
+    api.get(`/calendar?from=${from}&to=${to}`)
+      .then(r => setEvents(r.data.events || []))
+      .catch(() => setEvents([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const now = new Date();
+
+  // Enrich events with computed status
+  const enriched = events.map(ev => {
+    const start = parseISO(ev.startDate);
+    let _status = ev.status || 'pending';
+    if (_status !== 'done' && _status !== 'cancelled' && isBefore(start, startOfDay(now))) {
+      _status = 'overdue';
+    }
+    return { ...ev, _start: start, _status };
+  });
+
+  // Calendar grid
+  const mStart   = startOfMonth(month);
+  const mEnd     = endOfMonth(month);
+  const calStart = startOfWeek(mStart, { weekStartsOn: 1 });
+  const calEnd   = endOfWeek(mEnd,   { weekStartsOn: 1 });
+  const days     = eachDayOfInterval({ start: calStart, end: calEnd });
+
+  const eventsOnDay = (day) => {
+    const ds = startOfDay(day), de = endOfDay(day);
+    return enriched.filter(ev => ev._start >= ds && ev._start <= de);
+  };
+
+  // Events to show in the list: selected day or upcoming (from today in current month)
+  const listEvents = selDay
+    ? eventsOnDay(selDay).sort((a, b) => a._start - b._start)
+    : enriched
+        .filter(ev => ev._start >= startOfDay(now) && ev._start <= endOfMonth(month))
+        .sort((a, b) => a._start - b._start)
+        .slice(0, 12);
+
+  const listTitle = selDay
+    ? fmtDate(selDay, 'EEEE, MMM d')
+    : `Upcoming in ${fmtDate(month, 'MMMM')}`;
+
+  // Count upcoming events this month
+  const upcomingCount = enriched.filter(ev =>
+    ev._start >= startOfDay(now) && ev._start <= endOfMonth(month)
+  ).length;
+
+  if (loading) return (
+    <div className="rounded-2xl flex items-center justify-center py-12"
+      style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}>
+      <Spinner />
+    </div>
+  );
+
+  return (
+    <div className="rounded-2xl overflow-hidden"
+      style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)' }}>
+
+      {/* Header */}
+      <div className="px-5 pt-5 pb-4" style={{ borderBottom: '1px solid var(--fd-border)' }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.2)' }}>
+              <CalendarDays size={16} style={{ color: '#6366f1' }} />
+            </div>
+            <div>
+              <h3 className="text-[14px] font-bold tracking-[-0.01em]" style={{ color: 'var(--fd-ink-1)' }}>
+                Calendar
+              </h3>
+              <p className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+                {fmtDate(month, 'MMMM yyyy')} · {upcomingCount} upcoming event{upcomingCount !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <button onClick={() => { setMonth(m => subMonths(m, 1)); setSelDay(null); }}
+              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-3)' }}>
+              <ChevronLeft size={14} />
+            </button>
+            <button onClick={() => { setMonth(new Date()); setSelDay(null); }}
+              className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-4)' }}>
+              Today
+            </button>
+            <button onClick={() => { setMonth(m => addMonths(m, 1)); setSelDay(null); }}
+              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-3)' }}>
+              <ChevronRight size={14} />
+            </button>
+            <Link to="/admin/calendar"
+              className="ml-2 flex items-center gap-1 text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-all hover:opacity-80"
+              style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}>
+              Full Calendar <ArrowUpRight size={11} />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Two-column: mini-cal + list */}
+      <div className="flex flex-col lg:flex-row">
+
+        {/* Mini Calendar */}
+        <div className="p-4 lg:w-[320px] flex-shrink-0" style={{ borderRight: '1px solid var(--fd-border)' }}>
+          {/* Day headers */}
+          <div className="grid grid-cols-7 mb-1">
+            {['M','T','W','T','F','S','S'].map((d, i) => (
+              <div key={i} className="text-center py-1 text-[9.5px] font-bold uppercase tracking-wider"
+                style={{ color: i >= 5 ? 'var(--fd-ink-5)' : 'var(--fd-ink-4)' }}>{d}</div>
+            ))}
+          </div>
+          {/* Day cells */}
+          <div className="grid grid-cols-7 gap-[2px]">
+            {days.map((day, idx) => {
+              const dayEvs  = eventsOnDay(day);
+              const inMo    = isSameMonth(day, month);
+              const todayDay = isToday(day);
+              const isSelected = selDay && isSameDay(day, selDay);
+              const hasOverdue  = dayEvs.some(e => e._status === 'overdue');
+              const hasPending  = dayEvs.some(e => e._status === 'pending' || e._status === 'in_progress');
+
+              // pick accent dot colour
+              const dotColor = hasOverdue ? '#ef4444' : hasPending ? '#6366f1' : dayEvs.length ? '#22c55e' : null;
+
+              return (
+                <button key={idx}
+                  onClick={() => setSelDay(isSelected ? null : day)}
+                  className="relative flex flex-col items-center justify-start pt-1 pb-1 rounded-lg transition-all"
+                  style={{
+                    minHeight: 36,
+                    background: isSelected ? 'rgba(99,102,241,0.12)' : todayDay ? 'rgba(99,102,241,0.05)' : 'transparent',
+                    border: isSelected ? '1.5px solid rgba(99,102,241,0.5)' : todayDay ? '1px solid rgba(99,102,241,0.2)' : '1px solid transparent',
+                    opacity: inMo ? 1 : 0.3,
+                    cursor: 'pointer',
+                  }}>
+                  <span className="text-[11px] font-semibold w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{
+                      background: todayDay ? '#6366f1' : 'transparent',
+                      color: todayDay ? '#fff' : 'var(--fd-ink-2)',
+                    }}>
+                    {fmtDate(day, 'd')}
+                  </span>
+                  {dotColor && dayEvs.length > 0 && (
+                    <div className="flex gap-[2px] mt-[2px] flex-wrap justify-center">
+                      {dayEvs.slice(0, 3).map((ev, si) => {
+                        const meta = EVENT_TYPE_META[ev.type] || EVENT_TYPE_META.other;
+                        const dotC = ev._status === 'overdue' ? '#ef4444'
+                          : ev._status === 'done' ? '#22c55e' : meta.color;
+                        return (
+                          <div key={si} className="w-1.5 h-1.5 rounded-full" style={{ background: dotC }} title={ev.title} />
+                        );
+                      })}
+                      {dayEvs.length > 3 && (
+                        <span className="text-[8px] font-bold" style={{ color: 'var(--fd-ink-5)' }}>+{dayEvs.length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Event type legend */}
+          <div className="mt-3 pt-3 flex flex-wrap gap-x-3 gap-y-1.5" style={{ borderTop: '1px solid var(--fd-border)' }}>
+            {[
+              { label: 'Overdue', color: '#ef4444' },
+              { label: 'Pending', color: '#6366f1' },
+              { label: 'Done',    color: '#22c55e' },
+            ].map(({ label, color }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Event List */}
+        <div className="flex-1 overflow-hidden">
+          {/* List header */}
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--fd-border)' }}>
+            <span className="text-[12px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>{listTitle}</span>
+            {selDay && (
+              <button onClick={() => setSelDay(null)}
+                className="text-[11px] px-2 py-0.5 rounded-md hover:bg-[var(--fd-surface-sunken)]"
+                style={{ color: 'var(--fd-ink-4)' }}>
+                Clear ×
+              </button>
+            )}
+          </div>
+
+          {listEvents.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-2">
+              <CalendarDays size={22} style={{ color: 'var(--fd-ink-5)' }} />
+              <p className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>
+                {selDay ? 'No events on this day' : `No upcoming events in ${fmtDate(month, 'MMMM')}`}
+              </p>
+              <Link to="/admin/calendar" className="text-[12px] font-medium mt-1"
+                style={{ color: 'var(--fd-sidebar-link-active)' }}>
+                Add an event →
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y overflow-y-auto" style={{ borderColor: 'var(--fd-border)', maxHeight: 340 }}>
+              {listEvents.map(ev => {
+                const meta = EVENT_TYPE_META[ev.type] || EVENT_TYPE_META.other;
+                const dotC = ev._status === 'overdue' ? '#ef4444'
+                  : ev._status === 'done' ? '#22c55e' : meta.color;
+                const clientName = ev.client?.company || ev.client?.name || null;
+                const assignees  = ev.assignedTo || [];
+
+                return (
+                  <Link key={ev._id} to="/admin/calendar"
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--fd-table-row-hover)] group">
+                    {/* Coloured left bar */}
+                    <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: dotC, minHeight: 32 }} />
+
+                    {/* Icon */}
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[15px] flex-shrink-0"
+                      style={{ background: meta.color + '15', border: `1px solid ${meta.color}25` }}>
+                      {meta.icon}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[12.5px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                          {ev.title}
+                        </span>
+                        {ev._status === 'overdue' && (
+                          <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md"
+                            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444' }}>
+                            OVERDUE
+                          </span>
+                        )}
+                        {ev._status === 'done' && (
+                          <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md"
+                            style={{ background: 'rgba(34,197,94,0.1)', color: '#22c55e' }}>
+                            DONE
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap" style={{ color: 'var(--fd-ink-4)', fontSize: 11 }}>
+                        <span style={{ color: meta.color, fontWeight: 500 }}>{meta.label}</span>
+                        <span>·</span>
+                        <span>{fmtDate(ev._start, ev.allDay ? 'EEE, MMM d' : 'EEE, MMM d · h:mm a')}</span>
+                        {clientName && <><span>·</span><span className="font-medium" style={{ color: 'var(--fd-ink-3)' }}>{clientName}</span></>}
+                      </div>
+                      {/* Assigned avatars */}
+                      {assignees.length > 0 && (
+                        <div className="flex items-center gap-1 mt-1">
+                          {assignees.slice(0, 4).map((u, i) => (
+                            <div key={i}
+                              className="w-4 h-4 rounded-full text-[8px] font-bold flex items-center justify-center text-white"
+                              style={{ background: '#6366f1', marginLeft: i > 0 ? -4 : 0 }}
+                              title={u.name}>
+                              {u.name?.charAt(0)?.toUpperCase()}
+                            </div>
+                          ))}
+                          {assignees.length > 4 && (
+                            <span className="text-[9px] ml-1" style={{ color: 'var(--fd-ink-5)' }}>+{assignees.length - 4}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <ChevronRight size={13} className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ color: 'var(--fd-ink-4)' }} />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Shoot Schedule Widget ─────────────────────────────────────────────────────
 const SHOOT_TYPE_META = {
   photo_shoot:   { label: 'Photo',    icon: '📷', color: '#ec4899' },
@@ -548,7 +850,10 @@ function ShootScheduleWidget() {
   const [filter,  setFilter]  = useState('all'); // 'all' | 'pending' | 'done' | 'overdue'
 
   useEffect(() => {
-    api.get('/calendar?type=shoot&limit=200')
+    // Fetch shoots: 3 months back to 6 months forward so the calendar is well-populated
+    const from = subMonths(new Date(), 3).toISOString();
+    const to   = addMonths(new Date(), 6).toISOString();
+    api.get(`/calendar?type=shoot&from=${from}&to=${to}`)
       .then(r => setShoots(r.data.events || r.data || []))
       .catch(() => setShoots([]))
       .finally(() => setLoading(false));
@@ -599,8 +904,13 @@ function ShootScheduleWidget() {
     overdue: monthShoots.filter(s => s._status === 'overdue').length,
   };
 
-  if (loading) return null;
-  if (shoots.length === 0) return null;
+  // Show loading spinner while fetching
+  if (loading) return (
+    <div className="rounded-2xl flex items-center justify-center py-12"
+      style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}>
+      <Spinner />
+    </div>
+  );
 
   return (
     <div
@@ -733,8 +1043,8 @@ function ShootScheduleWidget() {
                         return (
                           <Link
                             key={si}
-                            to={s.clientId ? `/admin/clients/${typeof s.clientId === 'object' ? s.clientId._id : s.clientId}?tab=calendar` : '/admin/calendar'}
-                            title={`${s.title}${s.clientId?.company ? ` · ${s.clientId.company}` : ''}`}
+                            to={s.client ? `/admin/clients/${typeof s.client === 'object' ? s.client._id : s.client}?tab=calendar` : '/admin/calendar'}
+                            title={`${s.title}${s.client?.company ? ` · ${s.client.company}` : ''}`}
                             onClick={e => e.stopPropagation()}
                             className="w-1.5 h-1.5 rounded-full block hover:scale-150 transition-transform"
                             style={{ background: sc.dot }}
@@ -778,10 +1088,10 @@ function ShootScheduleWidget() {
                 .map(shoot => {
                   const sc = statusConfig[shoot._status];
                   const meta = SHOOT_TYPE_META[shoot.shootSubtype] || SHOOT_TYPE_META.other_shoot;
-                  const clientId = shoot.clientId
-                    ? (typeof shoot.clientId === 'object' ? shoot.clientId._id : shoot.clientId)
+                  const clientId = shoot.client
+                    ? (typeof shoot.client === 'object' ? shoot.client._id : shoot.client)
                     : null;
-                  const clientName = shoot.clientId?.company || shoot.clientId?.name || null;
+                  const clientName = shoot.client?.company || shoot.client?.name || null;
 
                   return (
                     <Link
@@ -1115,13 +1425,13 @@ export default function AdminDashboard() {
         )}
       </div>
 
-      {/* Follow-up reminders: admin + performance_marketer */}
-      {showFollowUps && <FollowUpsWidget />}
+{/* Follow-up reminders: admin + performance_marketer */}
+{showFollowUps && <FollowUpsWidget />}
 
-      {/* Shoot schedule: visible to admin & manager */}
-      {isManagerOrAdmin && <ShootScheduleWidget />}
+{/* Shoot schedule: admin & manager only (shoots-specific view) */}
+{isManagerOrAdmin && <ShootScheduleWidget />}
 
-      {isManagerOrAdmin ? <ManagerDashboard /> : <TeamMemberDashboard user={user} />}
+{isManagerOrAdmin ? <ManagerDashboard /> : <TeamMemberDashboard user={user} />}
     </div>
   );
 }

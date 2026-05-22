@@ -44,6 +44,36 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  alternativePhone: {
+    type: String,
+    trim: true
+  },
+  documents: [{
+    name: {
+      type: String,
+      required: true,
+      trim: true
+    },
+    type: {
+      type: String,
+      enum: ['aadhaar', 'pan', 'passport', 'driving_license', 'other'],
+      default: 'other'
+    },
+    url: {
+      type: String,
+      required: true
+    },
+    publicId: {
+      type: String   // cloudinary public_id for deletion
+    },
+    fileType: {
+      type: String   // 'pdf', 'image', 'docx', etc.
+    },
+    uploadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   jobTitle: {
     type: String,
     trim: true

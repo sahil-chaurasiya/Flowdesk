@@ -2,7 +2,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Mail, Phone, Shield, Calendar, CheckCircle,
-  Clock, AlertCircle, Users, Building2, BarChart2, Edit3, X, Save, Camera
+  Clock, AlertCircle, Users, Building2, BarChart2, Edit3, X, Save, Camera,
+  FileText, Upload, Trash2, Download, File, Image as ImageIcon, ExternalLink
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -43,6 +44,20 @@ const CATEGORY_LABELS = {
   other: '📌 Other',
 };
 
+const DOC_TYPE_LABELS = {
+  aadhaar: 'Aadhaar Card',
+  pan: 'PAN Card',
+  passport: 'Passport',
+  driving_license: 'Driving License',
+  other: 'Other',
+};
+
+function DocIcon({ fileType, className = '' }) {
+  if (fileType === 'image') return <ImageIcon size={16} className={className} />;
+  if (fileType === 'pdf') return <FileText size={16} className={className} />;
+  return <File size={16} className={className} />;
+}
+
 export default function TeamMemberDetailPage() {
   const { id } = useParams();
   const { user: currentUser } = useAuthStore();
@@ -51,7 +66,6 @@ export default function TeamMemberDetailPage() {
   const [member, setMember] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [assignedClients, setAssignedClients] = useState([]);
-  const [socialPosts, setSocialPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -62,33 +76,39 @@ export default function TeamMemberDetailPage() {
   const avatarInputRef = useRef(null);
   const toast = useToast();
 
+  // Document upload state
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [docForm, setDocForm] = useState({ name: '', type: 'other' });
+  const [docFile, setDocFile] = useState(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [deletingDocId, setDeletingDocId] = useState(null);
+  const docInputRef = useRef(null);
+
   const loadData = async () => {
     setLoading(true);
     try {
-      const [userRes, taskRes, clientsRes, socialRes] = await Promise.all([
+      const [userRes, taskRes, clientsRes] = await Promise.all([
         api.get(`/users/${id}`),
         api.get(`/tasks?assignedTo=${id}&limit=50`),
         api.get(`/clients?limit=100`),
-        api.get(`/social/posts?assignedTo=${id}&limit=20`),
       ]);
 
       const userData = userRes.data.user;
       setMember(userData);
       setTasks(taskRes.data.tasks || []);
 
-      // Filter clients where this user is accountManager or in teamMembers
       const allClients = clientsRes.data.clients || [];
       const myClients = allClients.filter(c =>
         String(c.accountManager?._id || c.accountManager) === String(id) ||
         (c.teamMembers || []).some(m => String(m._id || m) === String(id))
       );
       setAssignedClients(myClients);
-      setSocialPosts(socialRes.data.posts || []);
 
       setEditForm({
         name: userData.name,
         email: userData.email,
         phone: userData.phone || '',
+        alternativePhone: userData.alternativePhone || '',
         jobTitle: userData.jobTitle || '',
         department: userData.department || '',
         role: userData.role,
@@ -125,8 +145,48 @@ export default function TeamMemberDetailPage() {
       await api.put(`/users/${id}`, editForm);
       setShowEditModal(false);
       loadData();
+      toast({ type: 'success', title: 'Saved', message: 'Team member details updated.' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Save failed', message: err?.response?.data?.message || 'Could not save changes.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDocUpload = async () => {
+    if (!docFile) return toast({ type: 'error', title: 'No file', message: 'Please select a file to upload.' });
+    if (!docForm.name.trim()) return toast({ type: 'error', title: 'Missing name', message: 'Please enter a document name.' });
+
+    setUploadingDoc(true);
+    try {
+      const fd = new FormData();
+      fd.append('document', docFile);
+      fd.append('name', docForm.name.trim());
+      fd.append('type', docForm.type);
+      await api.post(`/users/${id}/documents`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setShowDocModal(false);
+      setDocForm({ name: '', type: 'other' });
+      setDocFile(null);
+      await loadData();
+      toast({ type: 'success', title: 'Document uploaded', message: 'Document has been saved.' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Upload failed', message: err?.response?.data?.message || 'Could not upload document.' });
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handleDeleteDoc = async (docId) => {
+    if (!window.confirm('Delete this document? This cannot be undone.')) return;
+    setDeletingDocId(docId);
+    try {
+      await api.delete(`/users/${id}/documents/${docId}`);
+      await loadData();
+      toast({ type: 'success', title: 'Deleted', message: 'Document removed.' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Delete failed', message: err?.response?.data?.message || 'Could not delete document.' });
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -136,12 +196,13 @@ export default function TeamMemberDetailPage() {
   const pendingTasks = tasks.filter(t => t.status === 'pending').length;
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
   const completedTasks = tasks.filter(t => t.status === 'completed').length;
+  const documents = member.documents || [];
 
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'tasks', label: `Tasks (${tasks.length})` },
     { id: 'clients', label: `Clients (${assignedClients.length})` },
-    { id: 'social', label: `Social Posts (${socialPosts.length})` },
+    { id: 'documents', label: `Documents (${documents.length})` },
   ];
 
   return (
@@ -207,7 +268,17 @@ export default function TeamMemberDetailPage() {
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Mail size={14} className="text-[var(--fd-ink-4)]" />{member.email}</div>
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)]" />{member.phone || '—'}</div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]">
+                    <Phone size={14} className="text-[var(--fd-ink-4)]" />
+                    <span>{member.phone || '—'}</span>
+                  </div>
+                  {member.alternativePhone && (
+                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)]">
+                      <Phone size={14} className="text-[var(--fd-ink-4)]" />
+                      <span className="text-xs text-[var(--fd-ink-4)] mr-1">Alt:</span>
+                      {member.alternativePhone}
+                    </div>
+                  )}
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Shield size={14} className="text-[var(--fd-ink-4)]" />{member.department || '—'}</div>
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)]" />Joined {formatDate(member.createdAt)}</div>
                   {member.lastLogin && (
@@ -286,6 +357,37 @@ export default function TeamMemberDetailPage() {
                       <button onClick={() => setActiveTab('clients')} className="text-xs text-brand-600 hover:underline w-full text-center pt-1">
                         +{assignedClients.length - 5} more
                       </button>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Documents quick summary */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Documents</h3>
+                  {isAdmin && (
+                    <button onClick={() => setActiveTab('documents')}
+                      className="text-xs text-brand-600 hover:underline">View all</button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {documents.length === 0 ? (
+                  <p className="text-[var(--fd-ink-4)] text-sm">No documents uploaded</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {documents.slice(0, 4).map(doc => (
+                      <div key={doc._id} className="flex items-center gap-2 text-sm">
+                        <DocIcon fileType={doc.fileType} className="text-[var(--fd-ink-4)] shrink-0" />
+                        <span className="text-[var(--fd-ink-2)] truncate flex-1">{doc.name}</span>
+                        <span className="text-xs text-[var(--fd-ink-4)] shrink-0">{DOC_TYPE_LABELS[doc.type] || doc.type}</span>
+                      </div>
+                    ))}
+                    {documents.length > 4 && (
+                      <p className="text-xs text-[var(--fd-ink-4)] pt-1">+{documents.length - 4} more</p>
                     )}
                   </div>
                 )}
@@ -379,55 +481,63 @@ export default function TeamMemberDetailPage() {
         </div>
       )}
 
-      {/* SOCIAL POSTS */}
-      {activeTab === 'social' && (
-        <div className="space-y-3">
-          {socialPosts.length === 0 ? (
-            <EmptyState icon={BarChart2} title="No social posts" description="No social posts assigned to this member." />
+      {/* DOCUMENTS */}
+      {activeTab === 'documents' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-[var(--fd-ink-3)]">
+              {documents.length === 0 ? 'No documents uploaded yet.' : `${documents.length} document${documents.length !== 1 ? 's' : ''} on file.`}
+            </p>
+            {isAdmin && (
+              <Button size="sm" onClick={() => setShowDocModal(true)}>
+                <Upload size={14} /> Upload Document
+              </Button>
+            )}
+          </div>
+
+          {documents.length === 0 ? (
+            <EmptyState icon={FileText} title="No documents" description="Upload Aadhaar, PAN card, or other identity documents for this team member." />
           ) : (
-            <Card>
-              <div className="divide-y divide-[var(--fd-border)]">
-                {socialPosts.map(post => (
-                  <div key={post._id} className="flex items-start gap-4 px-5 py-3.5">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-xs font-semibold text-[var(--fd-ink-2)] capitalize">{post.platform?.replace('_', ' ')}</span>
-                        <span className="px-2 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{post.contentType}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${
-                          post.status === 'published' ? 'bg-emerald-100 text-emerald-700'
-                          : post.status === 'scheduled' ? 'bg-blue-100 text-blue-700'
-                          : post.status === 'draft' ? 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'
-                          : 'bg-red-100 text-red-600'
-                        }`}>{post.status}</span>
-                        {post.client && (
-                          <Link to={`/admin/clients/${post.client._id}`} className="text-xs text-brand-600 hover:underline">
-                            {post.client.company}
-                          </Link>
-                        )}
-                      </div>
-                      {post.caption && <p className="text-sm text-[var(--fd-ink-2)] line-clamp-2">{post.caption}</p>}
-                      {post.publishedAt && (
-                        <div className="text-xs text-[var(--fd-ink-4)] mt-1">Published {timeAgo(post.publishedAt)}</div>
-                      )}
-                      {post.scheduledAt && post.status === 'scheduled' && (
-                        <div className="text-xs text-[var(--fd-ink-4)] mt-1">Scheduled for {formatDate(post.scheduledAt)}</div>
-                      )}
-                      {post.status === 'published' && post.metrics && (
-                        <div className="flex items-center gap-3 mt-2 text-xs text-[var(--fd-ink-3)]">
-                          <span>❤️ {(post.metrics.likes || 0).toLocaleString()}</span>
-                          <span>💬 {(post.metrics.comments || 0).toLocaleString()}</span>
-                          <span>↗️ {(post.metrics.shares || 0).toLocaleString()}</span>
-                          <span>👁️ {(post.metrics.reach || 0).toLocaleString()}</span>
-                          {post.metrics.engagementRate > 0 && (
-                            <span className="text-emerald-600 font-medium">{post.metrics.engagementRate.toFixed(2)}% eng.</span>
-                          )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {documents.map(doc => (
+                <Card key={doc._id} className="group">
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-[var(--fd-surface-sunken)] flex items-center justify-center shrink-0">
+                          <DocIcon fileType={doc.fileType} className="text-[var(--fd-ink-3)]" />
                         </div>
+                        <div className="min-w-0">
+                          <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{doc.name}</div>
+                          <div className="text-xs text-[var(--fd-ink-4)]">{DOC_TYPE_LABELS[doc.type] || doc.type}</div>
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDeleteDoc(doc._id)}
+                          disabled={deletingDocId === doc._id}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                          title="Delete document">
+                          {deletingDocId === doc._id
+                            ? <div className="w-3.5 h-3.5 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                            : <Trash2 size={13} />}
+                        </button>
                       )}
                     </div>
+
+                    <div className="text-xs text-[var(--fd-ink-4)] mb-3">
+                      Uploaded {formatDate(doc.uploadedAt)}
+                    </div>
+
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs text-brand-600 hover:underline font-medium">
+                      <ExternalLink size={11} />
+                      {doc.fileType === 'image' ? 'View Image' : doc.fileType === 'pdf' ? 'Open PDF' : 'Open File'}
+                    </a>
                   </div>
-                ))}
-              </div>
-            </Card>
+                </Card>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -448,22 +558,95 @@ export default function TeamMemberDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Input label="Phone" value={editForm.phone || ''} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} />
-              <Input label="Job Title" value={editForm.jobTitle || ''} onChange={e => setEditForm(p => ({ ...p, jobTitle: e.target.value }))} />
+              <Input label="Alternative Phone" value={editForm.alternativePhone || ''} onChange={e => setEditForm(p => ({ ...p, alternativePhone: e.target.value }))} />
             </div>
             <div className="grid grid-cols-2 gap-3">
+              <Input label="Job Title" value={editForm.jobTitle || ''} onChange={e => setEditForm(p => ({ ...p, jobTitle: e.target.value }))} />
               <Input label="Department" value={editForm.department || ''} onChange={e => setEditForm(p => ({ ...p, department: e.target.value }))} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <Select label="Role" value={editForm.role || ''} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))}>
                 {Object.entries(ROLE_LABELS).filter(([k]) => k !== 'client').map(([v, l]) => (
                   <option key={v} value={v}>{l}</option>
                 ))}
               </Select>
+              <div className="flex items-end pb-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={!!editForm.isActive}
+                    onChange={e => setEditForm(p => ({ ...p, isActive: e.target.checked }))}
+                    className="rounded" />
+                  <span className="text-sm text-[var(--fd-ink-2)]">Active</span>
+                </label>
+              </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={!!editForm.isActive}
-                onChange={e => setEditForm(p => ({ ...p, isActive: e.target.checked }))}
-                className="rounded" />
-              <span className="text-sm text-[var(--fd-ink-2)]">Active</span>
-            </label>
+          </div>
+        </Modal>
+      )}
+
+      {/* Upload Document Modal */}
+      {isAdmin && (
+        <Modal isOpen={showDocModal} onClose={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: 'other' }); }}
+          title="Upload Document"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: 'other' }); }}>Cancel</Button>
+              <Button loading={uploadingDoc} onClick={handleDocUpload} disabled={!docFile}>
+                <Upload size={14} /> Upload
+              </Button>
+            </div>
+          }>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Document Name"
+                placeholder="e.g. Aadhaar Card"
+                value={docForm.name}
+                onChange={e => setDocForm(p => ({ ...p, name: e.target.value }))}
+              />
+              <Select
+                label="Document Type"
+                value={docForm.type}
+                onChange={e => setDocForm(p => ({ ...p, type: e.target.value }))}>
+                {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[var(--fd-ink-2)] mb-1.5">File</label>
+              <div
+                onClick={() => docInputRef.current?.click()}
+                className="border-2 border-dashed border-[var(--fd-border)] rounded-xl p-6 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
+                {docFile ? (
+                  <div className="flex items-center justify-center gap-2 text-[var(--fd-ink-2)]">
+                    <FileText size={18} />
+                    <span className="text-sm font-medium truncate max-w-xs">{docFile.name}</span>
+                    <button onClick={e => { e.stopPropagation(); setDocFile(null); }}
+                      className="ml-1 text-[var(--fd-ink-4)] hover:text-red-500">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <Upload size={24} className="mx-auto text-[var(--fd-ink-4)] mb-2" />
+                    <p className="text-sm text-[var(--fd-ink-3)]">Click to browse or drop a file here</p>
+                    <p className="text-xs text-[var(--fd-ink-4)] mt-1">PDF, JPG, PNG, DOCX — up to 50 MB</p>
+                  </div>
+                )}
+              </div>
+              <input ref={docInputRef} type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) {
+                    setDocFile(f);
+                    if (!docForm.name) setDocForm(p => ({ ...p, name: f.name.replace(/\.[^.]+$/, '') }));
+                  }
+                  e.target.value = '';
+                }} />
+            </div>
           </div>
         </Modal>
       )}

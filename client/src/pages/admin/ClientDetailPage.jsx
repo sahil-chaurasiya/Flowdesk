@@ -965,6 +965,561 @@ function ClientTargetsTab({ clientId, isAdmin }) {
 }
 
 
+// ─── Board Widget ─────────────────────────────────────────────────────────────
+
+// ── RichEditor: a Word-like contentEditable document editor ──────────────────
+const TOOLBAR_FONTS = [
+  { label: 'Sans Serif', value: 'ui-sans-serif, system-ui, sans-serif' },
+  { label: 'Serif',      value: 'Georgia, "Times New Roman", serif' },
+  { label: 'Monospace',  value: 'ui-monospace, "Courier New", monospace' },
+];
+const TOOLBAR_SIZES = ['8','9','10','11','12','14','16','18','20','22','24','26','28','36','48','72'];
+
+function RichToolbar({ editorRef }) {
+  const [bold, setBold] = React.useState(false);
+  const [italic, setItalic] = React.useState(false);
+  const [underline, setUnderline] = React.useState(false);
+  const [align, setAlign] = React.useState('left');
+  const [fontSize, setFontSize] = React.useState('14');
+  const [fontName, setFontName] = React.useState(TOOLBAR_FONTS[0].value);
+  const [textColor, setTextColor] = React.useState('#000000');
+  const [bgColor, setBgColor]   = React.useState('#ffff00');
+
+  const syncState = () => {
+    setBold(document.queryCommandState('bold'));
+    setItalic(document.queryCommandState('italic'));
+    setUnderline(document.queryCommandState('underline'));
+    if (document.queryCommandState('justifyCenter')) setAlign('center');
+    else if (document.queryCommandState('justifyRight')) setAlign('right');
+    else if (document.queryCommandState('justifyFull')) setAlign('justify');
+    else setAlign('left');
+  };
+
+  React.useEffect(() => {
+    const el = editorRef.current;
+    if (!el) return;
+    el.addEventListener('keyup', syncState);
+    el.addEventListener('mouseup', syncState);
+    el.addEventListener('selectionchange', syncState);
+    return () => {
+      el.removeEventListener('keyup', syncState);
+      el.removeEventListener('mouseup', syncState);
+      el.removeEventListener('selectionchange', syncState);
+    };
+  }, [editorRef]);
+
+  const cmd = (command, value = null) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value);
+    syncState();
+  };
+
+  const insertTable = (rows = 3, cols = 3) => {
+    editorRef.current?.focus();
+    let html = '<table style="border-collapse:collapse;width:100%;margin:8px 0"><tbody>';
+    for (let r = 0; r < rows; r++) {
+      html += '<tr>';
+      for (let c = 0; c < cols; c++) {
+        if (r === 0) {
+          html += `<th style="border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left">Header ${c+1}</th>`;
+        } else {
+          html += `<td style="border:1px solid #d1d5db;padding:6px 10px;font-size:13px" contenteditable="true">&nbsp;</td>`;
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table><p><br></p>';
+    document.execCommand('insertHTML', false, html);
+  };
+
+  const sep = (
+    <div style={{ width: 1, height: 18, background: 'var(--fd-border-strong)', margin: '0 3px', flexShrink: 0 }} />
+  );
+
+  const TB = ({ active, onClick, title, children, danger }) => (
+    <button
+      onMouseDown={e => { e.preventDefault(); onClick(); }}
+      title={title}
+      className="flex items-center justify-center rounded transition-all"
+      style={{
+        width: 26, height: 26, flexShrink: 0,
+        background: active ? '#4f6ef0' : danger ? 'transparent' : 'transparent',
+        color: active ? '#fff' : danger ? '#dc2626' : 'var(--fd-ink-2)',
+        fontSize: 12, fontWeight: 600,
+        border: active ? 'none' : 'none',
+      }}>
+      {children}
+    </button>
+  );
+
+  return (
+    <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5 border-b select-none"
+      style={{ borderColor: 'var(--fd-border)', background: 'var(--fd-surface)', minHeight: 40 }}>
+
+      {/* Heading */}
+      <select
+        onMouseDown={e => e.stopPropagation()}
+        onChange={e => { editorRef.current?.focus(); document.execCommand('formatBlock', false, e.target.value); }}
+        defaultValue="p"
+        className="text-[11px] h-[26px] px-1 rounded font-medium cursor-pointer"
+        style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)', border: '1px solid var(--fd-border)', outline: 'none', marginRight: 2 }}>
+        <option value="p">Normal</option>
+        <option value="h1">Heading 1</option>
+        <option value="h2">Heading 2</option>
+        <option value="h3">Heading 3</option>
+        <option value="h4">Heading 4</option>
+        <option value="pre">Code</option>
+      </select>
+
+      {/* Font family */}
+      <select
+        onMouseDown={e => e.stopPropagation()}
+        value={fontName}
+        onChange={e => { setFontName(e.target.value); cmd('fontName', e.target.value); }}
+        className="text-[11px] h-[26px] px-1 rounded cursor-pointer"
+        style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)', border: '1px solid var(--fd-border)', outline: 'none', marginRight: 2, maxWidth: 90 }}>
+        {TOOLBAR_FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+      </select>
+
+      {/* Font size */}
+      <select
+        onMouseDown={e => e.stopPropagation()}
+        value={fontSize}
+        onChange={e => { setFontSize(e.target.value); cmd('fontSize', 3); /* we'll use inline style instead */
+          // execCommand fontSize only takes 1-7. Use insertHTML workaround via style
+          const sel = window.getSelection();
+          if (sel && sel.rangeCount) {
+            const range = sel.getRangeAt(0);
+            if (!range.collapsed) {
+              const span = document.createElement('span');
+              span.style.fontSize = e.target.value + 'pt';
+              range.surroundContents(span);
+            }
+          }
+        }}
+        className="text-[11px] h-[26px] px-1 rounded cursor-pointer"
+        style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)', border: '1px solid var(--fd-border)', outline: 'none', marginRight: 4, width: 46 }}>
+        {TOOLBAR_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+
+      {sep}
+
+      <TB active={bold} onClick={() => cmd('bold')} title="Bold (Ctrl+B)"><span style={{ fontWeight: 700, fontFamily: 'Georgia,serif', fontSize: 13 }}>B</span></TB>
+      <TB active={italic} onClick={() => cmd('italic')} title="Italic (Ctrl+I)"><span style={{ fontStyle: 'italic', fontFamily: 'Georgia,serif', fontSize: 13 }}>I</span></TB>
+      <TB active={underline} onClick={() => cmd('underline')} title="Underline (Ctrl+U)"><span style={{ textDecoration: 'underline', fontSize: 12 }}>U</span></TB>
+      <TB active={false} onClick={() => cmd('strikeThrough')} title="Strikethrough"><span style={{ textDecoration: 'line-through', fontSize: 12 }}>S</span></TB>
+
+      {sep}
+
+      {/* Text color */}
+      <label title="Text color" className="flex items-center justify-center rounded cursor-pointer transition-all"
+        style={{ width: 26, height: 26, position: 'relative' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: textColor, textShadow: '0 0 1px rgba(0,0,0,0.3)' }}>A</span>
+        <div style={{ position: 'absolute', bottom: 2, left: 4, right: 4, height: 3, borderRadius: 2, background: textColor }} />
+        <input type="color" value={textColor} onChange={e => { setTextColor(e.target.value); cmd('foreColor', e.target.value); }}
+          style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
+      </label>
+
+      {/* Highlight */}
+      <label title="Highlight color" className="flex items-center justify-center rounded cursor-pointer transition-all"
+        style={{ width: 26, height: 26, position: 'relative' }}>
+        <span style={{ fontSize: 11, background: bgColor, padding: '1px 3px', borderRadius: 2, color: '#111', fontWeight: 700 }}>ab</span>
+        <input type="color" value={bgColor} onChange={e => { setBgColor(e.target.value); cmd('hiliteColor', e.target.value); }}
+          style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
+      </label>
+
+      {sep}
+
+      {/* Align */}
+      <TB active={align==='left'}    onClick={() => cmd('justifyLeft')}    title="Align left">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="0" y="4" width="8" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="0" y="10" width="8" height="1.5" rx="0.75"/></svg>
+      </TB>
+      <TB active={align==='center'}  onClick={() => cmd('justifyCenter')}  title="Center">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="2" y="4" width="8" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="2" y="10" width="8" height="1.5" rx="0.75"/></svg>
+      </TB>
+      <TB active={align==='right'}   onClick={() => cmd('justifyRight')}   title="Align right">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="4" y="4" width="8" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="4" y="10" width="8" height="1.5" rx="0.75"/></svg>
+      </TB>
+      <TB active={align==='justify'} onClick={() => cmd('justifyFull')}    title="Justify">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="0" y="4" width="12" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="0" y="10" width="9" height="1.5" rx="0.75"/></svg>
+      </TB>
+
+      {sep}
+
+      {/* Lists */}
+      <TB active={false} onClick={() => cmd('insertUnorderedList')} title="Bullet list">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><circle cx="1.5" cy="2.5" r="1.2"/><rect x="4" y="1.8" width="8" height="1.4" rx="0.7"/><circle cx="1.5" cy="6" r="1.2"/><rect x="4" y="5.3" width="8" height="1.4" rx="0.7"/><circle cx="1.5" cy="9.5" r="1.2"/><rect x="4" y="8.8" width="8" height="1.4" rx="0.7"/></svg>
+      </TB>
+      <TB active={false} onClick={() => cmd('insertOrderedList')} title="Numbered list">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><text x="0" y="4" style={{fontSize:'4px',fontWeight:'bold'}}>1.</text><rect x="4" y="1.8" width="8" height="1.4" rx="0.7"/><text x="0" y="7.5" style={{fontSize:'4px',fontWeight:'bold'}}>2.</text><rect x="4" y="5.3" width="8" height="1.4" rx="0.7"/><text x="0" y="11" style={{fontSize:'4px',fontWeight:'bold'}}>3.</text><rect x="4" y="8.8" width="8" height="1.4" rx="0.7"/></svg>
+      </TB>
+
+      {sep}
+
+      {/* Indent */}
+      <TB active={false} onClick={() => cmd('indent')}   title="Indent"><svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.4" rx="0.7"/><rect x="3" y="4" width="9" height="1.4" rx="0.7"/><rect x="3" y="7" width="9" height="1.4" rx="0.7"/><rect x="0" y="10" width="12" height="1.4" rx="0.7"/><path d="M0 4.5 L2.5 6 L0 7.5Z"/></svg></TB>
+      <TB active={false} onClick={() => cmd('outdent')}  title="Outdent"><svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.4" rx="0.7"/><rect x="3" y="4" width="9" height="1.4" rx="0.7"/><rect x="3" y="7" width="9" height="1.4" rx="0.7"/><rect x="0" y="10" width="12" height="1.4" rx="0.7"/><path d="M2.5 4.5 L0 6 L2.5 7.5Z"/></svg></TB>
+
+      {sep}
+
+      {/* Table insert */}
+      <button
+        onMouseDown={e => { e.preventDefault(); insertTable(3, 3); }}
+        title="Insert table (3×3)"
+        className="flex items-center gap-1 px-2 h-[26px] rounded text-[11px] font-semibold transition-all"
+        style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-2)', flexShrink: 0 }}>
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
+          <rect x="0" y="0" width="12" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2"/>
+          <line x1="4" y1="0" x2="4" y2="12" stroke="currentColor" strokeWidth="1"/>
+          <line x1="8" y1="0" x2="8" y2="12" stroke="currentColor" strokeWidth="1"/>
+          <line x1="0" y1="4" x2="12" y2="4" stroke="currentColor" strokeWidth="1"/>
+          <line x1="0" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth="1"/>
+        </svg>
+        Table
+      </button>
+
+      {sep}
+
+      {/* Undo / Redo */}
+      <TB active={false} onClick={() => cmd('undo')} title="Undo (Ctrl+Z)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+      </TB>
+      <TB active={false} onClick={() => cmd('redo')} title="Redo (Ctrl+Y)">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+      </TB>
+
+      {sep}
+
+      {/* Clear formatting */}
+      <TB active={false} onClick={() => cmd('removeFormat')} title="Clear formatting" danger>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/><line x1="18" y1="18" x2="22" y2="22"/></svg>
+      </TB>
+    </div>
+  );
+}
+
+function BoardEditorModal({ board, onClose, onSave }) {
+  const editorRef  = React.useRef(null);
+  const [saving, setSaving] = React.useState(false);
+  const [title, setTitle]   = React.useState(board.title || 'Untitled Board');
+  const initialized = React.useRef(false);
+
+  // Load saved HTML into the editor on first mount
+  React.useEffect(() => {
+    if (editorRef.current && !initialized.current) {
+      initialized.current = true;
+      editorRef.current.innerHTML = board.html || '<p><br></p>';
+    }
+  }, [board.html]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const html = editorRef.current?.innerHTML || '';
+    await onSave({ html, title });
+    setSaving(false);
+  };
+
+  // Close on Escape
+  React.useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center"
+      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+
+      {/* Word-like document shell */}
+      <div className="flex flex-col rounded-2xl shadow-2xl overflow-hidden"
+        style={{ width: 'min(92vw, 960px)', height: '90vh', background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
+
+        {/* Title bar */}
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0"
+          style={{ borderColor: 'var(--fd-border)', background: 'var(--fd-surface)' }}>
+          <div className="flex-1 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f6ef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+            <input
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              className="flex-1 bg-transparent text-[14px] font-semibold outline-none border-none"
+              style={{ color: 'var(--fd-ink-1)', minWidth: 0 }}
+              placeholder="Document title"
+            />
+          </div>
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[13px] font-semibold transition-all"
+            style={{ background: '#4f6ef0', color: '#fff', opacity: saving ? 0.7 : 1, flexShrink: 0 }}>
+            {saving
+              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              : <Save size={13} />}
+            Save
+          </button>
+          <button onMouseDown={onClose}
+            className="p-1.5 rounded-xl transition-colors"
+            style={{ color: 'var(--fd-ink-3)' }}
+            onMouseEnter={e => e.currentTarget.style.background='var(--fd-surface-sunken)'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Toolbar */}
+        <RichToolbar editorRef={editorRef} />
+
+        {/* Page-like document area */}
+        <div className="flex-1 overflow-y-auto py-8 px-6"
+          style={{ background: '#f0f0f0' }}>
+          {/* The "paper" */}
+          <div
+            style={{
+              maxWidth: 760,
+              margin: '0 auto',
+              background: '#ffffff',
+              minHeight: 'calc(100% - 32px)',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 4px 24px rgba(0,0,0,0.08)',
+              borderRadius: 2,
+              padding: '48px 64px',
+              color: '#111',
+            }}>
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              spellCheck
+              className="outline-none"
+              style={{
+                minHeight: 480,
+                fontSize: 14,
+                lineHeight: 1.8,
+                color: '#111',
+                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+                caretColor: '#4f6ef0',
+              }}
+              onInput={() => {/* content tracked via innerHTML on save */}}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Rich text styles scoped to editor */}
+      <style>{`
+        [contenteditable] h1 { font-size: 2em; font-weight: 700; margin: 0.67em 0; line-height: 1.2; }
+        [contenteditable] h2 { font-size: 1.5em; font-weight: 700; margin: 0.75em 0; line-height: 1.3; }
+        [contenteditable] h3 { font-size: 1.17em; font-weight: 700; margin: 0.83em 0; }
+        [contenteditable] h4 { font-size: 1em; font-weight: 700; margin: 1em 0; }
+        [contenteditable] p  { margin: 0.5em 0; }
+        [contenteditable] ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+        [contenteditable] ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+        [contenteditable] li { margin: 0.25em 0; }
+        [contenteditable] pre { font-family: ui-monospace, monospace; background: #f3f4f6; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
+        [contenteditable] blockquote { border-left: 3px solid #c7d2fe; margin: 8px 0; padding-left: 14px; color: #6b7280; font-style: italic; }
+        [contenteditable] table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+        [contenteditable] th { border: 1px solid #d1d5db; padding: 7px 10px; background: #f9fafb; font-weight: 700; font-size: 13px; text-align: left; }
+        [contenteditable] td { border: 1px solid #d1d5db; padding: 7px 10px; font-size: 13px; }
+        [contenteditable] td:focus, [contenteditable] th:focus { outline: 2px solid #4f6ef0; outline-offset: -2px; }
+        [contenteditable]:empty:before { content: 'Start typing your document…'; color: #9ca3af; pointer-events: none; }
+      `}</style>
+    </div>
+  );
+}
+
+// ── Simple HTML sanitizer (no dependencies) ──────────────────────────────────
+function sanitizeHtml(dirty) {
+  if (!dirty) return '';
+  // Remove scripts and dangerous attributes
+  const clean = dirty
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/ on\w+="[^"]*"/g, '')
+    .replace(/ on\w+='[^']*'/g, '');
+  return clean;
+}
+
+// ── NEW Draggable Boards Section ─────────────────────────────────────────────
+function ClientBoardsSection({ clientId }) {
+  const [boards, setBoards] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [openBoard, setOpenBoard] = React.useState(null);
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [newName, setNewName] = React.useState('');
+  const dragIndex = React.useRef(null);
+  const toast = useToast ? useToast() : null;
+  const storageKey = `fd-boards-v2-${clientId}`;
+
+  React.useEffect(() => {
+    try { setBoards(JSON.parse(localStorage.getItem(storageKey) || '[]')); } catch { setBoards([]); }
+    setLoading(false);
+  }, [storageKey]);
+
+  const persist = (b) => {
+    setBoards(b);
+    try { localStorage.setItem(storageKey, JSON.stringify(b)); } catch {}
+  };
+
+  const createBoard = () => {
+    const name = newName.trim() || 'Untitled Document';
+    const nb = { id: `bd-${Date.now()}`, title: name, html: '', updatedAt: new Date().toISOString() };
+    const next = [...boards, nb];
+    persist(next);
+    setNewName(''); setShowCreate(false);
+    setOpenBoard(nb);
+  };
+
+  const saveBoard = ({ html, title }) => {
+    const next = boards.map(b => b.id === openBoard?.id
+      ? { ...b, html, title, updatedAt: new Date().toISOString() } : b);
+    persist(next);
+    setOpenBoard(prev => prev ? { ...prev, html, title } : null);
+    if (toast) toast({ type: 'success', title: 'Saved' });
+  };
+
+  const deleteBoard = (e, id) => {
+    e.stopPropagation();
+    const next = boards.filter(b => b.id !== id);
+    persist(next);
+    if (openBoard?.id === id) setOpenBoard(null);
+  };
+
+  const handleDragStart = (e, index) => {
+    dragIndex.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, toIndex) => {
+    e.preventDefault();
+    const fromIndex = dragIndex.current;
+    if (fromIndex == null || fromIndex === toIndex) return;
+    const reordered = [...boards];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    persist(reordered);
+    dragIndex.current = null;
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-sm" style={{ color: 'var(--fd-ink-1)' }}>📄 Documents</h3>
+        <Button size="xs" variant="secondary" onClick={() => setShowCreate(v => !v)}>
+          <Plus size={12} />{showCreate ? 'Cancel' : 'New Document'}
+        </Button>
+      </div>
+
+      {showCreate && (
+        <div className="flex gap-2">
+          <input
+            autoFocus
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') createBoard(); if (e.key === 'Escape') setShowCreate(false); }}
+            placeholder="Document name…"
+            className="fd-input flex-1 text-[13px]"
+          />
+          <button onClick={createBoard} className="px-3 py-1.5 rounded-xl text-[12px] font-semibold"
+            style={{ background: '#4f6ef0', color: '#fff' }}>
+            Create
+          </button>
+        </div>
+      )}
+
+      {boards.length === 0 && !showCreate ? (
+        <div className="text-center py-10 rounded-2xl" style={{ background: 'var(--fd-surface)', border: '1px dashed var(--fd-border-strong)' }}>
+          <div className="text-3xl mb-2">📄</div>
+          <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>No documents yet</div>
+          <div className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>Create a document to add rich text notes, tables and more</div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {boards.map((board, index) => (
+            <div
+              key={board.id}
+              onClick={() => setOpenBoard(board)}
+              className="group relative rounded-xl border overflow-hidden transition-shadow hover:shadow-md cursor-pointer"
+              style={{ background: '#ffffff', borderColor: 'var(--fd-border)' }}
+            >
+              {/* Drag handle */}
+              <div
+                draggable="true"
+                onDragStart={e => handleDragStart(e, index)}
+                onDragOver={handleDragOver}
+                onDrop={e => handleDrop(e, index)}
+                className="absolute top-2 left-2 p-1 rounded cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                style={{ background: 'rgba(0,0,0,0.05)' }}
+                title="Drag to reorder"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ color: 'var(--fd-ink-3)' }}>
+                  <circle cx="5" cy="5" r="2"/><circle cx="12" cy="5" r="2"/><circle cx="19" cy="5" r="2"/>
+                  <circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>
+                  <circle cx="5" cy="19" r="2"/><circle cx="12" cy="19" r="2"/><circle cx="19" cy="19" r="2"/>
+                </svg>
+              </div>
+
+              <button
+                onClick={e => deleteBoard(e, board.id)}
+                className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                style={{ background: '#fee2e2', color: '#ef4444' }}
+                title="Delete document"
+              >
+                <Trash2 size={12} />
+              </button>
+
+              <div className="p-4 pt-8">
+                <div className="font-semibold text-[14px] mb-2 truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                  {board.title}
+                </div>
+                <div
+                  className="text-[13px] leading-relaxed prose-like"
+                  style={{ color: '#111', overflow: 'visible' }}
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(board.html) || '<p style="color:#9ca3af;font-style:italic;">Empty document</p>'
+                  }}
+                />
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-[11px]" style={{ color: 'var(--fd-ink-5)' }}>
+                    {board.updatedAt ? new Date(board.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#f3f4f6', color: '#6b7280' }}>
+                    {board.html?.length > 100 ? `${Math.ceil(board.html.length / 500)} sections` : 'Short doc'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {openBoard && (
+        <BoardEditorModal
+          board={openBoard}
+          onClose={() => setOpenBoard(null)}
+          onSave={saveBoard}
+        />
+      )}
+
+      <style>{`
+        .prose-like h1 { font-size: 1.5em; font-weight: 700; margin: 0.5em 0; }
+        .prose-like h2 { font-size: 1.2em; font-weight: 700; margin: 0.4em 0; }
+        .prose-like h3 { font-size: 1.1em; font-weight: 600; margin: 0.3em 0; }
+        .prose-like p  { margin: 0.3em 0; }
+        .prose-like ul { padding-left: 1.2em; margin: 0.3em 0; }
+        .prose-like ol { padding-left: 1.2em; margin: 0.3em 0; }
+        .prose-like table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
+        .prose-like th { border: 1px solid #d1d5db; padding: 4px 6px; background: #f9fafb; font-size: 12px; }
+        .prose-like td { border: 1px solid #d1d5db; padding: 4px 6px; font-size: 12px; }
+      `}</style>
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams();
   const { user } = useAuthStore();
@@ -988,10 +1543,9 @@ export default function ClientDetailPage() {
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
-  // Global month filter for tasks / updates / reports tabs
   const nowGlobal = new Date();
   const defaultFilterMonth = `${nowGlobal.getFullYear()}-${String(nowGlobal.getMonth() + 1).padStart(2, '0')}`;
-  const [filterMonth, setFilterMonth] = useState('all'); // 'all' or 'YYYY-MM'
+  const [filterMonth, setFilterMonth] = useState('all');
 
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -1176,7 +1730,6 @@ export default function ClientDetailPage() {
     { id: 'updates',   label: `Updates (${updates.length})` },
     { id: 'reports',   label: `Reports (${reports.length})` },
     { id: 'files',     label: `Files (${files.length})` },
-    { id: 'targets',   label: '🎯 Targets' },
     { id: 'gmb',       label: 'GMB Panel' },
   ];
 
@@ -1188,20 +1741,16 @@ export default function ClientDetailPage() {
           <ArrowLeft size={18} />
         </Link>
         <div className="flex-1 min-w-0">
-          {/* Top row: avatar + name + status badges */}
           <div className="flex items-start gap-3 flex-wrap">
-            {/* Company logo */}
             {isManager ? (
               <div className="relative flex-shrink-0 group">
                 <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
-                {/* Avatar — click to change */}
                 <div
                   className="relative cursor-pointer"
                   onClick={() => logoInputRef.current?.click()}
                   title="Upload company logo"
                 >
                   <Avatar name={client.company} src={client.logo} size="md" className="flex-shrink-0" />
-                  {/* Camera overlay on hover */}
                   <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
                     {uploadingLogo ? (
                       <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none">
@@ -1214,7 +1763,6 @@ export default function ClientDetailPage() {
                     )}
                   </div>
                 </div>
-                {/* Small ✕ remove badge — only when logo exists */}
                 {client.logo && (
                   <button
                     type="button"
@@ -1241,7 +1789,6 @@ export default function ClientDetailPage() {
               <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${PLAN_COLORS[client.plan]}`}>{PLAN_LABELS[client.plan]}</span>
             </div>
           </div>
-          {/* Action buttons row */}
           <div className="flex flex-wrap gap-2 mt-3">
             <Link to={`/admin/messages/${id}`}>
               <Button variant="outline" size="sm"><MessageSquare size={14} />Chat</Button>
@@ -1274,138 +1821,145 @@ export default function ClientDetailPage() {
 
       {/* OVERVIEW */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-          <div className="lg:col-span-2 space-y-5">
-            <Card>
-              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Client Information</h3></CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Mail size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.email}</span></div>
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{client.phone || '—'}</div>
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Globe size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.website || '—'}</span></div>
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />Started {formatDate(client.startDate)}</div>
-                  {user?.role === 'admin' && (
-                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><IndianRupee size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
-                  )}
-                </div>
-                {client.services?.length > 0 && (
-                  <div className="mt-4">
-                    <div className="text-xs font-medium text-[var(--fd-ink-3)] mb-2 uppercase tracking-wide">Services</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {client.services.map(s => <span key={s} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">{SERVICE_LABELS[s] || s}</span>)}
-                    </div>
-                  </div>
-                )}
-                {client.notes && <div className="mt-4 p-3 bg-[var(--fd-surface-raised)] rounded-lg text-sm text-[var(--fd-ink-2)]">{client.notes}</div>}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Updates</h3>
-                  <Button size="xs" variant="secondary" onClick={() => setShowUpdateModal(true)}><Plus size={12} />Add Update</Button>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {!overview?.recentUpdates?.length ? (
-                  <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No updates yet</p>
-                ) : overview.recentUpdates.map(u => (
-                  <div key={u._id} className="flex gap-3">
-                    <Avatar name={u.author?.name} size="sm" className="flex-shrink-0 mt-0.5" />
-                    <div>
-                      <div className="text-sm font-medium text-[var(--fd-ink-1)]">{u.title}</div>
-                      <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-4">
-            <Card>
-              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Account Manager</h3></CardHeader>
-              <CardContent>
-                {client.accountManager ? (
-                  <div className="flex items-center gap-3">
-                    <Avatar name={client.accountManager.name} size="md" />
-                    <div>
-                      <div className="font-medium text-[var(--fd-ink-1)] text-sm">{client.accountManager.name}</div>
-                      <div className="text-xs text-[var(--fd-ink-3)]">{client.accountManager.jobTitle}</div>
-                      <div className="text-xs text-[var(--fd-ink-4)]">{client.accountManager.email}</div>
-                    </div>
-                  </div>
-                ) : <p className="text-[var(--fd-ink-4)] text-sm">Not assigned</p>}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Team</h3>
-                  {isManager && <button onClick={() => setActiveTab('team')} className="text-xs text-brand-600 hover:underline">Manage</button>}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {!client.teamMembers?.length ? (
-                  <p className="text-[var(--fd-ink-4)] text-sm">No team members assigned</p>
-                ) : (
-                  <div className="space-y-2">
-                    {client.teamMembers.map(m => (
-                      <div key={m._id} className="flex items-center gap-2">
-                        <Avatar name={m.name} size="sm" />
-                        <div className="min-w-0">
-                          <div className="text-xs font-medium text-[var(--fd-ink-2)] truncate">{m.name}</div>
-                          <div className="text-xs text-[var(--fd-ink-4)]">{ROLE_LABELS[m.role] || m.role}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Task Overview</h3>
-                  {isManager && <Button size="xs" variant="secondary" onClick={() => setShowTaskModal(true)}><Plus size={12} />Task</Button>}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {overview?.taskStats?.map(ts => (
-                  <div key={ts._id} className="flex items-center justify-between">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(ts._id)}`}>{ts._id?.replace('_', ' ')}</span>
-                    <span className="font-bold text-[var(--fd-ink-2)]">{ts.count}</span>
-                  </div>
-                ))}
-                {!overview?.taskStats?.length && <p className="text-[var(--fd-ink-4)] text-sm text-center py-2">No tasks yet</p>}
-              </CardContent>
-            </Card>
-
-            {overview?.latestReport && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 space-y-5">
               <Card>
-                <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Latest Report</h3></CardHeader>
+                <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Client Information</h3></CardHeader>
                 <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div className="font-medium text-[var(--fd-ink-2)]">{overview.latestReport.title}</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 text-center">
-                        <div className="text-xs text-[var(--fd-ink-3)]">ROAS</div>
-                        <div className="font-bold text-emerald-700 dark:text-emerald-400">{overview.latestReport.metrics?.roas?.toFixed(1)}x</div>
-                      </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 text-center">
-                        <div className="text-xs text-[var(--fd-ink-3)]">Leads</div>
-                        <div className="font-bold text-blue-700 dark:text-blue-400">{overview.latestReport.metrics?.leads}</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Mail size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.email}</span></div>
+                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{client.phone || '—'}</div>
+                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Globe size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.website || '—'}</span></div>
+                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />Started {formatDate(client.startDate)}</div>
+                    {user?.role === 'admin' && (
+                      <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><IndianRupee size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
+                    )}
+                  </div>
+                  {client.services?.length > 0 && (
+                    <div className="mt-4">
+                      <div className="text-xs font-medium text-[var(--fd-ink-3)] mb-2 uppercase tracking-wide">Services</div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {client.services.map(s => <span key={s} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">{SERVICE_LABELS[s] || s}</span>)}
                       </div>
                     </div>
-                  </div>
+                  )}
+                  {client.notes && <div className="mt-4 p-3 bg-[var(--fd-surface-raised)] rounded-lg text-sm text-[var(--fd-ink-2)]">{client.notes}</div>}
                 </CardContent>
               </Card>
-            )}
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Updates</h3>
+                    <Button size="xs" variant="secondary" onClick={() => setShowUpdateModal(true)}><Plus size={12} />Add Update</Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {!overview?.recentUpdates?.length ? (
+                    <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No updates yet</p>
+                  ) : overview.recentUpdates.map(u => (
+                    <div key={u._id} className="flex gap-3">
+                      <Avatar name={u.author?.name} size="sm" className="flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="text-sm font-medium text-[var(--fd-ink-1)]">{u.title}</div>
+                        <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{u.author?.name} · {timeAgo(u.createdAt)}</div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="space-y-4">
+              <Card>
+                <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Account Manager</h3></CardHeader>
+                <CardContent>
+                  {client.accountManager ? (
+                    <div className="flex items-center gap-3">
+                      <Avatar name={client.accountManager.name} size="md" />
+                      <div>
+                        <div className="font-medium text-[var(--fd-ink-1)] text-sm">{client.accountManager.name}</div>
+                        <div className="text-xs text-[var(--fd-ink-3)]">{client.accountManager.jobTitle}</div>
+                        <div className="text-xs text-[var(--fd-ink-4)]">{client.accountManager.email}</div>
+                      </div>
+                    </div>
+                  ) : <p className="text-[var(--fd-ink-4)] text-sm">Not assigned</p>}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Team</h3>
+                    {isManager && <button onClick={() => setActiveTab('team')} className="text-xs text-brand-600 hover:underline">Manage</button>}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {!client.teamMembers?.length ? (
+                    <p className="text-[var(--fd-ink-4)] text-sm">No team members assigned</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {client.teamMembers.map(m => (
+                        <div key={m._id} className="flex items-center gap-2">
+                          <Avatar name={m.name} size="sm" />
+                          <div className="min-w-0">
+                            <div className="text-xs font-medium text-[var(--fd-ink-2)] truncate">{m.name}</div>
+                            <div className="text-xs text-[var(--fd-ink-4)]">{ROLE_LABELS[m.role] || m.role}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Task Overview</h3>
+                    {isManager && <Button size="xs" variant="secondary" onClick={() => setShowTaskModal(true)}><Plus size={12} />Task</Button>}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {overview?.taskStats?.map(ts => (
+                    <div key={ts._id} className="flex items-center justify-between">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(ts._id)}`}>{ts._id?.replace('_', ' ')}</span>
+                      <span className="font-bold text-[var(--fd-ink-2)]">{ts.count}</span>
+                    </div>
+                  ))}
+                  {!overview?.taskStats?.length && <p className="text-[var(--fd-ink-4)] text-sm text-center py-2">No tasks yet</p>}
+                </CardContent>
+              </Card>
+
+              {overview?.latestReport && (
+                <Card>
+                  <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Latest Report</h3></CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm">
+                      <div className="font-medium text-[var(--fd-ink-2)]">{overview.latestReport.title}</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2 text-center">
+                          <div className="text-xs text-[var(--fd-ink-3)]">ROAS</div>
+                          <div className="font-bold text-emerald-700 dark:text-emerald-400">{overview.latestReport.metrics?.roas?.toFixed(1)}x</div>
+                        </div>
+                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 text-center">
+                          <div className="text-xs text-[var(--fd-ink-3)]">Leads</div>
+                          <div className="font-bold text-blue-700 dark:text-blue-400">{overview.latestReport.metrics?.leads}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* BOARDS SECTION – full width at bottom of overview */}
+          <div className="mt-6">
+            <ClientBoardsSection clientId={id} />
+          </div>
+        </>
       )}
 
       {/* TASKS */}
@@ -1528,7 +2082,6 @@ export default function ClientDetailPage() {
 
         return (
           <div className="space-y-5">
-            {/* Days filter */}
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h3 className="font-semibold text-[var(--fd-ink-1)]">Social Media Analytics</h3>
               <div className="flex gap-1">
@@ -1540,8 +2093,6 @@ export default function ClientDetailPage() {
                 ))}
               </div>
             </div>
-
-            {/* Connected Accounts */}
             <Card>
               <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Connected Accounts</h3></CardHeader>
               <CardContent>
@@ -1565,8 +2116,6 @@ export default function ClientDetailPage() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Analytics Summary */}
             {totals.totalPosts > 0 ? (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1587,8 +2136,6 @@ export default function ClientDetailPage() {
                     </Card>
                   ))}
                 </div>
-
-                {/* By Platform — scrollable on mobile */}
                 {byPlatform.length > 0 && (
                   <Card>
                     <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Performance by Platform</h3></CardHeader>
@@ -1629,8 +2176,6 @@ export default function ClientDetailPage() {
                     </CardContent>
                   </Card>
                 )}
-
-                {/* Top Performing Posts */}
                 {topPosts.length > 0 && (
                   <Card>
                     <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Top Performing Posts</h3></CardHeader>
@@ -1676,8 +2221,6 @@ export default function ClientDetailPage() {
                 </CardContent>
               </Card>
             )}
-
-            {/* Recent Posts List */}
             {socialPosts.length > 0 && (
               <Card>
                 <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Posts</h3></CardHeader>
@@ -1802,7 +2345,6 @@ export default function ClientDetailPage() {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between flex-wrap gap-2">
@@ -1844,7 +2386,6 @@ export default function ClientDetailPage() {
               )}
             </CardContent>
           </Card>
-
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30 rounded-xl p-4 text-sm text-amber-700 dark:text-amber-300">
             <strong>Access Note:</strong> Assigned team members will only see this client's tasks, social posts, and files. Removing a member immediately revokes their access.
           </div>
@@ -1860,11 +2401,6 @@ export default function ClientDetailPage() {
           month={calendarMonth}
           setMonth={setCalendarMonth}
         />
-      )}
-
-      {/* TARGETS TAB */}
-      {activeTab === 'targets' && (
-        <ClientTargetsTab clientId={id} isAdmin={isAdmin} />
       )}
 
       {/* GMB PANEL TAB */}

@@ -6,6 +6,7 @@ import {
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
   ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
+  Target, Settings, Save, ChevronDown, Filter,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -525,10 +526,450 @@ function GmbPanelTab({ clientId, client }) {
   );
 }
 
+// ── TARGETS FIELD SCHEMA ─────────────────────────────────────────────────────
+const TARGET_SECTIONS = [
+  {
+    id: 'instagram', label: '📸 Instagram', color: '#e1306c', bg: '#fff0f6',
+    fields: [
+      { key: 'instagramFollowers',   label: 'Followers',    unit: '' },
+      { key: 'instagramReach',       label: 'Reach',        unit: '' },
+      { key: 'instagramImpressions', label: 'Impressions',  unit: '' },
+      { key: 'instagramEngagements', label: 'Engagements',  unit: '' },
+      { key: 'instagramPosts',       label: 'Posts',        unit: '' },
+      { key: 'instagramReels',       label: 'Reels',        unit: '' },
+    ],
+  },
+  {
+    id: 'facebook', label: '👤 Facebook', color: '#1877f2', bg: '#eff6ff',
+    fields: [
+      { key: 'facebookFollowers',    label: 'Followers',    unit: '' },
+      { key: 'facebookReach',        label: 'Reach',        unit: '' },
+      { key: 'facebookImpressions',  label: 'Impressions',  unit: '' },
+      { key: 'facebookEngagements',  label: 'Engagements',  unit: '' },
+      { key: 'facebookPosts',        label: 'Posts',        unit: '' },
+    ],
+  },
+  {
+    id: 'linkedin', label: '💼 LinkedIn', color: '#0a66c2', bg: '#eff6ff',
+    fields: [
+      { key: 'linkedinFollowers',    label: 'Followers',    unit: '' },
+      { key: 'linkedinImpressions',  label: 'Impressions',  unit: '' },
+      { key: 'linkedinEngagements',  label: 'Engagements',  unit: '' },
+    ],
+  },
+  {
+    id: 'youtube', label: '▶️ YouTube', color: '#ff0000', bg: '#fff5f5',
+    fields: [
+      { key: 'youtubeSubscribers',   label: 'Subscribers',  unit: '' },
+      { key: 'youtubeViews',         label: 'Views',        unit: '' },
+      { key: 'youtubeVideos',        label: 'Videos',       unit: '' },
+    ],
+  },
+  {
+    id: 'tiktok', label: '🎵 TikTok', color: '#010101', bg: '#f8f8f8',
+    fields: [
+      { key: 'tiktokFollowers',      label: 'Followers',    unit: '' },
+      { key: 'tiktokViews',          label: 'Views',        unit: '' },
+      { key: 'tiktokVideos',         label: 'Videos',       unit: '' },
+    ],
+  },
+  {
+    id: 'ads', label: '📊 Paid Ads', color: '#7c3aed', bg: '#faf5ff',
+    fields: [
+      { key: 'adSpend',              label: 'Ad Spend',     unit: '₹' },
+      { key: 'adRevenue',            label: 'Revenue',      unit: '₹' },
+      { key: 'roas',                 label: 'ROAS',         unit: 'x' },
+      { key: 'cpc',                  label: 'CPC',          unit: '₹' },
+      { key: 'ctr',                  label: 'CTR',          unit: '%' },
+      { key: 'impressions',          label: 'Impressions',  unit: '' },
+      { key: 'clicks',               label: 'Clicks',       unit: '' },
+    ],
+  },
+  {
+    id: 'leads', label: '🎯 Lead Generation', color: '#059669', bg: '#f0fdf4',
+    fields: [
+      { key: 'totalLeads',           label: 'Total Leads',       unit: '' },
+      { key: 'qualifiedLeads',       label: 'Qualified Leads',   unit: '' },
+      { key: 'costPerLead',          label: 'Cost Per Lead',     unit: '₹' },
+      { key: 'conversionRate',       label: 'Conversion Rate',   unit: '%' },
+    ],
+  },
+  {
+    id: 'seo', label: '🔍 SEO / Website', color: '#d97706', bg: '#fffbeb',
+    fields: [
+      { key: 'organicTraffic',       label: 'Organic Traffic',   unit: '' },
+      { key: 'websiteSessions',      label: 'Website Sessions',  unit: '' },
+      { key: 'keywordRankings',      label: 'Keyword Rankings',  unit: '' },
+      { key: 'backlinks',            label: 'Backlinks',         unit: '' },
+    ],
+  },
+  {
+    id: 'gmb', label: '🗺️ GMB', color: '#16a34a', bg: '#f0fdf4',
+    fields: [
+      { key: 'gmbViews',             label: 'Views',             unit: '' },
+      { key: 'gmbClicks',            label: 'Clicks',            unit: '' },
+      { key: 'gmbCalls',             label: 'Calls',             unit: '' },
+      { key: 'gmbReviews',           label: 'Reviews',           unit: '' },
+    ],
+  },
+  {
+    id: 'content', label: '✍️ Content & Email', color: '#0891b2', bg: '#ecfeff',
+    fields: [
+      { key: 'blogPosts',            label: 'Blog Posts',        unit: '' },
+      { key: 'emailsSent',           label: 'Emails Sent',       unit: '' },
+      { key: 'emailOpenRate',        label: 'Email Open Rate',   unit: '%' },
+    ],
+  },
+];
+
+const ALL_FIELD_KEYS = TARGET_SECTIONS.flatMap(s => s.fields.map(f => f.key));
+
+// ── MonthPicker ───────────────────────────────────────────────────────────────
+function MonthPicker({ value, onChange, label }) {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+  const parsed = value ? new Date(value + '-01') : new Date();
+  const [navYear, setNavYear] = React.useState(parsed.getFullYear());
+
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const select = (m) => {
+    const mm = String(m + 1).padStart(2, '0');
+    onChange(`${navYear}-${mm}`);
+    setOpen(false);
+  };
+
+  const selectedYear = value ? parseInt(value.split('-')[0]) : null;
+  const selectedMonth = value ? parseInt(value.split('-')[1]) - 1 : null;
+
+  const displayLabel = value
+    ? new Date(value + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
+    : label || 'Select Month';
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] font-medium transition-colors"
+        style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border-strong)', color: 'var(--fd-ink-1)' }}
+      >
+        <Calendar size={14} style={{ color: 'var(--fd-ink-3)' }} />
+        {displayLabel}
+        <ChevronDown size={12} style={{ color: 'var(--fd-ink-4)', transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
+
+      {open && (
+        <div className="absolute z-50 top-full mt-2 rounded-2xl shadow-xl overflow-hidden"
+          style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', minWidth: 240 }}>
+          <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: '1px solid var(--fd-border-subtle)' }}>
+            <button onClick={() => setNavYear(y => y - 1)} className="p-1 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" style={{ color: 'var(--fd-ink-3)' }}>
+              <ChevronLeft size={14} />
+            </button>
+            <span className="font-bold text-[13px]" style={{ color: 'var(--fd-ink-1)' }}>{navYear}</span>
+            <button onClick={() => setNavYear(y => y + 1)} className="p-1 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" style={{ color: 'var(--fd-ink-3)' }}>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+          <div className="grid grid-cols-3 gap-1 p-3">
+            {MONTHS.map((m, i) => {
+              const isSelected = navYear === selectedYear && i === selectedMonth;
+              const now = new Date();
+              const isCurrent = navYear === now.getFullYear() && i === now.getMonth();
+              return (
+                <button key={m} onClick={() => select(i)}
+                  className="py-2 rounded-xl text-[12px] font-semibold transition-all"
+                  style={isSelected
+                    ? { background: '#4f6ef0', color: '#fff' }
+                    : isCurrent
+                    ? { background: 'var(--fd-surface-sunken)', color: '#4f6ef0', border: '1px solid #c7d2fe' }
+                    : { color: 'var(--fd-ink-2)', background: 'transparent' }
+                  }>
+                  {m}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── ClientTargetsTab ──────────────────────────────────────────────────────────
+function ClientTargetsTab({ clientId, isAdmin }) {
+  const toast = useToast ? useToast() : null;
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  const [month, setMonth] = React.useState(currentMonth);
+  const [target, setTarget] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const [editing, setEditing] = React.useState(false);
+  const [form, setForm] = React.useState({});
+  const [saving, setSaving] = React.useState(false);
+  const [showFieldConfig, setShowFieldConfig] = React.useState(false);
+  const [visibleFields, setVisibleFields] = React.useState([]);
+
+  const fetchTarget = React.useCallback(async (m) => {
+    setLoading(true);
+    try {
+      const { data } = await api.get(`/targets?client=${clientId}&month=${m}`);
+      setTarget(data.target);
+      setForm(data.target);
+      setVisibleFields(data.target.visibleFields && data.target.visibleFields.length ? data.target.visibleFields : ALL_FIELD_KEYS);
+    } catch {
+      setTarget({ client: clientId, month: m, visibleFields: [], customFields: [] });
+      setVisibleFields(ALL_FIELD_KEYS);
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId]);
+
+  React.useEffect(() => { fetchTarget(month); }, [month, fetchTarget]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload = { ...form, client: clientId, month, visibleFields };
+      const { data } = await api.put('/targets', payload);
+      setTarget(data.target);
+      setForm(data.target);
+      setEditing(false);
+      if (toast) toast({ type: 'success', title: 'Targets saved!' });
+    } catch {
+      if (toast) toast({ type: 'error', title: 'Failed to save targets' });
+    } finally { setSaving(false); }
+  };
+
+  const handleCancel = () => {
+    setForm(target);
+    setVisibleFields(target && target.visibleFields && target.visibleFields.length ? target.visibleFields : ALL_FIELD_KEYS);
+    setEditing(false);
+    setShowFieldConfig(false);
+  };
+
+  const toggleField = (key) => {
+    setVisibleFields(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const toggleSection = (sectionFields) => {
+    const keys = sectionFields.map(f => f.key);
+    const allVisible = keys.every(k => visibleFields.includes(k));
+    if (allVisible) {
+      setVisibleFields(prev => prev.filter(k => !keys.includes(k)));
+    } else {
+      setVisibleFields(prev => [...new Set([...prev, ...keys])]);
+    }
+  };
+
+  const fv = (key) => form[key] != null ? form[key] : (target && target[key] != null ? target[key] : '');
+  const sv = (key, val) => setForm(p => ({ ...p, [key]: val === '' ? null : Number(val) }));
+
+  const formatVal = (val, unit) => {
+    if (val === null || val === undefined || val === '') return '—';
+    const n = Number(val);
+    if (isNaN(n)) return '—';
+    const formatted = n >= 1000000
+      ? (n / 1000000).toFixed(1) + 'M'
+      : n >= 1000
+      ? (n / 1000).toFixed(1) + 'K'
+      : n.toLocaleString();
+    return unit === '₹' ? `₹${formatted}` : unit === '%' ? `${n}%` : unit === 'x' ? `${n}x` : formatted;
+  };
+
+  const displayedSections = TARGET_SECTIONS.map(s => ({
+    ...s,
+    fields: s.fields.filter(f => visibleFields.includes(f.key)),
+  })).filter(s => s.fields.length > 0);
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-[#4f6ef0] border-t-transparent animate-spin" />
+        <span className="text-[13px]" style={{ color: 'var(--fd-ink-4)' }}>Loading targets…</span>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <MonthPicker value={month} onChange={setMonth} label="Select Month" />
+          <div className="text-[12px] px-3 py-1.5 rounded-xl font-medium"
+            style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>
+            {target && target._id ? 'Targets set ✓' : 'No targets yet'}
+          </div>
+        </div>
+
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            {editing ? (
+              <>
+                <button onClick={() => setShowFieldConfig(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold transition-colors"
+                  style={{ background: showFieldConfig ? '#4f6ef0' : 'var(--fd-surface)', color: showFieldConfig ? '#fff' : 'var(--fd-ink-2)', border: '1px solid var(--fd-border-strong)' }}>
+                  <Settings size={13} /> Configure Fields
+                </button>
+                <button onClick={handleCancel}
+                  className="px-3 py-2 rounded-xl text-[12px] font-semibold transition-colors"
+                  style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-2)', border: '1px solid var(--fd-border-strong)' }}>
+                  Cancel
+                </button>
+                <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold transition-colors"
+                  style={{ background: '#4f6ef0', color: '#fff', opacity: saving ? 0.7 : 1 }}>
+                  {saving ? <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <Save size={13} />}
+                  Save Targets
+                </button>
+              </>
+            ) : (
+              <button onClick={() => setEditing(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[12px] font-semibold transition-colors"
+                style={{ background: '#4f6ef0', color: '#fff' }}>
+                <Edit3 size={13} /> Set Targets
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Field config panel */}
+      {isAdmin && editing && showFieldConfig && (
+        <div className="rounded-2xl p-4 space-y-4" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-[13px]" style={{ color: 'var(--fd-ink-1)' }}>Configure Visible Fields</h3>
+            <div className="flex gap-2">
+              <button onClick={() => setVisibleFields(ALL_FIELD_KEYS)} className="text-[11px] px-2.5 py-1 rounded-lg font-medium" style={{ background: '#dcfce7', color: '#15803d' }}>Show All</button>
+              <button onClick={() => setVisibleFields([])} className="text-[11px] px-2.5 py-1 rounded-lg font-medium" style={{ background: '#fee2e2', color: '#b91c1c' }}>Hide All</button>
+            </div>
+          </div>
+          <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>Choose which target metrics are shown for this client.</p>
+          <div className="space-y-3">
+            {TARGET_SECTIONS.map(section => {
+              const allChecked = section.fields.every(f => visibleFields.includes(f.key));
+              const someChecked = section.fields.some(f => visibleFields.includes(f.key));
+              return (
+                <div key={section.id} className="rounded-xl p-3 space-y-2" style={{ background: section.bg, border: `1px solid ${section.color}20` }}>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={allChecked}
+                      onChange={() => toggleSection(section.fields)}
+                      className="rounded" style={{ accentColor: section.color }} />
+                    <span className="font-bold text-[12px]" style={{ color: section.color }}>{section.label}</span>
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 ml-5">
+                    {section.fields.map(f => (
+                      <label key={f.key} className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="checkbox" checked={visibleFields.includes(f.key)}
+                          onChange={() => toggleField(f.key)}
+                          className="rounded" style={{ accentColor: section.color }} />
+                        <span className="text-[11px]" style={{ color: 'var(--fd-ink-2)' }}>{f.label}{f.unit ? ` (${f.unit})` : ''}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Targets display */}
+      {displayedSections.length === 0 ? (
+        <div className="text-center py-16 rounded-2xl" style={{ background: 'var(--fd-surface)', border: '1px dashed var(--fd-border-strong)' }}>
+          <Target size={36} className="mx-auto mb-3" style={{ color: 'var(--fd-border)' }} />
+          <p className="font-semibold text-[14px]" style={{ color: 'var(--fd-ink-3)' }}>No visible fields configured</p>
+          {isAdmin && <p className="text-[12px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>Click "Set Targets" → "Configure Fields" to enable metrics.</p>}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {displayedSections.map(section => (
+            <div key={section.id} className="rounded-2xl overflow-hidden"
+              style={{ border: `1px solid ${section.color}25`, background: 'var(--fd-surface)' }}>
+              <div className="px-4 py-3 flex items-center gap-2"
+                style={{ background: section.bg, borderBottom: `1px solid ${section.color}20` }}>
+                <span className="font-bold text-[13px]" style={{ color: section.color }}>{section.label}</span>
+                <span className="ml-auto text-[11px] font-medium px-2 py-0.5 rounded-full"
+                  style={{ background: `${section.color}15`, color: section.color }}>
+                  {section.fields.length} metric{section.fields.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4"
+                style={{ borderColor: `${section.color}12` }}>
+                {section.fields.map((f) => (
+                  <div key={f.key} className="p-3 sm:p-4 space-y-1"
+                    style={{ borderRight: '1px solid var(--fd-border-subtle)', borderBottom: '1px solid var(--fd-border-subtle)' }}>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ color: 'var(--fd-ink-4)' }}>{f.label}</div>
+                    {editing ? (
+                      <div className="flex items-center gap-1">
+                        {f.unit && f.unit !== '' && (
+                          <span className="text-[11px] font-medium flex-shrink-0" style={{ color: 'var(--fd-ink-4)' }}>{f.unit}</span>
+                        )}
+                        <input
+                          type="number"
+                          className="fd-input text-[14px] font-bold w-full"
+                          style={{ paddingTop: '4px', paddingBottom: '4px' }}
+                          value={fv(f.key)}
+                          onChange={e => sv(f.key, e.target.value)}
+                          placeholder="—"
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-[18px] sm:text-[20px] font-black tabular-nums"
+                        style={{ color: fv(f.key) !== '' ? section.color : 'var(--fd-ink-5)' }}>
+                        {formatVal(fv(f.key), f.unit)}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--fd-border)', background: 'var(--fd-surface)' }}>
+            <div className="px-4 py-3" style={{ background: 'var(--fd-surface-sunken)', borderBottom: '1px solid var(--fd-border-subtle)' }}>
+              <span className="font-bold text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>📝 Notes</span>
+            </div>
+            <div className="p-4">
+              {editing ? (
+                <textarea className="fd-input resize-none w-full text-[13px]" rows={3}
+                  value={form.notes || ''} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Add notes about targets for this month…" />
+              ) : (
+                <p className="text-[13px]" style={{ color: form.notes ? 'var(--fd-ink-2)' : 'var(--fd-ink-5)' }}>
+                  {form.notes || 'No notes for this month.'}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {target && target.updatedBy && (
+            <p className="text-[11px] text-right" style={{ color: 'var(--fd-ink-5)' }}>
+              Last updated by {target.updatedBy.name || 'Admin'} · {target.updatedAt ? new Date(target.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 export default function ClientDetailPage() {
   const { id } = useParams();
   const { user } = useAuthStore();
   const isManager = ['admin', 'manager'].includes(user?.role);
+  const isAdmin = user?.role === 'admin';
   const logoInputRef = useRef(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
@@ -546,6 +987,11 @@ export default function ClientDetailPage() {
   const [socialDays, setSocialDays] = useState(30);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
+
+  // Global month filter for tasks / updates / reports tabs
+  const nowGlobal = new Date();
+  const defaultFilterMonth = `${nowGlobal.getFullYear()}-${String(nowGlobal.getMonth() + 1).padStart(2, '0')}`;
+  const [filterMonth, setFilterMonth] = useState('all'); // 'all' or 'YYYY-MM'
 
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -730,6 +1176,7 @@ export default function ClientDetailPage() {
     { id: 'updates',   label: `Updates (${updates.length})` },
     { id: 'reports',   label: `Reports (${reports.length})` },
     { id: 'files',     label: `Files (${files.length})` },
+    { id: 'targets',   label: '🎯 Targets' },
     { id: 'gmb',       label: 'GMB Panel' },
   ];
 
@@ -962,16 +1409,33 @@ export default function ClientDetailPage() {
       )}
 
       {/* TASKS */}
-      {activeTab === 'tasks' && (
+      {activeTab === 'tasks' && (() => {
+        const filteredTasks = filterMonth === 'all' ? tasks : tasks.filter(t => {
+          const d = t.deadline || t.createdAt;
+          if (!d) return false;
+          const date = new Date(d);
+          return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}` === filterMonth;
+        });
+        return (
         <div className="space-y-3">
-          {isManager && <div className="flex justify-end"><Button size="sm" onClick={() => setShowTaskModal(true)}><Plus size={14} />Add Task</Button></div>}
-          {tasks.length === 0 ? (
-            <EmptyState icon={CheckCircle} title="No tasks yet" description="Create the first task for this client."
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <MonthPicker value={filterMonth === 'all' ? null : filterMonth} onChange={v => setFilterMonth(v)} label="All Months" />
+              {filterMonth !== 'all' && (
+                <button onClick={() => setFilterMonth('all')} className="text-[11px] px-2 py-1 rounded-lg font-medium" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>
+                  Clear filter ×
+                </button>
+              )}
+            </div>
+            {isManager && <Button size="sm" onClick={() => setShowTaskModal(true)}><Plus size={14} />Add Task</Button>}
+          </div>
+          {filteredTasks.length === 0 ? (
+            <EmptyState icon={CheckCircle} title="No tasks yet" description={filterMonth === 'all' ? "Create the first task for this client." : "No tasks match this month."}
               action={isManager ? <Button onClick={() => setShowTaskModal(true)}><Plus size={14} />Add Task</Button> : null} />
           ) : (
             <Card>
               <div className="divide-y divide-[var(--fd-border)]">
-                {tasks.map(t => (
+                {filteredTasks.map(t => (
                   <div key={t._id} className="px-4 sm:px-5 py-3.5">
                     <div className="font-medium text-[var(--fd-ink-1)] text-sm">{t.title}</div>
                     {t.description && <div className="text-xs text-[var(--fd-ink-3)] mt-0.5 truncate">{t.description}</div>}
@@ -988,15 +1452,33 @@ export default function ClientDetailPage() {
             </Card>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* UPDATES */}
-      {activeTab === 'updates' && (
+      {activeTab === 'updates' && (() => {
+        const filteredUpdates = filterMonth === 'all' ? updates : updates.filter(u => {
+          const d = u.createdAt;
+          if (!d) return false;
+          const date = new Date(d);
+          return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}` === filterMonth;
+        });
+        return (
         <div className="space-y-4">
-          <div className="flex justify-end"><Button size="sm" onClick={() => setShowUpdateModal(true)}><Plus size={14} />Post Update</Button></div>
-          {updates.length === 0 ? <EmptyState icon={AlertCircle} title="No updates yet" description="Post the first update for this client." /> : (
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <MonthPicker value={filterMonth === 'all' ? null : filterMonth} onChange={v => setFilterMonth(v)} label="All Months" />
+              {filterMonth !== 'all' && (
+                <button onClick={() => setFilterMonth('all')} className="text-[11px] px-2 py-1 rounded-lg font-medium" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>
+                  Clear filter ×
+                </button>
+              )}
+            </div>
+            <Button size="sm" onClick={() => setShowUpdateModal(true)}><Plus size={14} />Post Update</Button>
+          </div>
+          {filteredUpdates.length === 0 ? <EmptyState icon={AlertCircle} title="No updates yet" description={filterMonth === 'all' ? "Post the first update for this client." : "No updates match this month."} /> : (
             <div className="space-y-4">
-              {updates.map(u => (
+              {filteredUpdates.map(u => (
                 <Card key={u._id} className={u.isPinned ? 'border-brand-200 bg-blue-50/30 dark:bg-blue-900/10' : ''}>
                   <CardContent>
                     <div className="flex items-start gap-3">
@@ -1017,7 +1499,8 @@ export default function ClientDetailPage() {
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* SOCIAL */}
       {activeTab === 'social' && (() => {
@@ -1377,6 +1860,11 @@ export default function ClientDetailPage() {
           month={calendarMonth}
           setMonth={setCalendarMonth}
         />
+      )}
+
+      {/* TARGETS TAB */}
+      {activeTab === 'targets' && (
+        <ClientTargetsTab clientId={id} isAdmin={isAdmin} />
       )}
 
       {/* GMB PANEL TAB */}

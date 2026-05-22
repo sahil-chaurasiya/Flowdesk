@@ -98,17 +98,13 @@ export const SERVICE_LABELS = {
 };
 
 export const PLAN_LABELS = {
-  starter: 'Starter',
-  growth: 'Growth',
-  professional: 'Professional',
-  enterprise: 'Enterprise',
-  custom: 'Custom',
+  '3_month':  '3 Month',
+  '6_month':  '6 Month',
+  '1_year':   '1 Year',
 };
 
 export const PLAN_COLORS = {
-  starter: 'bg-slate-100 text-slate-700',
-  growth: 'bg-blue-100 text-blue-700',
-  professional: 'bg-purple-100 text-purple-700',
-  enterprise: 'bg-amber-100 text-amber-700',
-  custom: 'bg-pink-100 text-pink-700',
+  '3_month': 'bg-slate-100 text-slate-700',
+  '6_month': 'bg-blue-100 text-blue-700',
+  '1_year':  'bg-purple-100 text-purple-700',
 };

@@ -8,6 +8,7 @@ const Report = require('../models/Report');
 const File = require('../models/File');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
+const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
 
 // @route GET /api/clients
 router.get('/', protect, asyncHandler(async (req, res) => {
@@ -162,6 +163,31 @@ router.get('/:id/overview', protect, asyncHandler(async (req, res) => {
   if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
 
   res.json({ success: true, client, taskStats, recentUpdates, recentFiles, latestReport });
+}));
+
+// @route POST /api/clients/:id/logo  — upload company logo
+router.post('/:id/logo', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const uploader = getUploader();
+  uploader.single('logo')(req, res, async (err) => {
+    if (err) return res.status(400).json({ success: false, message: err.message });
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+
+    let logoUrl;
+    if (process.env.FILE_STORAGE === 'cloudinary') {
+      logoUrl = req.file.path;
+    } else {
+      logoUrl = getFileUrl(req, req.file.filename);
+    }
+
+    const client = await Client.findByIdAndUpdate(
+      req.params.id,
+      { logo: logoUrl },
+      { new: true }
+    ).populate('accountManager', 'name email avatar');
+
+    if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
+    res.json({ success: true, logo: logoUrl, client });
+  });
 }));
 
 module.exports = router;

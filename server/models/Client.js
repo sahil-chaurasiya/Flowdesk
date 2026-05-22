@@ -37,8 +37,8 @@ const clientSchema = new mongoose.Schema({
   },
   plan: {
     type: String,
-    enum: ['starter', 'growth', 'professional', 'enterprise', 'custom'],
-    default: 'starter'
+    enum: ['3_month', '6_month', '1_year', 'starter', 'growth', 'professional', 'enterprise', 'custom'],
+    default: '3_month'
   },
   services: [{
     type: String,

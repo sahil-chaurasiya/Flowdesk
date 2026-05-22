@@ -6,6 +6,7 @@ import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner 
 import { Button, Modal, Input, Select } from '../../components/ui/index';
 import { formatDate, PLAN_LABELS } from '../../lib/utils';
 import { useServices } from '../../hooks/useServices';
+import useAuthStore from '../../context/authStore';
 
 // Status & plan styles now use CSS vars so they adapt to dark mode automatically
 const STATUS_STYLE_LIGHT = {
@@ -25,6 +26,10 @@ const STATUS_STYLE_DARK = {
 };
 
 const PLAN_STYLE_LIGHT = {
+  '3_month':  { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' },
+  '6_month':  { background: '#eff0fe', color: '#3a56d4' },
+  '1_year':   { background: '#fdf2ff', color: '#7e22ce' },
+  // legacy
   starter:    { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' },
   growth:     { background: '#eff0fe', color: '#3a56d4' },
   scale:      { background: '#fdf2ff', color: '#7e22ce' },
@@ -32,6 +37,10 @@ const PLAN_STYLE_LIGHT = {
 };
 
 const PLAN_STYLE_DARK = {
+  '3_month':  { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
+  '6_month':  { background: 'rgba(79,110,240,0.2)', color: '#7896f3' },
+  '1_year':   { background: 'rgba(126,34,206,0.18)', color: '#c084fc' },
+  // legacy
   starter:    { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
   growth:     { background: 'rgba(79,110,240,0.2)', color: '#7896f3' },
   scale:      { background: 'rgba(126,34,206,0.18)', color: '#c084fc' },
@@ -58,10 +67,12 @@ const STATUS_TABS = [
 
 function ClientForm({ initial, onSubmit, loading, managers }) {
   const { services: servicesList } = useServices();
+  const { user: currentUser } = useAuthStore();
+  const isAdmin = currentUser?.role === 'admin';
   const SERVICES_LIST = servicesList.filter(s => s.isActive).map(s => [s.key, s.label]);
   const [form, setForm] = useState(initial || {
     name: '', company: '', email: '', phone: '', website: '', industry: '',
-    status: 'onboarding', plan: 'starter', services: [], monthlyBudget: '',
+    status: 'onboarding', plan: '3_month', services: [], monthlyBudget: '',
     accountManager: '', startDate: new Date().toISOString().split('T')[0], notes: '',
     createPortalUser: false, portalEmail: '', portalPassword: '',
   });
@@ -69,11 +80,88 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
   const toggleService = s => set('services', form.services.includes(s)
     ? form.services.filter(x => x !== s) : [...form.services, s]);
 
+  // Logo state — preview URL (for display) + actual File object (for upload)
+  const [logoPreview, setLogoPreview] = useState(initial?.logo || null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoRemoved, setLogoRemoved] = useState(false);
+  const logoInputRef = React.useRef(null);
+
+  const handleLogoChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+    setLogoRemoved(false);
+    e.target.value = '';
+  };
+
+  const handleLogoRemove = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoRemoved(true);
+  };
+
+  const companyInitials = form.company
+    ? form.company.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+
+  const PLAN_OPTIONS = [
+    { value: '3_month',  label: '3 Month' },
+    { value: '6_month',  label: '6 Month' },
+    { value: '1_year',   label: '1 Year' },
+  ];
+
   return (
-    <form onSubmit={e => { e.preventDefault(); onSubmit(form); }} className="space-y-4">
+    <form onSubmit={e => { e.preventDefault(); onSubmit(form, logoFile, logoRemoved); }} className="space-y-4">
+
+      {/* Company Logo — top of form */}
+      <div className="flex items-center gap-4 p-3 rounded-xl" style={{ background: 'var(--fd-surface-raised)', border: '1px solid var(--fd-border)' }}>
+        <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoChange} />
+        {/* Avatar preview */}
+        <div
+          className="w-14 h-14 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 cursor-pointer border-2 border-dashed transition-colors"
+          style={{
+            borderColor: logoPreview ? 'transparent' : 'var(--fd-border)',
+            background: logoPreview ? 'transparent' : 'var(--fd-surface-sunken)',
+          }}
+          onClick={() => logoInputRef.current?.click()}
+          title="Click to upload logo"
+        >
+          {logoPreview ? (
+            <img src={logoPreview} alt="logo" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-[15px] font-bold" style={{ color: 'var(--fd-ink-4)' }}>{companyInitials}</span>
+          )}
+        </div>
+        {/* Label + buttons */}
+        <div className="flex-1 min-w-0">
+          <div className="text-[12px] font-medium mb-1" style={{ color: 'var(--fd-ink-2)' }}>Company Logo</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all"
+              style={{ background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }}
+            >
+              {logoPreview ? 'Change' : 'Upload'}
+            </button>
+            {logoPreview && (
+              <button
+                type="button"
+                onClick={handleLogoRemove}
+                className="px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all"
+                style={{ background: 'transparent', color: '#b91c1c', borderColor: '#fca5a5' }}
+              >
+                Remove
+              </button>
+            )}
+            <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-5)' }}>PNG, JPG · shown in client list</span>
+          </div>
+        </div>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Input label="Contact Name *" value={form.name} onChange={e => set('name', e.target.value)} required />
         <Input label="Company *" value={form.company} onChange={e => set('company', e.target.value)} required />
+        <Input label="Contact Name *" value={form.name} onChange={e => set('name', e.target.value)} required />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Email *" type="email" value={form.email} onChange={e => set('email', e.target.value)} required />
@@ -83,18 +171,20 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
         <Input label="Website" value={form.website} onChange={e => set('website', e.target.value)} />
         <Input label="Industry" value={form.industry} onChange={e => set('industry', e.target.value)} />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className={`grid grid-cols-1 gap-3 ${isAdmin ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
         <Select label="Status" value={form.status} onChange={e => set('status', e.target.value)}>
           {['onboarding','active','paused','inactive','churned'].map(s => (
             <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
           ))}
         </Select>
         <Select label="Plan" value={form.plan} onChange={e => set('plan', e.target.value)}>
-          {Object.entries(PLAN_LABELS || { starter:'Starter', growth:'Growth', scale:'Scale', enterprise:'Enterprise' }).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
+          {PLAN_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label}</option>
           ))}
         </Select>
-        <Input label="Monthly Budget" type="number" value={form.monthlyBudget} onChange={e => set('monthlyBudget', e.target.value)} />
+        {isAdmin && (
+          <Input label="Monthly Budget" type="number" value={form.monthlyBudget} onChange={e => set('monthlyBudget', e.target.value)} />
+        )}
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Account Manager" value={form.accountManager} onChange={e => set('accountManager', e.target.value)}>
@@ -199,10 +289,20 @@ export default function ClientsPage() {
     });
   }, []);
 
-  const handleCreate = async (form) => {
+  const handleCreate = async (form, logoFile, logoRemoved) => {
     setSaving(true);
     try {
-      await api.post('/clients', form);
+      const { data } = await api.post('/clients', form);
+      // Upload logo if one was selected
+      if (logoFile && data.client?._id) {
+        try {
+          const fd = new FormData();
+          fd.append('logo', logoFile);
+          await api.post(`/clients/${data.client._id}/logo`, fd, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+        } catch (_) { /* non-fatal */ }
+      }
       setShowModal(false);
       loadClients();
     } finally { setSaving(false); }
@@ -280,7 +380,7 @@ export default function ClientsPage() {
                     >
                       <td>
                         <div className="flex items-center gap-3">
-                          <Avatar name={client.company} size="sm" />
+                          <Avatar name={client.company} src={client.logo} size="sm" />
                           <div>
                             <div className="font-semibold text-[13px] text-[var(--fd-ink-1)]">
                               {client.company}
@@ -358,7 +458,7 @@ export default function ClientsPage() {
                   to={`/admin/clients/${client._id}`}
                   className="flex items-center gap-3.5 px-4 py-4 transition-colors hover:bg-[var(--fd-table-row-hover)]"
                 >
-                  <Avatar name={client.company} size="md" />
+                  <Avatar name={client.company} src={client.logo} size="md" />
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-[13px] truncate text-[var(--fd-ink-1)]">
                       {client.company}

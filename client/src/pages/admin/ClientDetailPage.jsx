@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit3, MessageSquare, Mail, Phone, Globe, Calendar,
@@ -529,6 +529,8 @@ export default function ClientDetailPage() {
   const { id } = useParams();
   const { user } = useAuthStore();
   const isManager = ['admin', 'manager'].includes(user?.role);
+  const logoInputRef = useRef(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const [overview, setOverview] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -681,6 +683,34 @@ export default function ClientDetailPage() {
   const client = overview?.client;
   if (!client) return <div className="text-[var(--fd-ink-3)] text-center py-16">Client not found</div>;
 
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append('logo', file);
+      const { data } = await api.post(`/clients/${id}/logo`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setOverview(prev => ({ ...prev, client: { ...prev.client, logo: data.logo } }));
+    } catch (err) {
+      console.error('Logo upload failed', err);
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    try {
+      await api.put(`/clients/${id}`, { logo: null });
+      setOverview(prev => ({ ...prev, client: { ...prev.client, logo: null } }));
+    } catch (err) {
+      console.error('Logo remove failed', err);
+    }
+  };
+
   const assignedMemberIds = new Set([
     ...(client.teamMembers || []).map(m => String(m._id || m)),
     client.accountManager ? String(client.accountManager._id || client.accountManager) : null,
@@ -713,7 +743,48 @@ export default function ClientDetailPage() {
         <div className="flex-1 min-w-0">
           {/* Top row: avatar + name + status badges */}
           <div className="flex items-start gap-3 flex-wrap">
-            <Avatar name={client.company} size="md" className="flex-shrink-0" />
+            {/* Company logo */}
+            {isManager ? (
+              <div className="relative flex-shrink-0 group">
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                {/* Avatar — click to change */}
+                <div
+                  className="relative cursor-pointer"
+                  onClick={() => logoInputRef.current?.click()}
+                  title="Upload company logo"
+                >
+                  <Avatar name={client.company} src={client.logo} size="md" className="flex-shrink-0" />
+                  {/* Camera overlay on hover */}
+                  <div className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity pointer-events-none">
+                    {uploadingLogo ? (
+                      <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeDasharray="30 70" />
+                      </svg>
+                    ) : (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                {/* Small ✕ remove badge — only when logo exists */}
+                {client.logo && (
+                  <button
+                    type="button"
+                    onClick={handleLogoRemove}
+                    title="Remove logo"
+                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    style={{ background: '#ef4444', border: '1.5px solid var(--fd-canvas)' }}
+                  >
+                    <svg width="7" height="7" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                      <line x1="2" y1="2" x2="8" y2="8"/><line x1="8" y1="2" x2="2" y2="8"/>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <Avatar name={client.company} src={client.logo} size="md" className="flex-shrink-0" />
+            )}
             <div className="flex-1 min-w-0">
               <h1 className="text-lg sm:text-xl font-bold text-[var(--fd-ink-1)] truncate">{client.company}</h1>
               <p className="text-[var(--fd-ink-3)] text-sm">{client.name} · {client.industry}</p>
@@ -766,7 +837,9 @@ export default function ClientDetailPage() {
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{client.phone || '—'}</div>
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)] min-w-0"><Globe size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" /><span className="truncate">{client.website || '—'}</span></div>
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />Started {formatDate(client.startDate)}</div>
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><IndianRupee size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
+                  {user?.role === 'admin' && (
+                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><IndianRupee size={14} className="text-[var(--fd-ink-4)] flex-shrink-0" />{formatCurrency(client.monthlyBudget)}/mo</div>
+                  )}
                 </div>
                 {client.services?.length > 0 && (
                   <div className="mt-4">
@@ -1401,10 +1474,12 @@ export default function ClientDetailPage() {
                 {['active', 'inactive', 'onboarding', 'paused', 'churned'].map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
               </Select>
               <Select label="Plan" value={editForm.plan || ''} onChange={e => setEditForm(p => ({ ...p, plan: e.target.value }))}>
-                {Object.entries(PLAN_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                {[['3_month','3 Month'],['6_month','6 Month'],['1_year','1 Year']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </div>
-            <Input label="Monthly Budget" type="number" value={editForm.monthlyBudget || ''} onChange={e => setEditForm(p => ({ ...p, monthlyBudget: e.target.value }))} />
+            {user?.role === 'admin' && (
+              <Input label="Monthly Budget" type="number" value={editForm.monthlyBudget || ''} onChange={e => setEditForm(p => ({ ...p, monthlyBudget: e.target.value }))} />
+            )}
             <Textarea label="Notes" value={editForm.notes || ''} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={3} />
           </div>
         </Modal>

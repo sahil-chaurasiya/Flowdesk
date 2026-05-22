@@ -14,6 +14,7 @@ import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import GlobalSearch from '../shared/GlobalSearch';
 import { getInitials } from '../../lib/utils';
+import api from '../../lib/api';
 // ── AI Assistant ──────────────────────────────────────────────────────────────
 import AIAssistant from '../ai/AIAssistant';
 
@@ -79,6 +80,27 @@ export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = React.useRef(null);
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLogo(true);
+    try {
+      const fd = new FormData();
+      fd.append('avatar', file);
+      const { data } = await api.post('/auth/avatar', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      updateUser({ avatar: data.avatar });
+    } catch (err) {
+      console.error('Logo upload failed', err);
+    } finally {
+      setUploadingLogo(false);
+      e.target.value = '';
+    }
+  };
 
   // Resize listener
   useEffect(() => {
@@ -143,11 +165,43 @@ export default function AdminLayout() {
           flexShrink: 0,
         }}
       >
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-          style={{ background: '#4f6ef0' }}>
-          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-            <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+        {/* Company logo: click to upload (admin only) */}
+        <div className="relative flex-shrink-0 group">
+          <input
+            ref={logoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleLogoUpload}
+          />
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer"
+            style={{ background: user?.avatar ? 'transparent' : '#4f6ef0' }}
+            onClick={() => isAdmin && logoInputRef.current?.click()}
+            title={isAdmin ? 'Click to upload company logo' : undefined}
+          >
+            {uploadingLogo ? (
+              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeDasharray="30 70" />
+              </svg>
+            ) : user?.avatar ? (
+              <img src={user.avatar} alt="logo" className="w-full h-full object-cover" />
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+          {isAdmin && !uploadingLogo && (!collapsed || isMobile) && (
+            <div
+              className="absolute inset-0 rounded-lg bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+              onClick={() => logoInputRef.current?.click()}
+            >
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+            </div>
+          )}
         </div>
         {(!collapsed || isMobile) && (
           <span className="text-[14px] font-bold tracking-tight" style={{ color: 'var(--fd-ink-1)' }}>
@@ -210,13 +264,20 @@ export default function AdminLayout() {
       >
         <div className={`flex items-center gap-3 ${collapsed && !isMobile ? 'justify-center' : ''}`}>
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+            className="relative w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 group cursor-pointer overflow-hidden"
             style={{ background: '#4f6ef0' }}
+            onClick={() => navigate('/admin/settings')}
+            title="Go to profile settings"
           >
             {user?.avatar
               ? <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover" />
               : getInitials(user?.name || 'U')
             }
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-full">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </div>
           </div>
           {(!collapsed || isMobile) && (
             <div className="flex-1 min-w-0">

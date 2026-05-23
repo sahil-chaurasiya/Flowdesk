@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, CheckSquare, MessageSquare,
+  LayoutDashboard, Users, CheckSquare,
   BarChart3, Upload, Bell, LogOut, ChevronLeft,
   ChevronRight, Menu, X, Rss, Building2, Target,
   ListChecks, Instagram, Sun, Moon, Search,
@@ -41,7 +41,6 @@ const navItems = [
   { to: '/admin/social',     icon: Instagram,       label: 'Social Media', managerOnly: true },
   { to: '/admin/reports',    icon: BarChart3,       label: 'Reports' },
   { to: '/admin/files',      icon: Upload,          label: 'Files' },
-  { to: '/admin/messages',   icon: MessageSquare,   label: 'Messages' },
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
   { to: '/admin/credentials', icon: Key,            label: 'Credentials',  managerOnly: true },
   { to: '/admin/contacts',   icon: BookUser,        label: 'Contacts',     adminOnly: true },
@@ -62,7 +61,7 @@ const NAV_SECTIONS = [
   },
   {
     label: 'Connect',
-    keys: ['/admin/messages', '/admin/team', '/admin/credentials', '/admin/contacts'],
+    keys: ['/admin/team', '/admin/credentials', '/admin/contacts'],
   },
   {
     label: 'System',

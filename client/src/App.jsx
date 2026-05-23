@@ -23,7 +23,7 @@ import ClientDetailPage     from './pages/admin/ClientDetailPage';
 import TasksPage            from './pages/admin/TasksPage';
 import TeamPage             from './pages/admin/TeamPage';
 import TeamMemberDetailPage from './pages/admin/TeamMemberDetailPage';
-import AdminMessagesPage    from './pages/admin/MessagesPage';
+
 import UpdatesPage          from './pages/admin/UpdatesPage';
 import ReportsAdminPage     from './pages/admin/ReportsPage';
 import FilesAdminPage       from './pages/admin/FilesPage';
@@ -47,7 +47,7 @@ import ClientDashboard    from './pages/client/Dashboard';
 import ClientUpdatesPage  from './pages/client/UpdatesPage';
 import ClientFilesPage    from './pages/client/FilesPage';
 import ClientReportsPage  from './pages/client/ReportsPage';
-import ClientChatPage     from './pages/client/ChatPage';
+
 import ClientRequestsPage from './pages/client/RequestsPage';
 import ClientLeadsPage    from './pages/client/LeadsPage';
 import ClientSocialPage   from './pages/client/SocialPage';
@@ -112,8 +112,7 @@ export default function App() {
                 <Route path="leads"      element={<LeadsAdminPage />} />
                 <Route path="team"       element={<TeamPage />} />
                 <Route path="team/:id"   element={<TeamMemberDetailPage />} />
-                <Route path="messages"   element={<AdminMessagesPage />} />
-                <Route path="messages/:clientId" element={<AdminMessagesPage />} />
+
                 <Route path="updates"    element={<UpdatesPage />} />
                 <Route path="reports"    element={<ReportsAdminPage />} />
                 <Route path="files"      element={<FilesAdminPage />} />
@@ -170,7 +169,7 @@ export default function App() {
                 <Route path="updates"   element={<ClientUpdatesPage />} />
                 <Route path="files"     element={<ClientFilesPage />} />
                 <Route path="reports"   element={<ClientReportsPage />} />
-                <Route path="chat"      element={<ClientChatPage />} />
+
                 <Route path="requests"  element={<ClientRequestsPage />} />
                 <Route path="leads"     element={<ClientLeadsPage />} />
                 <Route path="social"    element={<ClientSocialPage />} />

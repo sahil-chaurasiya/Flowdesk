@@ -79,6 +79,16 @@ const clientSchema = new mongoose.Schema({
   },
   notes: String,
   tags: [String],
+  whatsappGroup: {
+    type: String,
+    trim: true,
+    default: null,
+  },
+  whatsappPhone: {
+    type: String,
+    trim: true,
+    default: null,
+  },
   logo: String,
   portalAccess: {
     type: Boolean,

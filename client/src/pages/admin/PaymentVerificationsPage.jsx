@@ -175,7 +175,9 @@ export default function PaymentVerificationsPage() {
   useEffect(() => { load(); }, [load]);
 
   const openApprove = (payment) => {
-    const existing = payment.client?.planDuration || '3_months';
+    const existing = ['3_months', '6_months', '1_year'].includes(payment.client?.planDuration)
+      ? payment.client.planDuration
+      : '3_months';
     setExtDur(existing);
     setUseExist(true);
     setModal({ type: 'approve', payment });
@@ -192,8 +194,13 @@ export default function PaymentVerificationsPage() {
   };
 
   const submitApprove = async () => {
-    const dur = useExisting ? actionModal.payment.client?.planDuration : extDuration;
-    if (!dur) return toast({ title: 'Please select a duration', type: 'error' });
+    // When "use existing" is selected, resolve from client planDuration with a safe fallback.
+    // When a custom duration is chosen, use extDuration.
+    const dur = useExisting
+      ? (actionModal.payment.client?.planDuration || '3_months')
+      : extDuration;
+    if (!dur || !['3_months', '6_months', '1_year'].includes(dur))
+      return toast({ title: 'Please select a valid duration', type: 'error' });
     setSubmitting(true);
     try {
       await api.put(`/payments/verifications/${actionModal.payment._id}/approve`, {

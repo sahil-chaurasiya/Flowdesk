@@ -466,12 +466,14 @@ export default function ClientDashboard() {
 
   const fetchData = useCallback((filter = 'last30') => {
     if (!user?.clientId) return;
+    // clientId may be a plain string or an ObjectId object — extract safely
+    const clientId = typeof user.clientId === 'object' ? (user.clientId._id || user.clientId) : user.clientId;
     const { days } = getDateRange(filter);
     const socialDays = days || 30;
 
     setFilterLoading(true);
     Promise.all([
-      api.get(`/clients/${user.clientId}/overview`),
+      api.get(`/clients/${clientId}/overview`).catch(() => ({ data: null })),
       api.get('/leads/stats').catch(() => ({ data: null })),
       api.get('/leads?limit=8').catch(() => ({ data: { leads: [] } })),
       api.get('/leads/follow-ups-today').catch(() => ({ data: { leads: [] } })),
@@ -480,10 +482,10 @@ export default function ClientDashboard() {
     ]).then(([ov, ls, l, fu, sa, p]) => {
       setOverview(ov.data);
       setLeadStats(ls.data);
-      setRecentLeads(l.data.leads || []);
+      setRecentLeads(l.data?.leads || []);
       setFollowUpLeads(fu.data?.leads || []);
       setSocialAnalytics(sa.data?.analytics || null);
-      setRecentPosts(p.data.posts || []);
+      setRecentPosts(p.data?.posts || []);
     }).finally(() => {
       setLoading(false);
       setFilterLoading(false);
@@ -574,6 +576,39 @@ export default function ClientDashboard() {
           </div>
         </div>
       </div>
+
+      {/* ─── CONTRACT EXPIRY BANNER ──────────────────────────────────────── */}
+      {client?.contractEndDate && (() => {
+        const days = Math.ceil((new Date(client.contractEndDate) - Date.now()) / 86400000);
+        if (days > 30) return null; // only show when expiring soon or expired
+        const isExpired  = days < 0;
+        const isCritical = days >= 0 && days <= 7;
+        const bg     = isExpired  ? 'rgba(239,68,68,0.08)'   : isCritical ? 'rgba(245,158,11,0.08)' : 'rgba(79,110,240,0.07)';
+        const border = isExpired  ? 'rgba(239,68,68,0.25)'   : isCritical ? 'rgba(245,158,11,0.25)' : 'rgba(79,110,240,0.2)';
+        const color  = isExpired  ? '#ef4444'                 : isCritical ? '#f59e0b'               : '#4f6ef0';
+        const icon   = isExpired  ? '❌'                       : isCritical ? '🚨'                   : '⚠️';
+        const msg    = isExpired
+          ? `Your contract expired ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago. Please renew to avoid service interruption.`
+          : days === 0
+            ? 'Your contract expires today! Please submit payment to renew.'
+            : `Your contract expires in ${days} day${days === 1 ? '' : 's'}. Submit payment to avoid interruption.`;
+        return (
+          <Link
+            to="/portal/payment"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl transition-opacity hover:opacity-80"
+            style={{ background: bg, border: `1px solid ${border}` }}
+          >
+            <span className="text-[18px] flex-shrink-0">{icon}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-semibold" style={{ color }}>{msg}</p>
+              <p className="text-[11.5px] mt-0.5" style={{ color }}>
+                {isExpired ? 'Contract expired' : 'Contract expiring'} · Click to go to Payments
+              </p>
+            </div>
+            <ChevronRight size={16} style={{ color, flexShrink: 0 }} />
+          </Link>
+        );
+      })()}
 
       {/* ─── ACCOUNT MANAGER + QUICK ACTIONS ROW ────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">

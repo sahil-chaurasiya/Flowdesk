@@ -66,7 +66,7 @@ router.post('/logout', protect, asyncHandler(async (req, res) => {
 
 // @route GET /api/auth/me
 router.get('/me', protect, asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).populate('clientId');
+  const user = await User.findById(req.user._id);
   res.json({ success: true, user });
 }));
 

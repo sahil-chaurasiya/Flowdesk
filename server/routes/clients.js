@@ -10,6 +10,35 @@ const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
 
+// ── Helper: calculate contractEndDate from startDate + planDuration ───────────
+// Called on create AND update so the field is always in sync.
+function calcContractEndDate(startDate, planDuration) {
+  if (!startDate || !planDuration) return null;
+  const d = new Date(startDate);
+  if (planDuration === '3_months') d.setMonth(d.getMonth() + 3);
+  else if (planDuration === '6_months') d.setMonth(d.getMonth() + 6);
+  else if (planDuration === '1_year') d.setFullYear(d.getFullYear() + 1);
+  else return null; // unknown duration — don't overwrite
+  return d;
+}
+
+function deriveContractStatus(endDate) {
+  if (!endDate) return 'active';
+  const days = Math.ceil((new Date(endDate) - Date.now()) / 86400000);
+  if (days < 0) return 'expired';
+  if (days <= 30) return 'expiring_soon';
+  return 'active';
+}
+
+// ── Map legacy plan values to planDuration if planDuration not supplied ────────
+const PLAN_TO_DURATION = {
+  '3_month':  '3_months',
+  '6_month':  '6_months',
+  '1_year':   '1_year',
+  '3_months': '3_months',
+  '6_months': '6_months',
+};
+
 // @route GET /api/clients
 router.get('/', protect, asyncHandler(async (req, res) => {
   const { status, search, page = 1, limit = 20, managerId } = req.query;
@@ -18,7 +47,6 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client') {
     query._id = req.user.clientId;
   } else if (!['admin', 'manager', 'client'].includes(req.user.role)) {
-    // Team members: only see clients they're assigned to
     query.$or = [{ accountManager: req.user._id }, { teamMembers: req.user._id }];
   } else if (req.user.role === 'manager') {
     if (managerId) query.accountManager = managerId;
@@ -32,7 +60,6 @@ router.get('/', protect, asyncHandler(async (req, res) => {
       { company: { $regex: search, $options: 'i' } },
       { email: { $regex: search, $options: 'i' } }
     ];
-    // If there's already an $or from role-based access, combine with $and to avoid overwriting it
     if (query.$or) {
       query.$and = [{ $or: query.$or }, { $or: searchOr }];
       delete query.$or;
@@ -54,7 +81,22 @@ router.get('/', protect, asyncHandler(async (req, res) => {
 
 // @route POST /api/clients
 router.post('/', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
-  const client = await Client.create(req.body);
+  const body = { ...req.body };
+
+  // Resolve planDuration — form sends `plan` (legacy), map it if needed
+  if (!body.planDuration && body.plan) {
+    body.planDuration = PLAN_TO_DURATION[body.plan] || '3_months';
+  }
+
+  // Auto-calculate contractEndDate
+  const base = body.startDate ? new Date(body.startDate) : new Date();
+  const endDate = calcContractEndDate(base, body.planDuration);
+  if (endDate) {
+    body.contractEndDate = endDate;
+    body.contractStatus  = deriveContractStatus(endDate);
+  }
+
+  const client = await Client.create(body);
 
   // If createPortalUser is requested, create a linked user
   if (req.body.createPortalUser && req.body.portalEmail) {
@@ -126,7 +168,28 @@ router.get('/:id', protect, asyncHandler(async (req, res) => {
 
 // @route PUT /api/clients/:id
 router.put('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
-  const client = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const body = { ...req.body };
+
+  // If plan or planDuration or startDate changed, recalculate contractEndDate
+  // (but only if this isn't a contract-only update — payments route handles that separately)
+  if (!body.contractEndDate && (body.planDuration || body.plan || body.startDate)) {
+    // Fetch current client to fill any missing fields
+    const existing = await Client.findById(req.params.id).lean();
+    if (existing) {
+      if (!body.planDuration && body.plan) {
+        body.planDuration = PLAN_TO_DURATION[body.plan] || existing.planDuration || '3_months';
+      }
+      const duration  = body.planDuration || existing.planDuration;
+      const startDate = body.startDate    || existing.startDate;
+      const endDate   = calcContractEndDate(new Date(startDate), duration);
+      if (endDate) {
+        body.contractEndDate = endDate;
+        body.contractStatus  = deriveContractStatus(endDate);
+      }
+    }
+  }
+
+  const client = await Client.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
     .populate('accountManager', 'name email avatar')
     .populate('teamMembers', 'name email avatar');
 

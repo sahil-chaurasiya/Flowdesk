@@ -40,6 +40,12 @@ const activityLogSchema = new mongoose.Schema({
       'update.posted',
       // Settings
       'settings.updated',
+      // Payments & Contracts
+      'payment.submitted',
+      'payment.approved',
+      'payment.rejected',
+      'contract.renewed',
+      'contract.expired',
     ],
   },
 

@@ -35,15 +35,21 @@ const clientSchema = new mongoose.Schema({
     enum: ['active', 'inactive', 'onboarding', 'paused', 'churned'],
     default: 'onboarding'
   },
+  // ── plan: keep original values + default so existing forms don't break ───────
   plan: {
     type: String,
     enum: ['3_month', '6_month', '1_year', 'starter', 'growth', 'professional', 'enterprise', 'custom'],
-    default: '3_month'
+    default: '3_month'   // ← MUST stay '3_month' — ClientsPage form sends this value
   },
-  services: [{
+  // ── planDuration: new field added for contract renewal system ────────────────
+  planDuration: {
     type: String,
-    enum: ['seo', 'ppc', 'social_media', 'content_marketing', 'email_marketing', 'web_design', 'analytics', 'branding', 'video_production', 'influencer_marketing']
-  }],
+    enum: ['3_months', '6_months', '1_year'],
+    default: '3_months'
+  },
+  // ── services: NO enum — keys are managed dynamically via the Service model ──
+  // A hardcoded enum here would reject any custom service added through Settings.
+  services: [{ type: String, trim: true }],
   accountManager: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -57,6 +63,12 @@ const clientSchema = new mongoose.Schema({
     default: Date.now
   },
   contractEndDate: Date,
+  // ── contractStatus: explicit field (set by payments.js on renewal/approval) ──
+  contractStatus: {
+    type: String,
+    enum: ['active', 'expiring_soon', 'expired'],
+    default: 'active'
+  },
   monthlyBudget: {
     type: Number,
     default: 0
@@ -93,7 +105,7 @@ const clientSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Virtuals
+// ── Existing virtuals (unchanged) ────────────────────────────────────────────
 clientSchema.virtual('tasks', {
   ref: 'Task',
   localField: '_id',
@@ -118,7 +130,27 @@ clientSchema.virtual('reports', {
   foreignField: 'client'
 });
 
+// ── New virtuals for contract system ─────────────────────────────────────────
+clientSchema.virtual('daysRemaining').get(function () {
+  if (!this.contractEndDate) return null;
+  return Math.ceil((new Date(this.contractEndDate) - Date.now()) / 86400000);
+});
+
+clientSchema.virtual('expiryWarningLevel').get(function () {
+  const d = this.daysRemaining;
+  if (d === null) return null;
+  if (d < 0)   return 'expired';
+  if (d <= 3)  return 'critical';
+  if (d <= 7)  return 'high';
+  if (d <= 14) return 'medium';
+  if (d <= 30) return 'low';
+  return null;
+});
+
+// ── Indexes ──────────────────────────────────────────────────────────────────
 clientSchema.index({ status: 1 });
 clientSchema.index({ accountManager: 1 });
+clientSchema.index({ contractEndDate: 1 });
+clientSchema.index({ contractStatus: 1 });
 
 module.exports = mongoose.model('Client', clientSchema);

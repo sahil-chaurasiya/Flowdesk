@@ -101,6 +101,20 @@ export const PLAN_LABELS = {
   '3_month':  '3 Month',
   '6_month':  '6 Month',
   '1_year':   '1 Year',
+  '3_months': '3 Months',
+  '6_months': '6 Months',
+};
+
+export const CONTRACT_STATUS_LABELS = {
+  active:        'Active',
+  expiring_soon: 'Expiring Soon',
+  expired:       'Expired',
+};
+
+export const DURATION_LABELS = {
+  '3_months': '3 Months',
+  '6_months': '6 Months',
+  '1_year':   '1 Year',
 };
 
 export const PLAN_COLORS = {

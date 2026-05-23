@@ -36,6 +36,7 @@ import KanbanPage           from './pages/admin/KanbanPage';
 import CalendarPage         from './pages/admin/CalendarPage';
 import SettingsPage         from './pages/admin/SettingsPage';
 import ActivityPage         from './pages/admin/ActivityPage';
+import PaymentVerificationsPage from './pages/admin/PaymentVerificationsPage';
 import InternalLeadsPage    from './pages/admin/InternalLeadsPage';
 import ApiLogsPage          from './pages/admin/ApiLogsPage';
 import ContactsPage         from './pages/admin/ContactsPage';
@@ -51,6 +52,7 @@ import ClientRequestsPage from './pages/client/RequestsPage';
 import ClientLeadsPage    from './pages/client/LeadsPage';
 import ClientSocialPage   from './pages/client/SocialPage';
 import ClientDocumentsPage from './pages/client/DocumentsPage';
+import ClientPaymentPage   from './pages/client/PaymentPage';
 
 // Shared
 import NotFoundPage  from './pages/NotFoundPage';
@@ -124,6 +126,7 @@ export default function App() {
                 {/* ── NEW routes ──────────────────────────────────────────── */}
                 <Route path="kanban"     element={<KanbanPage />} />
                 <Route path="calendar"   element={<CalendarPage />} />
+                <Route path="payment-verifications" element={<PaymentVerificationsPage />} />
                 <Route path="settings"   element={<SettingsPage />} />
                 <Route path="activity"   element={<ActivityPage />} />
 
@@ -172,6 +175,7 @@ export default function App() {
                 <Route path="leads"     element={<ClientLeadsPage />} />
                 <Route path="social"    element={<ClientSocialPage />} />
                 <Route path="documents" element={<ClientDocumentsPage />} />
+                <Route path="payment"   element={<ClientPaymentPage />} />
                 <Route path="credentials" element={<CredentialsPage />} />
               </Route>
 

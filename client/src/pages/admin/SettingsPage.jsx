@@ -8,6 +8,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../components/ui/index';
 import { Button, Input } from '../../components/ui/index';
 import api from '../../lib/api';
+import PaymentSettingsSection from '../../components/contract/PaymentSettingsSection';
 import { useServices, bustServicesCache } from '../../hooks/useServices';
 
 const ROLE_LABELS = {
@@ -637,6 +638,9 @@ export default function SettingsPage() {
     ...(canManageServices
       ? [{ value: 'services', label: 'Services', icon: Layers }]
       : []),
+    ...(user?.role === 'admin'
+      ? [{ value: 'payment', label: 'Payment Settings', icon: Save }]
+      : []),
   ];
 
   const [tab, setTab] = useState('profile');
@@ -677,6 +681,7 @@ export default function SettingsPage() {
       {tab === 'security'   && <SecurityTab   />}
       {tab === 'appearance' && <AppearanceTab />}
       {tab === 'services'   && canManageServices && <ServicesTab />}
+      {tab === 'payment'    && user?.role === 'admin' && <PaymentSettingsSection />}
     </div>
   );
 }

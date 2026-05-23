@@ -103,7 +103,7 @@ const userSchema = new mongoose.Schema({
   notifications: [{
     type: {
       type: String,
-      enum: ['message', 'update', 'task', 'file', 'lead', 'general']
+      enum: ['message', 'update', 'task', 'file', 'lead', 'general', 'payment', 'contract']
     },
     title: String,
     body: String,

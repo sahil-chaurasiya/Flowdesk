@@ -9,6 +9,7 @@ const File = require('../models/File');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
+const { sendClientWelcomeMessages } = require('../utils/messaging');
 
 // ── Helper: calculate contractEndDate from startDate + planDuration ───────────
 // Called on create AND update so the field is always in sync.
@@ -100,15 +101,28 @@ router.post('/', protect, authorize('admin', 'manager'), asyncHandler(async (req
 
   // If createPortalUser is requested, create a linked user
   if (req.body.createPortalUser && req.body.portalEmail) {
+    const portalPassword = req.body.portalPassword || 'ClientPass123!';
     const user = await User.create({
       name: client.name,
       email: req.body.portalEmail,
-      password: req.body.portalPassword || 'ClientPass123!',
+      password: portalPassword,
       role: 'client',
       clientId: client._id
     });
     client.linkedUserId = user._id;
     await client.save();
+
+    // Send welcome email + WhatsApp only when credentials are actually created
+    try {
+      await sendClientWelcomeMessages({
+        client,
+        portalEmail: req.body.portalEmail,
+        portalPassword,
+      });
+    } catch (err) {
+      // Non-fatal — client is already created, just log the failure
+      console.error('[Messaging] Failed to send welcome messages:', err.message || err);
+    }
   }
 
   const populated = await Client.findById(client._id)

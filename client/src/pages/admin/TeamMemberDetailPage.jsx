@@ -3,7 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Mail, Phone, Shield, Calendar, CheckCircle,
   Clock, AlertCircle, Users, Building2, BarChart2, Edit3, X, Save, Camera,
-  FileText, Upload, Trash2, Download, File, Image as ImageIcon, ExternalLink
+  FileText, Upload, Trash2, Download, File, Image as ImageIcon, ExternalLink,
+  CalendarDays, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -12,19 +13,15 @@ import { Button, Modal, Input, Select, useToast } from '../../components/ui/inde
 import { formatDate, getTaskStatusColor, getPriorityColor, timeAgo, getStatusColor, PLAN_LABELS, PLAN_COLORS } from '../../lib/utils';
 
 const ROLE_LABELS = {
-  admin: 'Admin',
-  manager: 'Project Manager',
+  admin: 'Admin', manager: 'Project Manager',
   performance_marketer: 'Performance Marketer',
   social_media_manager: 'Social Media Manager',
-  video_editor: 'Video Editor',
-  graphic_designer: 'Graphic Designer',
-  copywriter: 'Copywriter',
-  client: 'Client',
+  video_editor: 'Video Editor', graphic_designer: 'Graphic Designer',
+  copywriter: 'Copywriter', client: 'Client',
 };
 
 const ROLE_COLORS = {
-  admin: 'bg-red-100 text-red-700',
-  manager: 'bg-purple-100 text-purple-700',
+  admin: 'bg-red-100 text-red-700', manager: 'bg-purple-100 text-purple-700',
   performance_marketer: 'bg-blue-100 text-blue-700',
   social_media_manager: 'bg-pink-100 text-pink-700',
   video_editor: 'bg-orange-100 text-orange-700',
@@ -33,24 +30,27 @@ const ROLE_COLORS = {
 };
 
 const CATEGORY_LABELS = {
-  paid_ads: '📊 Paid Ads',
-  social_media: '📱 Social Media',
-  video_editing: '🎬 Video Editing',
-  graphic_design: '🎨 Graphic Design',
-  copywriting: '✍️ Copywriting',
-  reporting: '📋 Reporting',
-  strategy: '🧠 Strategy',
-  client_request: '💬 Client Request',
-  other: '📌 Other',
+  paid_ads: '📊 Paid Ads', social_media: '📱 Social Media',
+  video_editing: '🎬 Video Editing', graphic_design: '🎨 Graphic Design',
+  copywriting: '✍️ Copywriting', reporting: '📋 Reporting',
+  strategy: '🧠 Strategy', client_request: '💬 Client Request', other: '📌 Other',
 };
 
 const DOC_TYPE_LABELS = {
-  aadhaar: 'Aadhaar Card',
-  pan: 'PAN Card',
-  passport: 'Passport',
-  driving_license: 'Driving License',
-  other: 'Other',
+  aadhaar: 'Aadhaar Card', pan: 'PAN Card', passport: 'Passport',
+  driving_license: 'Driving License', other: 'Other',
 };
+
+const ATT_STATUS = {
+  present:  { label: 'Present',  dot: 'bg-emerald-500', badge: 'bg-emerald-100 text-emerald-700', cal: 'bg-emerald-500' },
+  late:     { label: 'Late',     dot: 'bg-amber-400',   badge: 'bg-amber-100 text-amber-700',    cal: 'bg-amber-400'   },
+  absent:   { label: 'Absent',   dot: 'bg-red-400',     badge: 'bg-red-100 text-red-600',        cal: 'bg-red-400'     },
+  on_leave: { label: 'On Leave', dot: 'bg-blue-400',    badge: 'bg-blue-100 text-blue-700',      cal: 'bg-blue-400'    },
+};
+
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function DocIcon({ fileType, className = '' }) {
   if (fileType === 'image') return <ImageIcon size={16} className={className} />;
@@ -58,10 +58,276 @@ function DocIcon({ fileType, className = '' }) {
   return <File size={16} className={className} />;
 }
 
+function fmtTime(dt) {
+  if (!dt) return '—';
+  return new Date(dt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+// ─── Calendar View ────────────────────────────────────────────────────────────
+function AttCalendar({ records }) {
+  // Build a map: "YYYY-MM-DD" → record
+  const byDate = {};
+  records.forEach(r => { byDate[r.date] = r; });
+
+  // Figure out which month/year we're showing (derive from records or use first record's month)
+  const sample = records[0];
+  if (!sample) return null;
+  const [yr, mo] = sample.date.split('-').map(Number);
+
+  const firstDay = new Date(yr, mo - 1, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+
+  const cells = [];
+  // Empty cells before first day
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  // Day cells
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ day: d, key, record: byDate[key] || null });
+  }
+
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+  return (
+    <div>
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {DAYS.map(d => (
+          <div key={d} className="text-center text-[10px] font-semibold text-[var(--fd-ink-4)] uppercase py-1.5">
+            {d}
+          </div>
+        ))}
+      </div>
+      {/* Cells */}
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((cell, i) => {
+          if (!cell) return <div key={`empty-${i}`} />;
+          const st = cell.record?.status;
+          const cfg = ATT_STATUS[st];
+          const isToday = cell.key === today;
+          return (
+            <div
+              key={cell.key}
+              title={cfg ? `${cfg.label}${cell.record?.checkInTime ? ' · In: ' + fmtTime(cell.record.checkInTime) : ''}` : 'No data'}
+              className={`
+                relative aspect-square rounded-lg flex flex-col items-center justify-center
+                text-[11px] font-medium transition-all select-none
+                ${isToday ? 'ring-2 ring-brand-500 ring-offset-1' : ''}
+                ${cfg ? cfg.cal + ' text-white' : 'bg-[var(--fd-surface-raised)] text-[var(--fd-ink-4)]'}
+              `}
+            >
+              {cell.day}
+              {cell.record?.workHours > 0 && (
+                <span className="text-[8px] opacity-80 leading-none mt-0.5">{cell.record.workHours}h</span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-4 flex-wrap">
+        {Object.entries(ATT_STATUS).map(([, cfg]) => (
+          <div key={cfg.label} className="flex items-center gap-1.5 text-xs text-[var(--fd-ink-3)]">
+            <span className={`w-3 h-3 rounded-sm inline-block ${cfg.cal}`} />
+            {cfg.label}
+          </div>
+        ))}
+        <div className="flex items-center gap-1.5 text-xs text-[var(--fd-ink-3)]">
+          <span className="w-3 h-3 rounded-sm inline-block bg-[var(--fd-surface-raised)] border border-[var(--fd-border)]" />
+          No data
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Attendance Tab ────────────────────────────────────────────────────────────
+function AttendanceTab({ memberId }) {
+  const now = new Date();
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [year, setYear] = useState(now.getFullYear());
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [view, setView] = useState('calendar'); // 'calendar' | 'table'
+
+  const fetchAttendance = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get(`/users/${memberId}/attendance?month=${month}&year=${year}`);
+      setData(res.data);
+    } catch (e) {
+      setError(e?.response?.data?.message || 'Failed to load attendance data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchAttendance(); }, [memberId, month, year]);
+
+  const prevMonth = () => {
+    if (month === 1) { setMonth(12); setYear(y => y - 1); }
+    else setMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    const nowM = now.getMonth() + 1;
+    const nowY = now.getFullYear();
+    if (year > nowY || (year === nowY && month >= nowM)) return; // don't go into future
+    if (month === 12) { setMonth(1); setYear(y => y + 1); }
+    else setMonth(m => m + 1);
+  };
+  const isAtPresent = year === now.getFullYear() && month === now.getMonth() + 1;
+
+  return (
+    <div className="space-y-5">
+      {/* Controls bar */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        {/* Month navigator */}
+        <div className="flex items-center gap-1">
+          <button onClick={prevMonth}
+            className="p-1.5 rounded-lg text-[var(--fd-ink-3)] hover:bg-[var(--fd-surface-raised)] transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm font-semibold text-[var(--fd-ink-1)] min-w-[120px] text-center">
+            {MONTHS[month - 1]} {year}
+          </span>
+          <button onClick={nextMonth} disabled={isAtPresent}
+            className="p-1.5 rounded-lg text-[var(--fd-ink-3)] hover:bg-[var(--fd-surface-raised)] transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+
+        {/* View toggle */}
+        <div className="flex items-center gap-1 bg-[var(--fd-surface-raised)] rounded-lg p-1">
+          {[['calendar', '📅 Calendar'], ['table', '📋 Table']].map(([v, label]) => (
+            <button key={v} onClick={() => setView(v)}
+              className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                view === v
+                  ? 'bg-[var(--fd-surface)] text-[var(--fd-ink-1)] shadow-sm'
+                  : 'text-[var(--fd-ink-3)] hover:text-[var(--fd-ink-2)]'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Loading */}
+      {loading && <div className="flex items-center justify-center py-16"><Spinner size="lg" /></div>}
+
+      {/* Error */}
+      {!loading && error && (
+        <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <AlertCircle size={16} className="shrink-0" />{error}
+        </div>
+      )}
+
+      {/* No account */}
+      {!loading && !error && data && !data.found && (
+        <EmptyState icon={CalendarDays} title="No attendance account linked"
+          description="No attendance app account was found matching this member's email. Make sure they registered on the attendance app with the same email." />
+      )}
+
+      {!loading && !error && data?.found && (
+        <>
+          {/* Summary pills */}
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+            {[
+              { label: 'Present',   value: data.summary.present,         color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+              { label: 'Late',      value: data.summary.late,            color: 'bg-amber-50 border-amber-200 text-amber-700'       },
+              { label: 'Absent',    value: data.summary.absent,          color: 'bg-red-50 border-red-200 text-red-600'             },
+              { label: 'On Leave',  value: data.summary.onLeave,         color: 'bg-blue-50 border-blue-200 text-blue-700'          },
+              { label: 'WFH',       value: data.summary.wfh,             color: 'bg-purple-50 border-purple-200 text-purple-700'    },
+              { label: 'Hrs',       value: `${data.summary.totalWorkHours}h`, color: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)] text-[var(--fd-ink-2)]' },
+            ].map(s => (
+              <div key={s.label} className={`border rounded-xl p-3 text-center ${s.color}`}>
+                <div className="text-lg font-bold">{s.value}</div>
+                <div className="text-[10px] font-semibold mt-0.5 uppercase tracking-wide opacity-80">{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar view */}
+          {view === 'calendar' && (
+            <Card>
+              <CardContent className="pt-4">
+                {data.records.length === 0
+                  ? <p className="text-center text-[var(--fd-ink-4)] text-sm py-6">No records for {SHORT_MONTHS[month-1]} {year}</p>
+                  : <AttCalendar records={data.records} />
+                }
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Table view */}
+          {view === 'table' && (
+            data.records.length === 0
+              ? <EmptyState icon={CalendarDays} title="No records" description={`No attendance for ${SHORT_MONTHS[month-1]} ${year}.`} />
+              : (
+                <Card>
+                  <CardHeader>
+                    <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">
+                      Daily Records
+                      <span className="ml-2 text-xs text-[var(--fd-ink-4)] font-normal">({data.records.length} entries)</span>
+                    </h3>
+                  </CardHeader>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-[var(--fd-border)] bg-[var(--fd-surface-raised)]">
+                          {['Date','Status','Check In','Check Out','Work Hrs'].map(h => (
+                            <th key={h} className="text-left px-5 py-2.5 text-xs font-semibold text-[var(--fd-ink-3)] uppercase tracking-wide whitespace-nowrap">
+                              {h}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--fd-border)]">
+                        {data.records.map(r => {
+                          const cfg = ATT_STATUS[r.status];
+                          return (
+                            <tr key={r._id} className="hover:bg-[var(--fd-surface-raised)] transition-colors">
+                              <td className="px-5 py-3 text-[var(--fd-ink-2)] font-medium whitespace-nowrap">{r.date}</td>
+                              <td className="px-5 py-3">
+                                {cfg
+                                  ? <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${cfg.badge}`}>
+                                      <span className={`w-1.5 h-1.5 rounded-full inline-block ${cfg.dot}`} />
+                                      {cfg.label}
+                                    </span>
+                                  : <span className="text-[var(--fd-ink-4)] text-xs">{r.status}</span>
+                                }
+                              </td>
+                              <td className="px-5 py-3 text-[var(--fd-ink-3)] text-xs whitespace-nowrap">{fmtTime(r.checkInTime)}</td>
+                              <td className="px-5 py-3 text-[var(--fd-ink-3)] text-xs whitespace-nowrap">
+                                {fmtTime(r.checkOutTime)}
+                                {r.autoCheckout && <span className="ml-1 text-[10px] text-[var(--fd-ink-4)] italic">(auto)</span>}
+                              </td>
+                              <td className="px-5 py-3 text-[var(--fd-ink-3)] text-xs">
+                                {r.workHours > 0 ? `${r.workHours}h` : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              )
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function TeamMemberDetailPage() {
   const { id } = useParams();
   const { user: currentUser } = useAuthStore();
   const isAdmin = currentUser?.role === 'admin';
+  const isAdminOrManager = ['admin', 'manager'].includes(currentUser?.role);
 
   const [member, setMember] = useState(null);
   const [tasks, setTasks] = useState([]);
@@ -76,7 +342,6 @@ export default function TeamMemberDetailPage() {
   const avatarInputRef = useRef(null);
   const toast = useToast();
 
-  // Document upload state
   const [showDocModal, setShowDocModal] = useState(false);
   const [docForm, setDocForm] = useState({ name: '', type: 'other' });
   const [docFile, setDocFile] = useState(null);
@@ -92,31 +357,21 @@ export default function TeamMemberDetailPage() {
         api.get(`/tasks?assignedTo=${id}&limit=50`),
         api.get(`/clients?limit=100`),
       ]);
-
       const userData = userRes.data.user;
       setMember(userData);
       setTasks(taskRes.data.tasks || []);
-
       const allClients = clientsRes.data.clients || [];
-      const myClients = allClients.filter(c =>
+      setAssignedClients(allClients.filter(c =>
         String(c.accountManager?._id || c.accountManager) === String(id) ||
         (c.teamMembers || []).some(m => String(m._id || m) === String(id))
-      );
-      setAssignedClients(myClients);
-
+      ));
       setEditForm({
-        name: userData.name,
-        email: userData.email,
-        phone: userData.phone || '',
-        alternativePhone: userData.alternativePhone || '',
-        jobTitle: userData.jobTitle || '',
-        department: userData.department || '',
-        role: userData.role,
-        isActive: userData.isActive,
+        name: userData.name, email: userData.email,
+        phone: userData.phone || '', alternativePhone: userData.alternativePhone || '',
+        jobTitle: userData.jobTitle || '', department: userData.department || '',
+        role: userData.role, isActive: userData.isActive,
       });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   useEffect(() => { loadData(); }, [id]);
@@ -130,13 +385,10 @@ export default function TeamMemberDetailPage() {
       fd.append('avatar', file);
       await api.post(`/auth/avatar/${id}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       await loadData();
-      toast({ type: 'success', title: 'Photo updated', message: 'Profile photo has been saved.' });
+      toast({ type: 'success', title: 'Photo updated', message: 'Profile photo saved.' });
     } catch (err) {
       toast({ type: 'error', title: 'Upload failed', message: err?.response?.data?.message || 'Could not upload photo.' });
-    } finally {
-      setUploadingAvatar(false);
-      e.target.value = '';
-    }
+    } finally { setUploadingAvatar(false); e.target.value = ''; }
   };
 
   const handleSaveEdit = async () => {
@@ -148,15 +400,12 @@ export default function TeamMemberDetailPage() {
       toast({ type: 'success', title: 'Saved', message: 'Team member details updated.' });
     } catch (err) {
       toast({ type: 'error', title: 'Save failed', message: err?.response?.data?.message || 'Could not save changes.' });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleDocUpload = async () => {
-    if (!docFile) return toast({ type: 'error', title: 'No file', message: 'Please select a file to upload.' });
+    if (!docFile) return toast({ type: 'error', title: 'No file', message: 'Please select a file.' });
     if (!docForm.name.trim()) return toast({ type: 'error', title: 'Missing name', message: 'Please enter a document name.' });
-
     setUploadingDoc(true);
     try {
       const fd = new FormData();
@@ -168,12 +417,10 @@ export default function TeamMemberDetailPage() {
       setDocForm({ name: '', type: 'other' });
       setDocFile(null);
       await loadData();
-      toast({ type: 'success', title: 'Document uploaded', message: 'Document has been saved.' });
+      toast({ type: 'success', title: 'Document uploaded', message: 'Document saved.' });
     } catch (err) {
-      toast({ type: 'error', title: 'Upload failed', message: err?.response?.data?.message || 'Could not upload document.' });
-    } finally {
-      setUploadingDoc(false);
-    }
+      toast({ type: 'error', title: 'Upload failed', message: err?.response?.data?.message || 'Could not upload.' });
+    } finally { setUploadingDoc(false); }
   };
 
   const handleDeleteDoc = async (docId) => {
@@ -184,25 +431,25 @@ export default function TeamMemberDetailPage() {
       await loadData();
       toast({ type: 'success', title: 'Deleted', message: 'Document removed.' });
     } catch (err) {
-      toast({ type: 'error', title: 'Delete failed', message: err?.response?.data?.message || 'Could not delete document.' });
-    } finally {
-      setDeletingDocId(null);
-    }
+      toast({ type: 'error', title: 'Delete failed', message: err?.response?.data?.message || 'Could not delete.' });
+    } finally { setDeletingDocId(null); }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
   if (!member) return <div className="text-[var(--fd-ink-3)] text-center py-16">Team member not found</div>;
 
-  const pendingTasks = tasks.filter(t => t.status === 'pending').length;
+  const pendingTasks    = tasks.filter(t => t.status === 'pending').length;
   const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
-  const completedTasks = tasks.filter(t => t.status === 'completed').length;
-  const documents = member.documents || [];
+  const completedTasks  = tasks.filter(t => t.status === 'completed').length;
+  const documents       = member.documents || [];
+  const showAttendanceTab = member.role !== 'client';
 
   const tabs = [
-    { id: 'overview', label: 'Overview' },
-    { id: 'tasks', label: `Tasks (${tasks.length})` },
-    { id: 'clients', label: `Clients (${assignedClients.length})` },
-    { id: 'documents', label: `Documents (${documents.length})` },
+    { id: 'overview',   label: 'Overview' },
+    { id: 'tasks',      label: `Tasks (${tasks.length})` },
+    { id: 'clients',    label: `Clients (${assignedClients.length})` },
+    { id: 'documents',  label: `Documents (${documents.length})` },
+    ...(showAttendanceTab ? [{ id: 'attendance', label: 'Attendance' }] : []),
   ];
 
   return (
@@ -224,10 +471,7 @@ export default function TeamMemberDetailPage() {
                     : <Camera size={14} color="white" />}
                 </div>
               )}
-              {isAdmin && (
-                <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="hidden" onChange={handleAvatarUpload} />
-              )}
+              {isAdmin && <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" className="hidden" onChange={handleAvatarUpload} />}
             </div>
             <div>
               <h1 className="text-xl font-bold text-[var(--fd-ink-1)]">{member.name}</h1>
@@ -262,67 +506,52 @@ export default function TeamMemberDetailPage() {
       {activeTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           <div className="lg:col-span-2 space-y-5">
-            {/* Contact Info */}
             <Card>
               <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Contact Information</h3></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Mail size={14} className="text-[var(--fd-ink-4)]" />{member.email}</div>
-                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]">
-                    <Phone size={14} className="text-[var(--fd-ink-4)]" />
-                    <span>{member.phone || '—'}</span>
-                  </div>
+                  <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Phone size={14} className="text-[var(--fd-ink-4)]" /><span>{member.phone || '—'}</span></div>
                   {member.alternativePhone && (
                     <div className="flex items-center gap-2 text-[var(--fd-ink-2)]">
                       <Phone size={14} className="text-[var(--fd-ink-4)]" />
-                      <span className="text-xs text-[var(--fd-ink-4)] mr-1">Alt:</span>
-                      {member.alternativePhone}
+                      <span className="text-xs text-[var(--fd-ink-4)] mr-1">Alt:</span>{member.alternativePhone}
                     </div>
                   )}
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Shield size={14} className="text-[var(--fd-ink-4)]" />{member.department || '—'}</div>
                   <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Calendar size={14} className="text-[var(--fd-ink-4)]" />Joined {formatDate(member.createdAt)}</div>
-                  {member.lastLogin && (
-                    <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Clock size={14} className="text-[var(--fd-ink-4)]" />Last login {timeAgo(member.lastLogin)}</div>
-                  )}
+                  {member.lastLogin && <div className="flex items-center gap-2 text-[var(--fd-ink-2)]"><Clock size={14} className="text-[var(--fd-ink-4)]" />Last login {timeAgo(member.lastLogin)}</div>}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Recent Tasks */}
             <Card>
               <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Recent Tasks</h3></CardHeader>
               <CardContent className="space-y-2">
-                {tasks.slice(0, 5).length === 0 ? (
-                  <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No tasks assigned</p>
-                ) : tasks.slice(0, 5).map(t => (
-                  <div key={t._id} className="flex items-center gap-3 p-2.5 bg-[var(--fd-surface-raised)] rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-[var(--fd-ink-1)] truncate">{t.title}</div>
-                      <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{t.client?.company || '—'}</div>
+                {tasks.slice(0, 5).length === 0
+                  ? <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No tasks assigned</p>
+                  : tasks.slice(0, 5).map(t => (
+                    <div key={t._id} className="flex items-center gap-3 p-2.5 bg-[var(--fd-surface-raised)] rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-[var(--fd-ink-1)] truncate">{t.title}</div>
+                        <div className="text-xs text-[var(--fd-ink-3)] mt-0.5">{t.client?.company || '—'}</div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>
-                      {t.status?.replace('_', ' ')}
-                    </span>
-                  </div>
-                ))}
-                {tasks.length > 5 && (
-                  <button onClick={() => setActiveTab('tasks')} className="text-xs text-brand-600 hover:underline w-full text-center pt-1">
-                    View all {tasks.length} tasks →
-                  </button>
-                )}
+                  ))}
+                {tasks.length > 5 && <button onClick={() => setActiveTab('tasks')} className="text-xs text-brand-600 hover:underline w-full text-center pt-1">View all {tasks.length} tasks →</button>}
               </CardContent>
             </Card>
           </div>
 
-          {/* Right sidebar stats */}
           <div className="space-y-4">
             <Card>
               <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Task Stats</h3></CardHeader>
               <CardContent className="space-y-3">
                 {[
-                  { label: 'Pending', count: pendingTasks, color: 'bg-amber-100 text-amber-700' },
-                  { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-100 text-blue-700' },
-                  { label: 'Completed', count: completedTasks, color: 'bg-emerald-100 text-emerald-700' },
+                  { label: 'Pending',     count: pendingTasks,    color: 'bg-amber-100 text-amber-700'    },
+                  { label: 'In Progress', count: inProgressTasks, color: 'bg-blue-100 text-blue-700'      },
+                  { label: 'Completed',   count: completedTasks,  color: 'bg-emerald-100 text-emerald-700' },
                 ].map(s => (
                   <div key={s.label} className="flex items-center justify-between">
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${s.color}`}>{s.label}</span>
@@ -339,58 +568,47 @@ export default function TeamMemberDetailPage() {
             <Card>
               <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Assigned Clients</h3></CardHeader>
               <CardContent>
-                {assignedClients.length === 0 ? (
-                  <p className="text-[var(--fd-ink-4)] text-sm">No clients assigned</p>
-                ) : (
-                  <div className="space-y-2">
-                    {assignedClients.slice(0, 5).map(c => (
-                      <Link key={c._id} to={`/admin/clients/${c._id}`}
-                        className="flex items-center gap-2 p-2 hover:bg-[var(--fd-surface-raised)] rounded-lg transition-colors group">
-                        <Avatar name={c.company} size="sm" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-[var(--fd-ink-2)] truncate group-hover:text-brand-600">{c.company}</div>
-                          <div className="text-xs text-[var(--fd-ink-4)] capitalize">{c.status}</div>
-                        </div>
-                      </Link>
-                    ))}
-                    {assignedClients.length > 5 && (
-                      <button onClick={() => setActiveTab('clients')} className="text-xs text-brand-600 hover:underline w-full text-center pt-1">
-                        +{assignedClients.length - 5} more
-                      </button>
-                    )}
-                  </div>
-                )}
+                {assignedClients.length === 0
+                  ? <p className="text-[var(--fd-ink-4)] text-sm">No clients assigned</p>
+                  : (
+                    <div className="space-y-2">
+                      {assignedClients.slice(0, 5).map(c => (
+                        <Link key={c._id} to={`/admin/clients/${c._id}`} className="flex items-center gap-2 p-2 hover:bg-[var(--fd-surface-raised)] rounded-lg transition-colors group">
+                          <Avatar name={c.company} size="sm" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium text-[var(--fd-ink-2)] truncate group-hover:text-brand-600">{c.company}</div>
+                            <div className="text-xs text-[var(--fd-ink-4)] capitalize">{c.status}</div>
+                          </div>
+                        </Link>
+                      ))}
+                      {assignedClients.length > 5 && <button onClick={() => setActiveTab('clients')} className="text-xs text-brand-600 hover:underline w-full text-center pt-1">+{assignedClients.length - 5} more</button>}
+                    </div>
+                  )}
               </CardContent>
             </Card>
 
-            {/* Documents quick summary */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Documents</h3>
-                  {isAdmin && (
-                    <button onClick={() => setActiveTab('documents')}
-                      className="text-xs text-brand-600 hover:underline">View all</button>
-                  )}
+                  {isAdmin && <button onClick={() => setActiveTab('documents')} className="text-xs text-brand-600 hover:underline">View all</button>}
                 </div>
               </CardHeader>
               <CardContent>
-                {documents.length === 0 ? (
-                  <p className="text-[var(--fd-ink-4)] text-sm">No documents uploaded</p>
-                ) : (
-                  <div className="space-y-1.5">
-                    {documents.slice(0, 4).map(doc => (
-                      <div key={doc._id} className="flex items-center gap-2 text-sm">
-                        <DocIcon fileType={doc.fileType} className="text-[var(--fd-ink-4)] shrink-0" />
-                        <span className="text-[var(--fd-ink-2)] truncate flex-1">{doc.name}</span>
-                        <span className="text-xs text-[var(--fd-ink-4)] shrink-0">{DOC_TYPE_LABELS[doc.type] || doc.type}</span>
-                      </div>
-                    ))}
-                    {documents.length > 4 && (
-                      <p className="text-xs text-[var(--fd-ink-4)] pt-1">+{documents.length - 4} more</p>
-                    )}
-                  </div>
-                )}
+                {documents.length === 0
+                  ? <p className="text-[var(--fd-ink-4)] text-sm">No documents uploaded</p>
+                  : (
+                    <div className="space-y-1.5">
+                      {documents.slice(0, 4).map(doc => (
+                        <div key={doc._id} className="flex items-center gap-2 text-sm">
+                          <DocIcon fileType={doc.fileType} className="text-[var(--fd-ink-4)] shrink-0" />
+                          <span className="text-[var(--fd-ink-2)] truncate flex-1">{doc.name}</span>
+                          <span className="text-xs text-[var(--fd-ink-4)] shrink-0">{DOC_TYPE_LABELS[doc.type] || doc.type}</span>
+                        </div>
+                      ))}
+                      {documents.length > 4 && <p className="text-xs text-[var(--fd-ink-4)] pt-1">+{documents.length - 4} more</p>}
+                    </div>
+                  )}
               </CardContent>
             </Card>
           </div>
@@ -400,84 +618,63 @@ export default function TeamMemberDetailPage() {
       {/* TASKS */}
       {activeTab === 'tasks' && (
         <div className="space-y-3">
-          {tasks.length === 0 ? (
-            <EmptyState icon={CheckCircle} title="No tasks assigned" description="This team member has no tasks yet." />
-          ) : (
-            <Card>
-              <div className="divide-y divide-[var(--fd-border)]">
-                {tasks.map(t => (
-                  <div key={t._id} className="flex items-center gap-4 px-5 py-3.5">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-[var(--fd-ink-1)] text-sm">{t.title}</div>
-                      {t.description && <div className="text-xs text-[var(--fd-ink-3)] mt-0.5 truncate">{t.description}</div>}
-                      <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>
-                          {t.status?.replace('_', ' ')}
-                        </span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(t.priority)}`}>
-                          {t.priority}
-                        </span>
-                        {t.category && t.category !== 'other' && (
-                          <span className="text-xs text-[var(--fd-ink-3)]">{CATEGORY_LABELS[t.category]}</span>
-                        )}
-                        {t.client && (
-                          <Link to={`/admin/clients/${t.client._id || t.client}`}
-                            className="text-xs text-brand-600 hover:underline">
-                            {t.client.company || '—'}
-                          </Link>
-                        )}
-                        {t.deadline && (
-                          <span className="text-xs text-[var(--fd-ink-4)] flex items-center gap-1">
-                            <Clock size={11} />{formatDate(t.deadline)}
-                          </span>
-                        )}
+          {tasks.length === 0
+            ? <EmptyState icon={CheckCircle} title="No tasks assigned" description="This team member has no tasks yet." />
+            : (
+              <Card>
+                <div className="divide-y divide-[var(--fd-border)]">
+                  {tasks.map(t => (
+                    <div key={t._id} className="flex items-center gap-4 px-5 py-3.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-[var(--fd-ink-1)] text-sm">{t.title}</div>
+                        {t.description && <div className="text-xs text-[var(--fd-ink-3)] mt-0.5 truncate">{t.description}</div>}
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getTaskStatusColor(t.status)}`}>{t.status?.replace('_', ' ')}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getPriorityColor(t.priority)}`}>{t.priority}</span>
+                          {t.category && t.category !== 'other' && <span className="text-xs text-[var(--fd-ink-3)]">{CATEGORY_LABELS[t.category]}</span>}
+                          {t.client && <Link to={`/admin/clients/${t.client._id || t.client}`} className="text-xs text-brand-600 hover:underline">{t.client.company || '—'}</Link>}
+                          {t.deadline && <span className="text-xs text-[var(--fd-ink-4)] flex items-center gap-1"><Clock size={11} />{formatDate(t.deadline)}</span>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
+                  ))}
+                </div>
+              </Card>
+            )}
         </div>
       )}
 
       {/* CLIENTS */}
       {activeTab === 'clients' && (
         <div className="space-y-3">
-          {assignedClients.length === 0 ? (
-            <EmptyState icon={Building2} title="No clients assigned" description="This member isn't assigned to any clients yet." />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {assignedClients.map(c => (
-                <Link key={c._id} to={`/admin/clients/${c._id}`}>
-                  <Card className="hover:shadow-md hover:border-brand-200 transition-all cursor-pointer">
-                    <div className="p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <Avatar name={c.company} size="md" />
-                        <div className="min-w-0 flex-1">
-                          <div className="font-semibold text-[var(--fd-ink-1)] truncate">{c.company}</div>
-                          <div className="text-xs text-[var(--fd-ink-4)]">{c.name}</div>
+          {assignedClients.length === 0
+            ? <EmptyState icon={Building2} title="No clients assigned" description="This member isn't assigned to any clients yet." />
+            : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {assignedClients.map(c => (
+                  <Link key={c._id} to={`/admin/clients/${c._id}`}>
+                    <Card className="hover:shadow-md hover:border-brand-200 transition-all cursor-pointer">
+                      <div className="p-4">
+                        <div className="flex items-center gap-3 mb-3">
+                          <Avatar name={c.company} size="md" />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-[var(--fd-ink-1)] truncate">{c.company}</div>
+                            <div className="text-xs text-[var(--fd-ink-4)]">{c.name}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(c.status)}`}>{c.status}</span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${PLAN_COLORS[c.plan] || 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'}`}>{PLAN_LABELS[c.plan] || c.plan}</span>
+                          {String(c.accountManager?._id || c.accountManager) === String(id) && (
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Account Manager</span>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(c.status)}`}>
-                          {c.status}
-                        </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${PLAN_COLORS[c.plan] || 'bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)]'}`}>
-                          {PLAN_LABELS[c.plan] || c.plan}
-                        </span>
-                        {String(c.accountManager?._id || c.accountManager) === String(id) && (
-                          <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                            Account Manager
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )}
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
         </div>
       )}
 
@@ -488,69 +685,55 @@ export default function TeamMemberDetailPage() {
             <p className="text-sm text-[var(--fd-ink-3)]">
               {documents.length === 0 ? 'No documents uploaded yet.' : `${documents.length} document${documents.length !== 1 ? 's' : ''} on file.`}
             </p>
-            {isAdmin && (
-              <Button size="sm" onClick={() => setShowDocModal(true)}>
-                <Upload size={14} /> Upload Document
-              </Button>
-            )}
+            {isAdmin && <Button size="sm" onClick={() => setShowDocModal(true)}><Upload size={14} /> Upload Document</Button>}
           </div>
 
-          {documents.length === 0 ? (
-            <EmptyState icon={FileText} title="No documents" description="Upload Aadhaar, PAN card, or other identity documents for this team member." />
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {documents.map(doc => (
-                <Card key={doc._id} className="group">
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-3">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-9 h-9 rounded-lg bg-[var(--fd-surface-sunken)] flex items-center justify-center shrink-0">
-                          <DocIcon fileType={doc.fileType} className="text-[var(--fd-ink-3)]" />
+          {documents.length === 0
+            ? <EmptyState icon={FileText} title="No documents" description="Upload Aadhaar, PAN card, or other identity documents." />
+            : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {documents.map(doc => (
+                  <Card key={doc._id} className="group">
+                    <div className="p-4">
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-9 h-9 rounded-lg bg-[var(--fd-surface-sunken)] flex items-center justify-center shrink-0">
+                            <DocIcon fileType={doc.fileType} className="text-[var(--fd-ink-3)]" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{doc.name}</div>
+                            <div className="text-xs text-[var(--fd-ink-4)]">{DOC_TYPE_LABELS[doc.type] || doc.type}</div>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{doc.name}</div>
-                          <div className="text-xs text-[var(--fd-ink-4)]">{DOC_TYPE_LABELS[doc.type] || doc.type}</div>
-                        </div>
+                        {isAdmin && (
+                          <button onClick={() => handleDeleteDoc(doc._id)} disabled={deletingDocId === doc._id}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Delete document">
+                            {deletingDocId === doc._id
+                              ? <div className="w-3.5 h-3.5 border border-red-400 border-t-transparent rounded-full animate-spin" />
+                              : <Trash2 size={13} />}
+                          </button>
+                        )}
                       </div>
-                      {isAdmin && (
-                        <button
-                          onClick={() => handleDeleteDoc(doc._id)}
-                          disabled={deletingDocId === doc._id}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                          title="Delete document">
-                          {deletingDocId === doc._id
-                            ? <div className="w-3.5 h-3.5 border border-red-400 border-t-transparent rounded-full animate-spin" />
-                            : <Trash2 size={13} />}
-                        </button>
-                      )}
+                      <div className="text-xs text-[var(--fd-ink-4)] mb-3">Uploaded {formatDate(doc.uploadedAt)}</div>
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-brand-600 hover:underline font-medium">
+                        <ExternalLink size={11} />
+                        {doc.fileType === 'image' ? 'View Image' : doc.fileType === 'pdf' ? 'Open PDF' : 'Open File'}
+                      </a>
                     </div>
-
-                    <div className="text-xs text-[var(--fd-ink-4)] mb-3">
-                      Uploaded {formatDate(doc.uploadedAt)}
-                    </div>
-
-                    <a href={doc.url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-xs text-brand-600 hover:underline font-medium">
-                      <ExternalLink size={11} />
-                      {doc.fileType === 'image' ? 'View Image' : doc.fileType === 'pdf' ? 'Open PDF' : 'Open File'}
-                    </a>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          )}
+                  </Card>
+                ))}
+              </div>
+            )}
         </div>
       )}
+
+      {/* ATTENDANCE */}
+      {activeTab === 'attendance' && <AttendanceTab memberId={id} />}
 
       {/* Edit Modal */}
       {isAdmin && (
         <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Team Member"
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
-              <Button loading={saving} onClick={handleSaveEdit}>Save Changes</Button>
-            </div>
-          }>
+          footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button><Button loading={saving} onClick={handleSaveEdit}>Save Changes</Button></div>}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Input label="Full Name" value={editForm.name || ''} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} />
@@ -566,15 +749,11 @@ export default function TeamMemberDetailPage() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Select label="Role" value={editForm.role || ''} onChange={e => setEditForm(p => ({ ...p, role: e.target.value }))}>
-                {Object.entries(ROLE_LABELS).filter(([k]) => k !== 'client').map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
+                {Object.entries(ROLE_LABELS).filter(([k]) => k !== 'client').map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
               <div className="flex items-end pb-1">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={!!editForm.isActive}
-                    onChange={e => setEditForm(p => ({ ...p, isActive: e.target.checked }))}
-                    className="rounded" />
+                  <input type="checkbox" checked={!!editForm.isActive} onChange={e => setEditForm(p => ({ ...p, isActive: e.target.checked }))} className="rounded" />
                   <span className="text-sm text-[var(--fd-ink-2)]">Active</span>
                 </label>
               </div>
@@ -585,47 +764,24 @@ export default function TeamMemberDetailPage() {
 
       {/* Upload Document Modal */}
       {isAdmin && (
-        <Modal isOpen={showDocModal} onClose={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: 'other' }); }}
-          title="Upload Document"
-          footer={
-            <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: 'other' }); }}>Cancel</Button>
-              <Button loading={uploadingDoc} onClick={handleDocUpload} disabled={!docFile}>
-                <Upload size={14} /> Upload
-              </Button>
-            </div>
-          }>
+        <Modal isOpen={showDocModal} onClose={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: 'other' }); }} title="Upload Document"
+          footer={<div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => { setShowDocModal(false); setDocFile(null); setDocForm({ name: '', type: 'other' }); }}>Cancel</Button><Button loading={uploadingDoc} onClick={handleDocUpload} disabled={!docFile}><Upload size={14} /> Upload</Button></div>}>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Document Name"
-                placeholder="e.g. Aadhaar Card"
-                value={docForm.name}
-                onChange={e => setDocForm(p => ({ ...p, name: e.target.value }))}
-              />
-              <Select
-                label="Document Type"
-                value={docForm.type}
-                onChange={e => setDocForm(p => ({ ...p, type: e.target.value }))}>
-                {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
+              <Input label="Document Name" placeholder="e.g. Aadhaar Card" value={docForm.name} onChange={e => setDocForm(p => ({ ...p, name: e.target.value }))} />
+              <Select label="Document Type" value={docForm.type} onChange={e => setDocForm(p => ({ ...p, type: e.target.value }))}>
+                {Object.entries(DOC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </Select>
             </div>
-
             <div>
               <label className="block text-sm font-medium text-[var(--fd-ink-2)] mb-1.5">File</label>
-              <div
-                onClick={() => docInputRef.current?.click()}
+              <div onClick={() => docInputRef.current?.click()}
                 className="border-2 border-dashed border-[var(--fd-border)] rounded-xl p-6 text-center cursor-pointer hover:border-brand-400 hover:bg-brand-50/30 transition-colors">
                 {docFile ? (
                   <div className="flex items-center justify-center gap-2 text-[var(--fd-ink-2)]">
                     <FileText size={18} />
                     <span className="text-sm font-medium truncate max-w-xs">{docFile.name}</span>
-                    <button onClick={e => { e.stopPropagation(); setDocFile(null); }}
-                      className="ml-1 text-[var(--fd-ink-4)] hover:text-red-500">
-                      <X size={14} />
-                    </button>
+                    <button onClick={e => { e.stopPropagation(); setDocFile(null); }} className="ml-1 text-[var(--fd-ink-4)] hover:text-red-500"><X size={14} /></button>
                   </div>
                 ) : (
                   <div>
@@ -635,15 +791,10 @@ export default function TeamMemberDetailPage() {
                   </div>
                 )}
               </div>
-              <input ref={docInputRef} type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx"
-                className="hidden"
+              <input ref={docInputRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx" className="hidden"
                 onChange={e => {
                   const f = e.target.files?.[0];
-                  if (f) {
-                    setDocFile(f);
-                    if (!docForm.name) setDocForm(p => ({ ...p, name: f.name.replace(/\.[^.]+$/, '') }));
-                  }
+                  if (f) { setDocFile(f); if (!docForm.name) setDocForm(p => ({ ...p, name: f.name.replace(/\.[^.]+$/, '') })); }
                   e.target.value = '';
                 }} />
             </div>

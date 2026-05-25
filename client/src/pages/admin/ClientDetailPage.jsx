@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit3, Mail, Phone, Globe, Calendar,
@@ -81,6 +82,95 @@ const STATUS_CONFIG = {
   done:        { label: 'Done',        icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },
   cancelled:   { label: 'Cancelled',   icon: XCircle,      color: '#ef4444', bg: '#fef2f2' },
 };
+
+// -- Status dropdown - uses a portal so modal overflow never clips it ----------
+function StatusDropdown({ status, onStatusChange }) {
+  const [open, setOpen] = useState(false);
+  const btnRef = React.useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const Icon = cfg.icon;
+
+  // Compute position from button rect every time we open
+  const openDropdown = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setCoords({ top: r.bottom + 6, left: r.right, width: r.width });
+    }
+    setOpen(v => !v);
+  };
+
+  // Close on outside click or scroll
+  React.useEffect(() => {
+    if (!open) return;
+    const close = () => setOpen(false);
+    document.addEventListener('mousedown', close);
+    document.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('mousedown', close);
+      document.removeEventListener('scroll', close, true);
+    };
+  }, [open]);
+
+  const dropdown = open && createPortal(
+    <div
+      onMouseDown={e => e.stopPropagation()}
+      style={{
+        position: 'fixed',
+        top: coords.top,
+        left: coords.left,
+        transform: 'translateX(-100%)',
+        zIndex: 99999,
+        background: 'var(--fd-surface)',
+        border: '1px solid var(--fd-border)',
+        borderRadius: 12,
+        minWidth: 180,
+        boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
+        overflow: 'hidden',
+      }}>
+      {Object.entries(STATUS_CONFIG).map(([val, s]) => {
+        const I = s.icon;
+        const isActive = val === status;
+        return (
+          <button key={val}
+            onClick={() => { onStatusChange(val); setOpen(false); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              width: '100%', padding: '10px 14px', textAlign: 'left',
+              background: isActive ? s.color : 'transparent',
+              color: isActive ? '#fff' : 'var(--fd-ink-1)',
+              border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+            }}>
+            <I size={14} style={{ color: isActive ? '#fff' : s.color, flexShrink: 0 }} />
+            <span>{s.label}</span>
+            {isActive && <Check size={12} style={{ color: '#fff', marginLeft: 'auto' }} />}
+          </button>
+        );
+      })}
+    </div>,
+    document.body
+  );
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        ref={btnRef}
+        onClick={openDropdown}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          fontSize: 13, fontWeight: 600,
+          padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer',
+          background: cfg.color, color: '#fff',
+          boxShadow: `0 2px 10px ${cfg.color}66`,
+        }}>
+        <Icon size={13} />
+        {cfg.label}
+        <ChevronDown size={12} style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+      </button>
+      {dropdown}
+    </div>
+  );
+}
 
 // ─── Client-scoped mini calendar ─────────────────────────────────────────────
 function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
@@ -237,7 +327,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
         <Modal
           isOpen onClose={() => setModal(null)}
           title={modal.mode === 'view' ? form.title : modal.mode === 'new' ? 'New Event' : 'Edit Event'}
-          size="sm"
+          size="md"
           footer={
             <div className="flex items-center justify-between gap-2">
               {modal.mode === 'view' && (
@@ -262,72 +352,44 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
           }
         >
           {modal.mode === 'view' ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
-                <Clock size={13} />
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 text-[13px]" style={{ color: 'var(--fd-ink-3)' }}>
+                <Clock size={14} />
                 {format(parseISO(form.startDate), 'EEE, MMM d · h:mm a')}
                 {form.isOverdue && (
-                  <span className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded ml-1"
-                    style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>
-                    <AlertTriangle size={8} /> OVERDUE
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ml-1"
+                    style={{ background: '#ef4444', color: '#fff' }}>
+                    <AlertTriangle size={9} /> OVERDUE
                   </span>
                 )}
               </div>
               {/* Status */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl"
-                style={{ background: 'var(--fd-surface-sunken)' }}>
-                <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>Status</span>
-                <div className="relative">
-                  {(() => {
-                    const [statusOpen, setStatusOpen] = useState(false);
-                    const cfg = STATUS_CONFIG[form.status] || STATUS_CONFIG.pending;
-                    const Icon = cfg.icon;
-                    return (
-                      <div className="relative">
-                        <button onClick={() => setStatusOpen(v => !v)}
-                          className="flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-full"
-                          style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
-                          <Icon size={10} /> {cfg.label} <ChevronRight size={8} style={{ transform: statusOpen ? 'rotate(90deg)' : 'none' }} />
-                        </button>
-                        {statusOpen && (
-                          <div className="absolute z-50 right-0 top-full mt-1 rounded-xl overflow-hidden shadow-lg"
-                            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', minWidth: 140 }}>
-                            {Object.entries(STATUS_CONFIG).map(([val, s]) => {
-                              const I = s.icon;
-                              return (
-                                <button key={val} onClick={() => {
-                                  handleStatusChange(form._id, val);
-                                  setForm(f => ({ ...f, status: val }));
-                                  setStatusOpen(false);
-                                }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 hover:opacity-70 text-left"
-                                  style={{ background: val === form.status ? s.bg : 'transparent' }}>
-                                  <I size={12} style={{ color: s.color }} />
-                                  <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{s.label}</span>
-                                  {val === form.status && <Check size={10} className="ml-auto" style={{ color: s.color }} />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
+              <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+                style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <span className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>Status</span>
+                <StatusDropdown
+                  status={form.status || 'pending'}
+                  onStatusChange={(val) => {
+                    handleStatusChange(form._id, val);
+                    setForm(f => ({ ...f, status: val }));
+                  }}
+                />
               </div>
               {form.description && (
-                <p className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>{form.description}</p>
+                <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>{form.description}</p>
               )}
-              <span className="inline-block text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ background: (EVENT_COLORS[form.type] || EVENT_COLORS.other).light, color: (EVENT_COLORS[form.type] || EVENT_COLORS.other).text }}>
-                {TYPE_LABELS[form.type] || form.type}
-              </span>
-              {form.type === 'shoot' && form.shootSubtype && (
-                <span className="inline-block ml-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}>
-                  {SHOOT_SUBTYPE_ICONS[form.shootSubtype]} {SHOOT_SUBTYPE_LABELS[form.shootSubtype] || form.shootSubtype}
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center text-[12px] font-semibold px-3 py-1 rounded-full"
+                  style={{ background: (EVENT_COLORS[form.type] || EVENT_COLORS.other).bg, color: '#fff' }}>
+                  {TYPE_LABELS[form.type] || form.type}
                 </span>
-              )}
+                {form.type === 'shoot' && form.shootSubtype && (
+                  <span className="inline-flex items-center gap-1 text-[12px] font-semibold px-3 py-1 rounded-full"
+                    style={{ background: '#ec4899', color: '#fff' }}>
+                    {SHOOT_SUBTYPE_ICONS[form.shootSubtype]} {SHOOT_SUBTYPE_LABELS[form.shootSubtype] || form.shootSubtype}
+                  </span>
+                )}
+              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -341,17 +403,18 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
               {/* Status */}
               <div className="space-y-1.5">
                 <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Status</label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {Object.entries(STATUS_CONFIG).map(([val, s]) => {
                     const Icon = s.icon;
+                    const isActive = (form.status || 'pending') === val;
                     return (
                       <button key={val} onClick={() => setForm(f => ({ ...f, status: val }))}
-                        className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all"
-                        style={(form.status || 'pending') === val
-                          ? { background: s.color, color: '#fff' }
-                          : { background: s.bg, color: s.color, border: `1px solid ${s.color}40` }
+                        className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all"
+                        style={isActive
+                          ? { background: s.color, color: '#fff', boxShadow: `0 2px 8px ${s.color}55` }
+                          : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }
                         }>
-                        <Icon size={10} /> {s.label}
+                        <Icon size={11} /> {s.label}
                       </button>
                     );
                   })}
@@ -359,13 +422,17 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
               </div>
               <div className="space-y-1.5">
                 <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Type</label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {EVENT_TYPES.map(type => {
                     const c = EVENT_COLORS[type];
+                    const isActive = form.type === type;
                     return (
                       <button key={type} onClick={() => setForm(f => ({ ...f, type }))}
-                        className="text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all"
-                        style={form.type === type ? { background: c.bg, color: '#fff' } : { background: c.light, color: c.text }}>
+                        className="text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all"
+                        style={isActive
+                          ? { background: c.bg, color: '#fff', boxShadow: `0 2px 8px ${c.bg}55` }
+                          : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }
+                        }>
                         {TYPE_LABELS[type]}
                       </button>
                     );
@@ -375,11 +442,13 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
               {form.type === 'shoot' && (
                 <div className="space-y-1.5">
                   <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Shoot Type</label>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2">
                     {SHOOT_SUBTYPES.map(sub => (
                       <button key={sub.value} onClick={() => setForm(f => ({ ...f, shootSubtype: sub.value }))}
-                        className="text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all flex items-center gap-1"
-                        style={form.shootSubtype === sub.value ? { background: '#ec4899', color: '#fff' } : { background: '#fdf2f8', color: '#be185d', border: '1px solid #fbcfe8' }}>
+                        className="text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5"
+                        style={form.shootSubtype === sub.value
+                          ? { background: '#ec4899', color: '#fff', boxShadow: '0 2px 8px #ec489955' }
+                          : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}>
                         <span>{sub.icon}</span> {sub.label}
                       </button>
                     ))}

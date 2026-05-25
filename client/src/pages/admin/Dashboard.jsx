@@ -22,6 +22,7 @@ import {
   startOfWeek, endOfWeek, isSameMonth, isSameDay, isToday,
   addMonths, subMonths, parseISO, startOfDay, endOfDay, isBefore, isAfter,
 } from 'date-fns';
+import PerformanceMarketerDashboard from './PerformanceMarketerDashboard';
 
 const ROLE_LABELS = {
   admin: 'Admin', manager: 'Project Manager',
@@ -1403,6 +1404,10 @@ export default function AdminDashboard() {
   const { user } = useAuthStore();
   const isManagerOrAdmin = ['admin', 'manager'].includes(user?.role);
   const showFollowUps    = ['admin', 'performance_marketer'].includes(user?.role);
+  const isPM             = user?.role === 'performance_marketer';
+
+  // Performance marketer gets their own focused dashboard
+  if (isPM) return <PerformanceMarketerDashboard />;
 
   return (
     <div className="space-y-6 animate-fade-in">

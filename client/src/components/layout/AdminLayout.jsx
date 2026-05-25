@@ -37,10 +37,10 @@ const navItems = [
   { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       managerOnly: true },
   { to: '/admin/internal-leads',   icon: Briefcase,       label: 'Internal Leads',     internalLeadsOnly: true },
   { to: '/admin/calendar',         icon: Calendar,        label: 'Calendar' },
-  { to: '/admin/updates',    icon: Rss,             label: 'Updates' },
+  { to: '/admin/updates',    icon: Rss,             label: 'Updates',          hideForPM: true },
   { to: '/admin/social',     icon: Instagram,       label: 'Social Media', managerOnly: true },
-  { to: '/admin/reports',    icon: BarChart3,       label: 'Reports' },
-  { to: '/admin/files',      icon: Upload,          label: 'Files' },
+  { to: '/admin/reports',    icon: BarChart3,       label: 'Reports',          hideForPM: true },
+  { to: '/admin/files',      icon: Upload,          label: 'Files',            hideForPM: true },
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
   { to: '/admin/credentials', icon: Key,            label: 'Credentials',  managerOnly: true },
   { to: '/admin/contacts',   icon: BookUser,        label: 'Contacts',     adminOnly: true },
@@ -142,6 +142,7 @@ export default function AdminLayout() {
 
   const isManager  = ['admin', 'manager'].includes(user?.role);
   const isAdmin    = user?.role === 'admin';
+  const isPM       = user?.role === 'performance_marketer';
   const isTeamOnly = TEAM_ROLES.includes(user?.role);
   const isInternalLeads = ['admin', 'performance_marketer'].includes(user?.role);
 
@@ -150,6 +151,7 @@ export default function AdminLayout() {
     if (item.managerOnly       && !isManager)       return false;
     if (item.teamOnly          && !isTeamOnly)      return false;
     if (item.internalLeadsOnly && !isInternalLeads) return false;
+    if (item.hideForPM         && isPM)             return false;
     return true;
   });
 

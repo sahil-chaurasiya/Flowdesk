@@ -257,6 +257,40 @@ router.delete('/:id/notes/:noteId', protect, authorize(...INTERNAL_LEADS_ROLES),
   res.json({ success: true, lead });
 }));
 
+// ── POST /api/internal-leads/:id/activity ────────────────────────────────────
+// Log a sales activity: call_made, whatsapp_sent, email_sent, meeting_scheduled,
+// meeting_completed, proposal_sent, proposal_viewed, follow_up_done
+router.post('/:id/activity', protect, authorize(...INTERNAL_LEADS_ROLES), asyncHandler(async (req, res) => {
+  const VALID_ACTIONS = [
+    'call_made', 'whatsapp_sent', 'email_sent',
+    'meeting_scheduled', 'meeting_completed',
+    'proposal_sent', 'proposal_viewed',
+    'follow_up_done', 'note_added',
+  ];
+
+  const { action, note } = req.body;
+  if (!action || !VALID_ACTIONS.includes(action)) {
+    return res.status(400).json({ success: false, message: `Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}` });
+  }
+
+  const lead = await InternalLead.findByIdAndUpdate(
+    req.params.id,
+    {
+      $push: {
+        activity: { action, by: req.user._id, note: note?.trim() || '' },
+      },
+    },
+    { new: true }
+  )
+    .populate('createdBy',       'name avatar role')
+    .populate('assignedTo',      'name avatar role')
+    .populate('notes.createdBy', 'name avatar')
+    .populate('activity.by',     'name avatar');
+
+  if (!lead) return res.status(404).json({ success: false, message: 'Lead not found' });
+  res.json({ success: true, lead });
+}));
+
 // ── DELETE /api/internal-leads/:id ───────────────────────────────────────────
 router.delete('/:id', protect, authorize(...INTERNAL_LEADS_ROLES), asyncHandler(async (req, res) => {
   const lead = await InternalLead.findByIdAndDelete(req.params.id);

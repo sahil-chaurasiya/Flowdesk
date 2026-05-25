@@ -115,8 +115,16 @@ export default function App() {
                 <Route path="team/:id"   element={<TeamMemberDetailPage />} />
 
                 <Route path="updates"    element={<UpdatesPage />} />
-                <Route path="reports"    element={<ReportsAdminPage />} />
-                <Route path="files"      element={<FilesAdminPage />} />
+                <Route path="reports"    element={
+                  <ProtectedRoute roles={['admin', 'manager', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter']}>
+                    <ReportsAdminPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="files"      element={
+                  <ProtectedRoute roles={['admin', 'manager', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter']}>
+                    <FilesAdminPage />
+                  </ProtectedRoute>
+                } />
                 <Route path="social"     element={
                   <ProtectedRoute roles={['admin', 'manager']}>
                     <SocialAdminPage />

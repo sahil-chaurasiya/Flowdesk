@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
@@ -8,6 +9,8 @@ import {
   ThumbsUp, Share2, Bookmark, Globe, Star, Activity,
   TrendingDown, Radio, Award, Flame, MousePointer,
   Bell, CalendarClock, Phone, Calendar, ChevronDown,
+  Briefcase, Mail,
+  Video, PenTool, Search, MousePointerClick,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -374,7 +377,7 @@ function FollowUpsToday({ leads }) {
           </span>
           <span
             className="text-[10.5px] font-bold px-1.5 py-0.5 rounded-full"
-            style={{ background: C.amber, color: '#fff' }}
+            style={{ background: '#25d366', color: '#fff' }}
           >
             {leads.length}
           </span>
@@ -622,6 +625,7 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [monthFilter, setMonthFilter] = useState('last30');
   const [filterLoading, setFilterLoading] = useState(false);
+  const [showServicesModal, setShowServicesModal] = useState(false);
 
   const fetchData = useCallback((filter = 'last30') => {
     if (!user?.clientId) return;
@@ -819,19 +823,21 @@ export default function ClientDashboard() {
           <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
             Quick Actions
           </p>
-          <div className={`grid gap-1 ${manager ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
             {[
-              { to: '/portal/requests', icon: ClipboardList, label: 'Submit a Request', desc: 'New task or revision' },
-              { to: '/portal/files',    icon: FileText,      label: 'View Files',         desc: 'Deliverables & assets' },
-              { to: '/portal/reports',  icon: BarChart3,     label: 'Reports',             desc: 'Performance data' },
-            ].map(({ to, icon: Icon, label, desc }) => (
+              { to: '/portal/leads',    icon: Target,        label: 'View Leads',       desc: 'Your lead pipeline',   color: C.blue,    bg: C.blueSoft },
+              { to: '/portal/social',   icon: Instagram,     label: 'Social Media',     desc: 'Posts & analytics',    color: '#e1306c', bg: 'rgba(225,48,108,0.1)' },
+              { to: '/portal/requests', icon: ClipboardList, label: 'Submit Request',   desc: 'New task or revision', color: C.purple,  bg: C.purpleSoft },
+              { to: '/portal/files',    icon: FileText,      label: 'View Files',       desc: 'Deliverables & assets',color: C.teal,    bg: C.tealSoft },
+              { to: '/portal/reports',  icon: BarChart3,     label: 'Reports',          desc: 'Performance data',     color: C.amber,   bg: C.amberSoft },
+            ].map(({ to, icon: Icon, label, desc, color, bg }) => (
               <Link
                 key={to}
                 to={to}
                 className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--fd-surface-raised)]"
               >
-                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-[var(--fd-surface-sunken)]">
-                  <Icon size={13} className="text-[var(--fd-ink-4)]" strokeWidth={1.7} />
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
+                  <Icon size={13} strokeWidth={1.7} style={{ color }} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[12.5px] font-medium text-[var(--fd-ink-2)]">{label}</div>
@@ -840,6 +846,20 @@ export default function ClientDashboard() {
                 <ChevronRight size={12} className="text-[var(--fd-ink-5)]" />
               </Link>
             ))}
+            {/* Services — opens modal */}
+            <button
+              onClick={() => setShowServicesModal(true)}
+              className="flex items-center gap-3 p-2.5 rounded-xl transition-colors hover:bg-[var(--fd-surface-raised)] text-left w-full"
+            >
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: C.greenSoft }}>
+                <Briefcase size={13} strokeWidth={1.7} style={{ color: C.green }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] font-medium text-[var(--fd-ink-2)]">Services</div>
+                <div className="text-[11px] text-[var(--fd-ink-4)]">Active & available</div>
+              </div>
+              <ChevronRight size={12} className="text-[var(--fd-ink-5)]" />
+            </button>
           </div>
         </div>
       </div>
@@ -1155,24 +1175,7 @@ export default function ClientDashboard() {
         {/* Right sidebar — Active Services only (AM + QA moved to top) */}
         <div className="space-y-4">
 
-          {/* Active Services */}
-          {client?.services?.length > 0 && (
-            <div className="fd-card rounded-2xl p-4">
-              <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-3 text-[var(--fd-ink-4)]">
-                Active Services
-              </p>
-              <div className="space-y-2">
-                {client.services.map(s => (
-                  <div key={s} className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: C.blue }} />
-                    <span className="text-[12.5px] text-[var(--fd-ink-2)]">
-                      {(SERVICE_LABELS || {})[s] || s}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
 
@@ -1209,6 +1212,116 @@ export default function ClientDashboard() {
         </div>
       </div>
 
+      {/* ─── SERVICES MODAL ─────────────────────────────────────────────── */}
+      {showServicesModal && (() => {
+        const ALL_SERVICES = Object.keys(SERVICE_LABELS || {});
+        const activeServices = client?.services || [];
+        const upsellServices = ALL_SERVICES.filter(s => !activeServices.includes(s));
+        const SERVICE_ICONS_MAP = {
+          seo: Search, ppc: MousePointerClick, social_media: Instagram,
+          content_marketing: PenTool, email_marketing: Mail, web_design: Globe,
+          analytics: BarChart3, branding: Award, video_production: Video,
+          influencer_marketing: Users,
+        };
+        return createPortal(
+          <div
+            style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setShowServicesModal(false)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl"
+              style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: C.greenSoft }}>
+                    <Briefcase size={15} style={{ color: C.green }} strokeWidth={1.8} />
+                  </div>
+                  <div>
+                    <div className="text-[14px] font-bold text-[var(--fd-ink-1)]">Your Services</div>
+                    <div className="text-[11px] text-[var(--fd-ink-4)]">{activeServices.length} active · {upsellServices.length} available to add</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowServicesModal(false)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--fd-surface-raised)]"
+                  style={{ color: 'var(--fd-ink-4)' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                {/* Active */}
+                {activeServices.length > 0 && (
+                  <div className="p-4">
+                    <p className="text-[10.5px] font-bold uppercase tracking-wider mb-3" style={{ color: C.green }}>
+                      ✓ Active Services
+                    </p>
+                    <div className="space-y-2">
+                      {activeServices.map(s => {
+                        const Icon = SERVICE_ICONS_MAP[s] || Briefcase;
+                        return (
+                          <div key={s} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: C.greenSoft, border: `1px solid ${C.green}25` }}>
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.5)' }}>
+                              <Icon size={14} style={{ color: C.green }} strokeWidth={1.8} />
+                            </div>
+                            <span className="text-[13px] font-semibold flex-1" style={{ color: C.green }}>
+                              {(SERVICE_LABELS || {})[s] || s}
+                            </span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: C.green, color: '#fff' }}>Active</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Available */}
+                {upsellServices.length > 0 && (
+                  <div className="px-4 pb-4">
+                    <div className="pt-3 mb-3" style={{ borderTop: activeServices.length > 0 ? '1px solid var(--fd-border)' : 'none' }}>
+                      <p className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: 'var(--fd-ink-4)' }}>
+                        Available Services
+                      </p>
+                      <p className="text-[11px] mt-0.5 text-[var(--fd-ink-4)]">Contact us to add any of these to your plan</p>
+                    </div>
+                    <div className="space-y-2">
+                      {upsellServices.map(s => {
+                        const Icon = SERVICE_ICONS_MAP[s] || Briefcase;
+                        return (
+                          <div key={s} className="flex items-center gap-3 p-3 rounded-xl transition-colors hover:bg-[var(--fd-surface-raised)]" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-[var(--fd-surface)]">
+                              <Icon size={14} className="text-[var(--fd-ink-4)]" strokeWidth={1.8} />
+                            </div>
+                            <span className="text-[13px] font-medium flex-1 text-[var(--fd-ink-2)]">
+                              {(SERVICE_LABELS || {})[s] || s}
+                            </span>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-[var(--fd-ink-4)]" style={{ background: 'var(--fd-border)' }}>Add +</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <a
+                      href="https://wa.me/919752523894?text=Hi%2C%20I%27m%20interested%20in%20adding%20more%20services%20to%20my%20plan"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full mt-4 py-2.5 rounded-xl text-[12.5px] font-semibold transition-all hover:opacity-90"
+                      style={{ background: C.amber, color: '#fff' }}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style={{marginRight:4}}><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg> Chat on WhatsApp
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>,
+          document.body
+        );
+      })()}
+
     </div>
-  );  
+  );
 }

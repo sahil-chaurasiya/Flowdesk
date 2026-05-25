@@ -44,6 +44,7 @@ import CredentialsPage      from './pages/admin/CredentialsPage';
 
 // Client Pages
 import ClientDashboard    from './pages/client/Dashboard';
+import ClientCalendarPage from './pages/client/CalendarPage';
 import ClientUpdatesPage  from './pages/client/UpdatesPage';
 import ClientFilesPage    from './pages/client/FilesPage';
 import ClientReportsPage  from './pages/client/ReportsPage';
@@ -166,6 +167,7 @@ export default function App() {
               }>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<ClientDashboard />} />
+                <Route path="calendar"  element={<ClientCalendarPage />} />
                 <Route path="updates"   element={<ClientUpdatesPage />} />
                 <Route path="files"     element={<ClientFilesPage />} />
                 <Route path="reports"   element={<ClientReportsPage />} />

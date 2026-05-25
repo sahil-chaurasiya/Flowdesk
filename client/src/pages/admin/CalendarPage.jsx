@@ -227,6 +227,12 @@ function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange }) {
             <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
               {event.client.company || event.client.name || 'Client'}
             </span>
+            {event.visibleToClient && (
+              <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #bbf7d0' }}>
+                <Check size={8} strokeWidth={3} /> Visible to Client
+              </span>
+            )}
           </div>
         )}
 
@@ -260,6 +266,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
         visibleTo:    (event.visibleTo || []).map(u => (typeof u === 'object' ? u._id : u)),
         client:       event.client ? (typeof event.client === 'object' ? event.client._id : event.client) : '',
         status:       event.status || 'pending',
+        visibleToClient: event.visibleToClient || false,
       };
     }
     const base = defaultDate ? new Date(defaultDate) : new Date();
@@ -273,6 +280,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
       description: '', visibility: 'all', visibleTo: [],
       client: prefillClientId || '',
       status: 'pending',
+      visibleToClient: false,
     };
   };
 
@@ -310,6 +318,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
       visibility:   form.visibility,
       visibleTo:    form.visibleTo,
       status:       form.status,
+      visibleToClient: form.visibleToClient,
     };
 
     // client: only include if set, and always send the bare ID string
@@ -389,7 +398,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
               <select
                 className="fd-input pl-8 appearance-none"
                 value={form.client || ''}
-                onChange={e => setForm(f => ({ ...f, client: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, client: e.target.value, visibleToClient: e.target.value ? f.visibleToClient : false }))}
                 style={{ paddingLeft: 30 }}
               >
                 <option value="">— No client —</option>
@@ -399,6 +408,37 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
               </select>
             </div>
           </div>
+        )}
+
+        {/* Visible to Client checkbox — only shown when a client is linked */}
+        {(form.client || prefillClientId) && (
+          <button
+            type="button"
+            onClick={() => setForm(f => ({ ...f, visibleToClient: !f.visibleToClient }))}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+            style={{
+              background: form.visibleToClient ? '#f0fdf4' : 'var(--fd-surface-sunken)',
+              border: `1.5px solid ${form.visibleToClient ? '#22c55e' : 'var(--fd-border)'}`,
+            }}
+          >
+            <span
+              className="w-4 h-4 rounded flex-shrink-0 flex items-center justify-center"
+              style={{
+                background: form.visibleToClient ? '#22c55e' : 'var(--fd-surface)',
+                border: `1.5px solid ${form.visibleToClient ? '#22c55e' : 'var(--fd-border)'}`,
+              }}
+            >
+              {form.visibleToClient && <Check size={10} color="#fff" strokeWidth={3} />}
+            </span>
+            <div>
+              <p className="text-[12px] font-semibold" style={{ color: form.visibleToClient ? '#15803d' : 'var(--fd-ink-1)' }}>
+                Visible to Client
+              </p>
+              <p className="text-[11px]" style={{ color: form.visibleToClient ? '#166534' : 'var(--fd-ink-4)' }}>
+                Show this event on the client's portal calendar
+              </p>
+            </div>
+          </button>
         )}
 
         {/* Status */}

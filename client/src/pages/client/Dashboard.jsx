@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
 import {
   TrendingUp, FileText, ClipboardList,
   ChevronRight, Eye, Heart, Instagram, Target, BarChart3,
@@ -451,6 +452,163 @@ function FollowUpsToday({ leads }) {
   );
 }
 
+// ─── Upcoming Events Strip ────────────────────────────────────────────────────
+const EVENT_COLORS = {
+  task_deadline: { bg: '#ef4444', light: '#fef2f2', text: '#b91c1c' },
+  meeting:       { bg: '#4f6ef0', light: '#eff0fe', text: '#3a56d4' },
+  reminder:      { bg: '#f59e0b', light: '#fffbeb', text: '#92600a' },
+  follow_up:     { bg: '#a855f7', light: '#faf5ff', text: '#7e22ce' },
+  campaign:      { bg: '#22c55e', light: '#f0fdf4', text: '#15803d' },
+  shoot:         { bg: '#ec4899', light: '#fdf2f8', text: '#be185d' },
+  other:         { bg: '#94a3b8', light: '#f8fafc', text: '#475569' },
+};
+
+const TYPE_ICONS = {
+  task_deadline: '⏰', meeting: '🤝', reminder: '🔔',
+  follow_up: '📞', campaign: '🚀', shoot: '📸', other: '📌',
+};
+
+function UpcomingEventsStrip({ events }) {
+  const scrollRef = useRef(null);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Get next 14 days
+  const days = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const eventsForDay = (day) =>
+    events.filter(ev => {
+      const s = new Date(ev.startDate); s.setHours(0,0,0,0);
+      const e = new Date(ev.endDate);   e.setHours(23,59,59,999);
+      return day >= s && day <= e;
+    });
+
+  const DAY_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const totalUpcoming = events.length;
+  const nextEvent = events.find(ev => new Date(ev.startDate) >= today);
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="fd-card rounded-2xl overflow-hidden" style={{ padding: 0 }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+            style={{ background: 'var(--fd-accent-light, #eff0fe)' }}>
+            <CalendarClock size={14} style={{ color: 'var(--fd-accent, #4f6ef0)' }} />
+          </div>
+          <div>
+            <span className="text-[13px] font-bold" style={{ color: 'var(--fd-ink-1)' }}>Upcoming</span>
+            <span className="text-[11px] ml-1.5 font-medium px-1.5 py-0.5 rounded-full"
+              style={{ background: 'var(--fd-accent-light, #eff0fe)', color: 'var(--fd-accent, #4f6ef0)' }}>
+              {totalUpcoming} event{totalUpcoming !== 1 ? 's' : ''}
+            </span>
+          </div>
+        </div>
+        <Link to="/portal/calendar"
+          className="text-[11px] font-semibold flex items-center gap-0.5 transition-opacity hover:opacity-70"
+          style={{ color: 'var(--fd-accent, #4f6ef0)' }}>
+          View all <ChevronRight size={12} />
+        </Link>
+      </div>
+
+      {/* 14-day scroll strip */}
+      <div
+        ref={scrollRef}
+        className="flex gap-2 overflow-x-auto px-4 pb-4"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
+        {days.map((day, i) => {
+          const dayEvts = eventsForDay(day);
+          const isToday = i === 0;
+          const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+          const hasEvents = dayEvts.length > 0;
+
+          return (
+            <div key={i} className="flex-shrink-0 flex flex-col items-center gap-1.5"
+              style={{ minWidth: 52 }}>
+              {/* Day label */}
+              <div
+                className="text-[9px] font-bold uppercase tracking-wider"
+                style={{ color: isToday ? 'var(--fd-accent, #4f6ef0)' : isWeekend ? 'var(--fd-ink-4)' : 'var(--fd-ink-4)' }}
+              >
+                {isToday ? 'TODAY' : DAY_SHORT[day.getDay()]}
+              </div>
+
+              {/* Date bubble */}
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center text-[13px] font-bold transition-all"
+                style={{
+                  background: isToday
+                    ? 'var(--fd-accent, #4f6ef0)'
+                    : hasEvents
+                    ? 'var(--fd-surface-sunken)'
+                    : 'transparent',
+                  color: isToday ? '#fff' : hasEvents ? 'var(--fd-ink-1)' : 'var(--fd-ink-4)',
+                  border: hasEvents && !isToday ? '1.5px dashed var(--fd-border)' : 'none',
+                  boxShadow: isToday ? '0 2px 8px rgba(79,110,240,0.35)' : 'none',
+                }}
+              >
+                {format(day, 'd')}
+              </div>
+
+              {/* Event dots / pills */}
+              <div className="flex flex-col items-center gap-1 w-full">
+                {dayEvts.slice(0, 2).map((ev, j) => {
+                  const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
+                  return (
+                    <div key={j}
+                      className="w-full rounded-md px-1 py-0.5 text-center text-[8px] font-bold truncate"
+                      style={{ background: c.light, color: c.text }}
+                      title={ev.title}
+                    >
+                      {TYPE_ICONS[ev.type]} {ev.title.length > 6 ? ev.title.slice(0,6)+'…' : ev.title}
+                    </div>
+                  );
+                })}
+                {dayEvts.length > 2 && (
+                  <div className="text-[8px] font-bold" style={{ color: 'var(--fd-ink-4)' }}>
+                    +{dayEvts.length - 2}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Next event spotlight */}
+      {nextEvent && (() => {
+        const c = EVENT_COLORS[nextEvent.type] || EVENT_COLORS.other;
+        const daysUntil = Math.ceil((new Date(nextEvent.startDate) - today) / 86400000);
+        return (
+          <div className="mx-4 mb-4 rounded-xl px-3 py-2.5 flex items-center gap-3"
+            style={{ background: c.light, border: `1px solid ${c.bg}30` }}>
+            <span className="text-[18px]">{TYPE_ICONS[nextEvent.type]}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] font-bold truncate" style={{ color: c.text }}>{nextEvent.title}</p>
+              <p className="text-[10px]" style={{ color: c.text, opacity: 0.75 }}>
+                {format(new Date(nextEvent.startDate), 'EEE, MMM d · h:mm a')}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0"
+              style={{ background: c.bg, color: '#fff' }}>
+              {daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `In ${daysUntil}d`}
+            </span>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 export default function ClientDashboard() {
   const { user } = useAuthStore();
@@ -460,6 +618,7 @@ export default function ClientDashboard() {
   const [followUpLeads, setFollowUpLeads] = useState([]);
   const [socialAnalytics, setSocialAnalytics] = useState(null);
   const [recentPosts, setRecentPosts] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [monthFilter, setMonthFilter] = useState('last30');
   const [filterLoading, setFilterLoading] = useState(false);
@@ -472,6 +631,9 @@ export default function ClientDashboard() {
     const socialDays = days || 30;
 
     setFilterLoading(true);
+    const now = new Date();
+    const calFrom = now.toISOString();
+    const calTo   = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
     Promise.all([
       api.get(`/clients/${clientId}/overview`).catch(() => ({ data: null })),
       api.get('/leads/stats').catch(() => ({ data: null })),
@@ -479,13 +641,15 @@ export default function ClientDashboard() {
       api.get('/leads/follow-ups-today').catch(() => ({ data: { leads: [] } })),
       api.get(`/social/analytics?days=${socialDays}`).catch(() => ({ data: null })),
       api.get(`/social/posts?status=published&limit=4`).catch(() => ({ data: { posts: [] } })),
-    ]).then(([ov, ls, l, fu, sa, p]) => {
+      api.get('/calendar/client-portal', { params: { from: calFrom, to: calTo } }).catch(() => ({ data: { events: [] } })),
+    ]).then(([ov, ls, l, fu, sa, p, cal]) => {
       setOverview(ov.data);
       setLeadStats(ls.data);
       setRecentLeads(l.data?.leads || []);
       setFollowUpLeads(fu.data?.leads || []);
       setSocialAnalytics(sa.data?.analytics || null);
       setRecentPosts(p.data?.posts || []);
+      setCalendarEvents(cal.data?.events || []);
     }).finally(() => {
       setLoading(false);
       setFilterLoading(false);
@@ -727,6 +891,9 @@ export default function ClientDashboard() {
           linkTo="/portal/social"
         />
       </div>
+
+      {/* ─── UPCOMING EVENTS STRIP ───────────────────────────────────────── */}
+      <UpcomingEventsStrip events={calendarEvents} />
 
       {/* ─── FOLLOW-UPS DUE TODAY ────────────────────────────────────────── */}
       {followUpLeads.length > 0 && (

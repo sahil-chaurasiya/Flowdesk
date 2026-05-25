@@ -35,6 +35,9 @@ const calendarEventSchema = new mongoose.Schema({
     default: 'pending',
   },
 
+  // Client visibility — show this event on the client portal calendar
+  visibleToClient: { type: Boolean, default: false },
+
   // Relations (all optional)
   client: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', default: null },
   task:   { type: mongoose.Schema.Types.ObjectId, ref: 'Task',   default: null },

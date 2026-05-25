@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Rss, FileText, BarChart3,
   ClipboardList, Bell, LogOut,
   Menu, X, Target, Instagram, Sun, Moon, Key,
-  BookOpen, IndianRupee,
+  BookOpen, IndianRupee, Calendar,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import api from '../../lib/api';
@@ -17,6 +17,7 @@ import AIAssistant from '../ai/AIAssistant';
 
 const navItems = [
   { to: '/portal/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/portal/calendar',     icon: Calendar,        label: 'Calendar' },
   { to: '/portal/updates',      icon: Rss,             label: 'Updates' },
   { to: '/portal/social',       icon: Instagram,       label: 'Social Media' },
   { to: '/portal/leads',        icon: Target,          label: 'My Leads' },

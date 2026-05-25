@@ -144,6 +144,7 @@ router.post('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, r
     createdBy: req.user._id,
     visibility,
     visibleTo: visibility === 'specific' ? visibleTo : [],
+    visibleToClient: rest.visibleToClient || false,
     status: rest.status || 'pending',
   });
 
@@ -225,6 +226,42 @@ router.delete('/:id', protect, authorize(...ALL_INTERNAL), asyncHandler(async (r
 
   await CalendarEvent.findByIdAndDelete(req.params.id);
   res.json({ success: true, message: 'Event deleted' });
+}));
+
+// @route  GET /api/calendar/client-portal
+// Returns events marked visibleToClient=true for the authenticated client's linked Client record
+router.get('/client-portal', protect, authorize('client'), asyncHandler(async (req, res) => {
+  const clientId = req.user.clientId;
+  if (!clientId) {
+    return res.status(400).json({ success: false, message: 'No client record linked to this account.' });
+  }
+
+  const { from, to } = req.query;
+  const dateFilter = {};
+  if (from || to) {
+    dateFilter.startDate = {};
+    if (from) dateFilter.startDate.$gte = new Date(from);
+    if (to)   dateFilter.startDate.$lte = new Date(to);
+  }
+
+  const events = await CalendarEvent.find({
+    ...dateFilter,
+    client: clientId,
+    visibleToClient: true,
+  })
+    .populate('client', 'company name')
+    .populate('createdBy', 'name')
+    .select('-visibleTo -assignedTo')
+    .sort({ startDate: 1 })
+    .lean();
+
+  const now = new Date();
+  const enriched = events.map(ev => ({
+    ...ev,
+    isOverdue: ev.status !== 'done' && ev.status !== 'cancelled' && new Date(ev.endDate) < now,
+  }));
+
+  res.json({ success: true, events: enriched });
 }));
 
 module.exports = router;

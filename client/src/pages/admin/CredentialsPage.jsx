@@ -72,7 +72,7 @@ function CredentialForm({ initial, clients, managers, userRole, onSubmit, loadin
 
   return (
     <div className="space-y-4">
-      {userRole === 'admin' && (
+      {(userRole === 'admin' || userRole === 'manager') && (
         <Select label="Client *" value={form.clientId} onChange={e => set('clientId', e.target.value)} required>
           <option value="">Select client...</option>
           {clients.map(c => <option key={c._id} value={c._id}>{c.company} ({c.name})</option>)}
@@ -240,18 +240,21 @@ export default function CredentialsPage() {
   const { user } = useAuthStore();
   const toast = useToast();
   const isAdmin   = user?.role === 'admin';
+  const isManager = user?.role === 'manager';
   const isClient  = user?.role === 'client';
+  const canManage = isAdmin || isManager;
 
-  const [creds,    setCreds]    = useState([]);
-  const [clients,  setClients]  = useState([]);
-  const [managers, setManagers] = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [search,   setSearch]   = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editCred,  setEditCred]  = useState(null);
-  const [saving,    setSaving]    = useState(false);
-  const [deleteId,  setDeleteId]  = useState(null);
-  const [deleting,  setDeleting]  = useState(false);
+  const [creds,        setCreds]        = useState([]);
+  const [clients,      setClients]      = useState([]);
+  const [managers,     setManagers]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [search,       setSearch]       = useState('');
+  const [filterClient, setFilterClient] = useState('');
+  const [showModal,    setShowModal]    = useState(false);
+  const [editCred,     setEditCred]     = useState(null);
+  const [saving,       setSaving]       = useState(false);
+  const [deleteId,     setDeleteId]     = useState(null);
+  const [deleting,     setDeleting]     = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -260,18 +263,22 @@ export default function CredentialsPage() {
       if (isClient && user.clientId) params.set('clientId', user.clientId);
       const [credsRes, clientsRes, managersRes] = await Promise.all([
         api.get(`/credentials?${params}`),
-        isAdmin ? api.get('/clients?limit=100') : Promise.resolve({ data: { clients: [] } }),
+        canManage ? api.get('/clients?limit=100') : Promise.resolve({ data: { clients: [] } }),
         isAdmin ? api.get('/users?role=manager&limit=50') : Promise.resolve({ data: { users: [] } }),
       ]);
       setCreds(credsRes.data.credentials || []);
       setClients(clientsRes.data.clients || []);
       setManagers(managersRes.data.users || []);
     } finally { setLoading(false); }
-  }, [isAdmin, isClient, user]);
+  }, [isAdmin, isManager, isClient, canManage, user]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleSubmit = async (form) => {
+    if (canManage && !form.clientId) {
+      toast({ type: 'error', title: 'Please select a client' });
+      return;
+    }
     setSaving(true);
     try {
       const payload = isClient ? { ...form, clientId: user.clientId } : form;
@@ -303,6 +310,7 @@ export default function CredentialsPage() {
   };
 
   const filtered = creds.filter(c => {
+    if (filterClient && c.client?._id !== filterClient) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -314,8 +322,8 @@ export default function CredentialsPage() {
     );
   });
 
-  // Group by client for admin
-  const grouped = isAdmin
+  // Group by client for admin/manager
+  const grouped = canManage
     ? filtered.reduce((acc, c) => {
         const key = c.client?._id || 'unknown';
         if (!acc[key]) acc[key] = { client: c.client, items: [] };
@@ -336,14 +344,28 @@ export default function CredentialsPage() {
         }
       />
 
-      <div className="relative max-w-xs">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fd-ink-4)' }} />
-        <input
-          className="fd-input pl-9 w-full"
-          placeholder="Search credentials..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--fd-ink-4)' }} />
+          <input
+            className="fd-input pl-9 w-full min-w-[200px]"
+            placeholder="Search credentials..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        {canManage && clients.length > 0 && (
+          <select
+            className="fd-input min-w-[180px]"
+            value={filterClient}
+            onChange={e => setFilterClient(e.target.value)}
+          >
+            <option value="">All Clients</option>
+            {clients.map(c => (
+              <option key={c._id} value={c._id}>{c.company} ({c.name})</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {loading ? (
@@ -355,7 +377,7 @@ export default function CredentialsPage() {
           description="Add Instagram, Facebook, Google Business, or any other platform credentials."
           action={<Button onClick={() => setShowModal(true)}><Plus size={14} />Add Credential</Button>}
         />
-      ) : isAdmin && grouped ? (
+      ) : canManage && grouped ? (
         <div className="space-y-4">
           {Object.values(grouped).map(({ client, items }) => (
             <Card key={client?._id || 'unknown'}>

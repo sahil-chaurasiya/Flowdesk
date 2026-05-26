@@ -12,7 +12,8 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client') {
     query.client = req.user.clientId;
   } else if (req.user.role === 'manager') {
-    query.visibleTo = req.user._id;
+    // Managers can see creds they added OR that are explicitly shared with them
+    query.$or = [{ addedBy: req.user._id }, { visibleTo: req.user._id }];
     if (clientId) query.client = clientId;
   } else if (req.user.role === 'admin') {
     if (clientId) query.client = clientId;
@@ -61,7 +62,8 @@ router.put('/:id', protect, authorize('admin', 'manager', 'client'), asyncHandle
   const cred = await Credential.findById(req.params.id);
   if (!cred) return res.status(404).json({ success: false, message: 'Not found' });
 
-  const { platform, label, username, password, notes, visibleTo } = req.body;
+  const { clientId, platform, label, username, password, notes, visibleTo } = req.body;
+  if (clientId  !== undefined && ['admin', 'manager'].includes(req.user.role)) cred.client = clientId;
   if (platform  !== undefined) cred.platform  = platform;
   if (label     !== undefined) cred.label     = label;
   if (username  !== undefined) cred.username  = username;

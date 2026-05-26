@@ -4,10 +4,10 @@ import { useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Edit3, Mail, Phone, Globe, Calendar,
   DollarSign, Plus, CheckCircle, CheckCircle2, Check, Clock, AlertCircle, AlertTriangle, Users, X, UserPlus,
-  Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye,
+  Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye, EyeOff,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
   ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
-  Target, Settings, Save, ChevronDown, Filter,
+  Target, Settings, Save, ChevronDown, Filter, Key, Copy,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -2171,6 +2171,215 @@ function ClientBoardsSection({ clientId }) {
   );
 }
 
+// ── Credential table helpers (mirrors CredentialsPage) ────────────────────────
+const CRED_PLATFORM_MAP = [
+  { value: 'instagram',  label: 'Instagram',       icon: Instagram, color: '#e1306c', bg: '#fdf2ff' },
+  { value: 'facebook',   label: 'Facebook',         icon: Facebook,  color: '#1877f2', bg: '#eff6ff' },
+  { value: 'gmb',        label: 'Google Business',  icon: Globe,     color: '#34a853', bg: '#edf7f1' },
+  { value: 'google_ads', label: 'Google Ads',        icon: Globe,     color: '#fbbc04', bg: '#fffbeb' },
+  { value: 'linkedin',   label: 'LinkedIn',          icon: Linkedin,  color: '#0a66c2', bg: '#eff6ff' },
+  { value: 'tiktok',     label: 'TikTok',            icon: Globe,     color: '#010101', bg: '#f5f5f5' },
+  { value: 'youtube',    label: 'YouTube',           icon: Youtube,   color: '#ff0000', bg: '#fff0f0' },
+  { value: 'twitter',    label: 'Twitter / X',       icon: Globe,     color: '#14171a', bg: '#f5f5f5' },
+  { value: 'whatsapp',   label: 'WhatsApp',          icon: Globe,     color: '#25d366', bg: '#edf7f1' },
+  { value: 'other',      label: 'Other',             icon: Key,       color: '#6b7280', bg: '#f5f5f5' },
+];
+function getCredPlatform(value) {
+  return CRED_PLATFORM_MAP.find(p => p.value === value) || CRED_PLATFORM_MAP[CRED_PLATFORM_MAP.length - 1];
+}
+function CredCopyBtn({ text }) {
+  const [copied, setCopied] = useState(false);
+  if (!text) return null;
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="btn-ghost p-1" title="Copy"
+    >
+      {copied ? <Check size={11} style={{ color: '#2a7d4f' }} /> : <Copy size={11} />}
+    </button>
+  );
+}
+function CredPasswordField({ value }) {
+  const [show, setShow] = useState(false);
+  if (!value) return <span style={{ color: 'var(--fd-ink-5)' }}>—</span>;
+  return (
+    <div className="flex items-center gap-1">
+      <span className="text-[12px] font-mono" style={{ color: 'var(--fd-ink-2)' }}>
+        {show ? value : '••••••••'}
+      </span>
+      <button onClick={() => setShow(v => !v)} className="btn-ghost p-1" title={show ? 'Hide' : 'Show'}>
+        {show ? <EyeOff size={12} /> : <Eye size={12} />}
+      </button>
+      {show && <CredCopyBtn text={value} />}
+    </div>
+  );
+}
+function ClientCredTable({ creds, onEdit, onDelete }) {
+  return (
+    <>
+      {/* Desktop */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="fd-table">
+          <thead>
+            <tr>
+              {['Platform', 'Label', 'Username', 'Password', 'Notes', 'Added by', ''].map(h => <th key={h}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {creds.map(c => {
+              const plat = getCredPlatform(c.platform);
+              const PlatIcon = plat.icon;
+              return (
+                <tr key={c._id}>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: plat.bg }}>
+                        <PlatIcon size={12} color={plat.color} />
+                      </div>
+                      <span className="text-[12.5px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>{plat.label}</span>
+                    </div>
+                  </td>
+                  <td className="text-[12.5px]" style={{ color: 'var(--fd-ink-2)' }}>{c.label || '—'}</td>
+                  <td>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[12px] font-mono" style={{ color: 'var(--fd-ink-2)' }}>{c.username || '—'}</span>
+                      <CredCopyBtn text={c.username} />
+                    </div>
+                  </td>
+                  <td><CredPasswordField value={c.password} /></td>
+                  <td className="text-[12px] max-w-[160px] truncate" style={{ color: 'var(--fd-ink-4)' }} title={c.notes}>
+                    {c.notes || '—'}
+                  </td>
+                  <td className="text-[11.5px]" style={{ color: 'var(--fd-ink-4)' }}>{c.addedBy?.name || '—'}</td>
+                  <td>
+                    <div className="flex gap-1">
+                      <button onClick={() => onEdit(c)} className="btn-ghost p-1.5" title="Edit"><Edit3 size={13} /></button>
+                      {onDelete && (
+                        <button onClick={() => onDelete(c._id)} className="btn-ghost p-1.5" title="Delete" style={{ color: '#b91c1c' }}>
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {/* Mobile */}
+      <div className="md:hidden divide-y" style={{ borderColor: 'var(--fd-border-subtle)' }}>
+        {creds.map(c => {
+          const plat = getCredPlatform(c.platform);
+          const PlatIcon = plat.icon;
+          return (
+            <div key={c._id} className="px-4 py-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-md flex items-center justify-center" style={{ background: plat.bg }}>
+                    <PlatIcon size={13} color={plat.color} />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-[13px]" style={{ color: 'var(--fd-ink-1)' }}>{plat.label}</div>
+                    {c.label && <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{c.label}</div>}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => onEdit(c)} className="btn-ghost p-1.5"><Edit3 size={13} /></button>
+                  {onDelete && (
+                    <button onClick={() => onDelete(c._id)} className="btn-ghost p-1.5" style={{ color: '#b91c1c' }}><Trash2 size={13} /></button>
+                  )}
+                </div>
+              </div>
+              {c.username && (
+                <div className="flex items-center gap-1 text-[12px] font-mono" style={{ color: 'var(--fd-ink-3)' }}>
+                  {c.username} <CredCopyBtn text={c.username} />
+                </div>
+              )}
+              <CredPasswordField value={c.password} />
+              {c.notes && <p className="text-[11.5px] italic" style={{ color: 'var(--fd-ink-4)' }}>{c.notes}</p>}
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// Inline credential form modal for ClientDetailPage
+const CRED_PLATFORMS = [
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'gmb', label: 'Google Business' },
+  { value: 'google_ads', label: 'Google Ads' },
+  { value: 'linkedin', label: 'LinkedIn' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'youtube', label: 'YouTube' },
+  { value: 'twitter', label: 'Twitter / X' },
+  { value: 'whatsapp', label: 'WhatsApp' },
+  { value: 'other', label: 'Other' },
+];
+
+function CredentialInlineModal({ isOpen, onClose, initial, clientId, onSubmit, loading }) {
+  const [form, setForm] = useState({
+    platform: 'instagram', label: '', username: '', password: '', notes: '',
+  });
+  const [showPass, setShowPass] = useState(false);
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  useEffect(() => {
+    if (initial) {
+      setForm({
+        platform: initial.platform || 'instagram',
+        label: initial.label || '',
+        username: initial.username || '',
+        password: initial.password || '',
+        notes: initial.notes || '',
+      });
+    } else {
+      setForm({ platform: 'instagram', label: '', username: '', password: '', notes: '' });
+    }
+    setShowPass(false);
+  }, [initial, isOpen]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={initial ? 'Edit Credential' : 'Add Credential'} size="md">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Select label="Platform *" value={form.platform} onChange={e => set('platform', e.target.value)}>
+            {CRED_PLATFORMS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </Select>
+          <Input label="Label (optional)" value={form.label} onChange={e => set('label', e.target.value)} placeholder="e.g. Main Account" />
+        </div>
+        <Input label="Username / Email / ID" value={form.username} onChange={e => set('username', e.target.value)} placeholder="@handle or email" />
+        <div className="relative">
+          <Input
+            label="Password"
+            type={showPass ? 'text' : 'password'}
+            value={form.password}
+            onChange={e => set('password', e.target.value)}
+            placeholder="Enter password"
+          />
+          <button type="button" onClick={() => setShowPass(v => !v)}
+            className="absolute right-3 top-8" style={{ color: 'var(--fd-ink-4)' }}>
+            {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+          </button>
+        </div>
+        <div>
+          <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Notes</label>
+          <textarea className="fd-input resize-none" rows={2} value={form.notes} onChange={e => set('notes', e.target.value)} />
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" loading={loading} onClick={() => onSubmit({ ...form, clientId })}>
+            <Save size={13} /> Save
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams();
   const { user } = useAuthStore();
@@ -2186,6 +2395,15 @@ export default function ClientDetailPage() {
   const [updates, setUpdates] = useState([]);
   const [files, setFiles] = useState([]);
   const [reports, setReports] = useState([]);
+  const [credentials, setCredentials] = useState([]);
+  const [credLoading, setCredLoading] = useState(false);
+  const [showCredModal, setShowCredModal] = useState(false);
+  const [editCred, setEditCred] = useState(null);
+  const [savingCred, setSavingCred] = useState(false);
+  const [deleteCredId, setDeleteCredId] = useState(null);
+  const [deletingCred, setDeletingCred] = useState(false);
+  const [credClients, setCredClients] = useState([]);
+  const [credManagers, setCredManagers] = useState([]);
   const [allTeamMembers, setAllTeamMembers] = useState([]);
   const [socialAccounts, setSocialAccounts] = useState([]);
   const [socialAnalytics, setSocialAnalytics] = useState(null);
@@ -2243,7 +2461,7 @@ export default function ClientDetailPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [ovRes, taskRes, updRes, fileRes, repRes, socialAccRes, socialAnaRes, socialPostRes] = await Promise.all([
+      const [ovRes, taskRes, updRes, fileRes, repRes, socialAccRes, socialAnaRes, socialPostRes, credRes] = await Promise.all([
         api.get(`/clients/${id}/overview`),
         api.get(`/tasks?client=${id}&limit=50`),
         api.get(`/updates?client=${id}&limit=20`),
@@ -2252,6 +2470,7 @@ export default function ClientDetailPage() {
         api.get(`/social/accounts?client=${id}`),
         api.get(`/social/analytics?client=${id}&days=${socialDays}`),
         api.get(`/social/posts?client=${id}&limit=10`),
+        api.get(`/credentials?clientId=${id}`),
       ]);
       setOverview(ovRes.data);
       setTasks(taskRes.data.tasks || []);
@@ -2261,6 +2480,7 @@ export default function ClientDetailPage() {
       setSocialAccounts(socialAccRes.data.accounts || []);
       setSocialAnalytics(socialAnaRes.data.analytics || null);
       setSocialPosts(socialPostRes.data.posts || []);
+      setCredentials(credRes.data.credentials || []);
     } finally { setLoading(false); }
   };
 
@@ -2273,6 +2493,34 @@ export default function ClientDetailPage() {
       setUpdateForm({ title: '', content: '', type: 'general' });
       loadData();
     } finally { setSaving(false); }
+  };
+
+  const handleSaveCred = async (form) => {
+    setSavingCred(true);
+    try {
+      const payload = { ...form, clientId: id };
+      if (editCred) {
+        await api.put(`/credentials/${editCred._id}`, payload);
+      } else {
+        await api.post('/credentials', payload);
+      }
+      setShowCredModal(false);
+      setEditCred(null);
+      const res = await api.get(`/credentials?clientId=${id}`);
+      setCredentials(res.data.credentials || []);
+    } catch (err) {
+      console.error('Cred save failed', err);
+    } finally { setSavingCred(false); }
+  };
+
+  const handleDeleteCred = async () => {
+    setDeletingCred(true);
+    try {
+      await api.delete(`/credentials/${deleteCredId}`);
+      setDeleteCredId(null);
+      const res = await api.get(`/credentials?clientId=${id}`);
+      setCredentials(res.data.credentials || []);
+    } finally { setDeletingCred(false); }
   };
 
   const handleAddTask = async () => {
@@ -2533,6 +2781,33 @@ export default function ClientDetailPage() {
                   ))}
                 </CardContent>
               </Card>
+
+              {/* Credentials Section */}
+              {isManager && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm flex items-center gap-1.5">
+                        <Key size={14} style={{ color: 'var(--fd-ink-3)' }} /> Credentials
+                      </h3>
+                      <Button size="xs" variant="secondary" onClick={() => { setEditCred(null); setShowCredModal(true); }}>
+                        <Plus size={12} /> Add
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  {credentials.length === 0 ? (
+                    <CardContent>
+                      <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No credentials stored</p>
+                    </CardContent>
+                  ) : (
+                    <ClientCredTable
+                      creds={credentials}
+                      onEdit={c => { setEditCred(c); setShowCredModal(true); }}
+                      onDelete={isAdmin ? setDeleteCredId : null}
+                    />
+                  )}
+                </Card>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -3185,6 +3460,32 @@ export default function ClientDetailPage() {
           </div>
         </Modal>
       )}
+
+      {/* Credential Add/Edit Modal */}
+      {isManager && (
+        <CredentialInlineModal
+          isOpen={showCredModal}
+          onClose={() => { setShowCredModal(false); setEditCred(null); }}
+          initial={editCred}
+          clientId={id}
+          onSubmit={handleSaveCred}
+          loading={savingCred}
+        />
+      )}
+
+      {/* Credential Delete Modal */}
+      <Modal isOpen={!!deleteCredId} onClose={() => setDeleteCredId(null)} title="Delete Credential" size="sm">
+        <p className="text-[13px] mb-5" style={{ color: 'var(--fd-ink-2)' }}>
+          Remove this credential? This cannot be undone.
+        </p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setDeleteCredId(null)}>Cancel</Button>
+          <Button size="sm" loading={deletingCred} onClick={handleDeleteCred}
+            style={{ background: '#b91c1c', color: '#fff', borderColor: '#b91c1c' }}>
+            <Trash2 size={13} /> Delete
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

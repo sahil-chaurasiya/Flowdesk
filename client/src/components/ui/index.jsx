@@ -277,10 +277,10 @@ export function ToastProvider({ children }) {
   };
 
   const TOAST_STYLES = {
-    success: { border: '#b8e2c9', icon: <CheckCircle size={15} color="#2a7d4f" />, bar: '#2a7d4f' },
-    error:   { border: '#fecaca', icon: <AlertCircle size={15} color="#b91c1c" />, bar: '#b91c1c' },
-    warning: { border: '#f5d78e', icon: <AlertTriangle size={15} color="#92600a" />, bar: '#e9830a' },
-    info:    { border: '#c5d4fb', icon: <Info size={15} color="#3a56d4" />, bar: '#4f6ef0' },
+    success: { border: 'rgba(52,211,153,0.4)',  icon: <CheckCircle size={15} color="#34d399" />,  bar: '#34d399' },
+    error:   { border: 'rgba(248,113,113,0.4)', icon: <AlertCircle size={15} color="#f87171" />,  bar: '#f87171' },
+    warning: { border: 'rgba(251,191,36,0.4)',  icon: <AlertTriangle size={15} color="#fbbf24" />, bar: '#fbbf24' },
+    info:    { border: 'rgba(129,140,248,0.4)', icon: <Info size={15} color="#818cf8" />,          bar: '#4f6ef0' },
   };
 
   return (
@@ -296,8 +296,9 @@ export function ToastProvider({ children }) {
               style={{
                 background: 'var(--fd-toast-bg)',
                 border: `1px solid ${ts.border}`,
-                boxShadow: '0 8px 30px rgba(0,0,0,0.15), 0 2px 8px rgba(0,0,0,0.08)',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)',
                 borderLeft: `3px solid ${ts.bar}`,
+                color: 'var(--fd-ink-1)',
               }}
             >
               <div className="flex-shrink-0 mt-0.5">{ts.icon}</div>

@@ -80,27 +80,6 @@ export default function AdminLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [uploadingLogo, setUploadingLogo] = useState(false);
-  const logoInputRef = React.useRef(null);
-
-  const handleLogoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadingLogo(true);
-    try {
-      const fd = new FormData();
-      fd.append('avatar', file);
-      const { data } = await api.post('/auth/avatar', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      updateUser({ avatar: data.avatar });
-    } catch (err) {
-      console.error('Logo upload failed', err);
-    } finally {
-      setUploadingLogo(false);
-      e.target.value = '';
-    }
-  };
 
   // Resize listener
   useEffect(() => {
@@ -169,39 +148,11 @@ export default function AdminLayout() {
           flexShrink: 0,
         }}
       >
-        {/* Company logo: click to upload (admin only) */}
-        <div className="relative flex-shrink-0 group">
-          <input
-            ref={logoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleLogoUpload}
-          />
-          <div
-            className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer"
-            style={{ background: 'transparent' }}
-            onClick={() => isAdmin && logoInputRef.current?.click()}
-            title={isAdmin ? 'Click to upload company logo' : undefined}
-          >
-            {uploadingLogo ? (
-              <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeDasharray="30 70" />
-              </svg>
-            ) : (
-              <img src="/icon-512.png" alt="FlowDesk" className="w-full h-full object-cover rounded-lg" />
-            )}
+        {/* Company logo */}
+        <div className="flex-shrink-0">
+          <div className="w-7 h-7 rounded-lg overflow-hidden">
+            <img src="/icon-512.png" alt="FlowDesk" className="w-full h-full object-cover" />
           </div>
-          {isAdmin && !uploadingLogo && (!collapsed || isMobile) && (
-            <div
-              className="absolute inset-0 rounded-lg bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
-              onClick={() => logoInputRef.current?.click()}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-          )}
         </div>
         {(!collapsed || isMobile) && (
           <span className="text-[14px] font-bold tracking-tight" style={{ color: 'var(--fd-ink-1)' }}>

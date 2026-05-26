@@ -43,7 +43,7 @@ function PaymentStatusBadge({ status }) {
 }
 
 export default function PaymentPage() {
-  const { showToast } = useToast();
+  const toast = useToast();
   const [data, setData]          = useState(null);
   const [loading, setLoading]    = useState(true);
   const [showForm, setShowForm]  = useState(false);
@@ -62,7 +62,7 @@ export default function PaymentPage() {
     try {
       const { data: d } = await api.get('/payments/my-payments');
       setData(d);
-    } catch { showToast('Failed to load payment data', 'error'); }
+    } catch { toast({ title: 'Failed to load payment data', type: 'error' }); }
     finally { setLoading(false); }
   };
 
@@ -76,7 +76,7 @@ export default function PaymentPage() {
   };
 
   const handleSubmit = async () => {
-    if (!amount || !payDate) return showToast('Amount and payment date are required', 'error');
+    if (!amount || !payDate) return toast({ title: 'Amount and payment date are required', type: 'error' });
     setSub(true);
     try {
       const fd = new FormData();
@@ -89,12 +89,12 @@ export default function PaymentPage() {
       await api.post('/payments/submit', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      showToast('Payment submitted for verification!', 'success');
+      toast({ title: 'Payment submitted for verification!', type: 'success' });
       setShowForm(false);
       setAmount(''); setPayDate(new Date().toISOString().split('T')[0]); setRef(''); setNotes(''); setFile(null);
       load();
     } catch (e) {
-      showToast(e.response?.data?.message || 'Submission failed', 'error');
+      toast({ title: e.response?.data?.message || 'Submission failed', type: 'error' });
     } finally { setSub(false); }
   };
 

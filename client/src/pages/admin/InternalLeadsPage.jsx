@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, Upload, X, ChevronDown, Phone, Mail,
@@ -46,6 +47,11 @@ const QUALITY_ICONS = {
   warm: { icon: Thermometer, color: '#f59e0b', label: 'Warm' },
   cold: { icon: Snowflake,   color: '#3b82f6', label: 'Cold' },
 };
+
+// ── Portal ────────────────────────────────────────────────────────────────────
+function Portal({ children }) {
+  return createPortal(children, document.body);
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function stageInfo(id) { return STAGES.find(s => s.id === id) || STAGES[0]; }
@@ -306,7 +312,8 @@ function LeadFormModal({ lead, onClose, onSave }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}
+    <Portal>
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)', zIndex: 9999 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl"
         style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}>
@@ -439,6 +446,7 @@ function LeadFormModal({ lead, onClose, onSave }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 
@@ -493,10 +501,11 @@ function LeadDrawer({ lead: initialLead, onClose, onUpdate, onDelete }) {
   const s = stageInfo(lead.stage);
 
   return (
+    <Portal>
     <>
-      <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.3)' }} onClick={onClose} />
-      <div className="fixed right-0 top-0 bottom-0 z-50 flex flex-col w-[440px] max-w-full shadow-2xl overflow-hidden"
-        style={{ background: 'var(--fd-card-bg)', borderLeft: '1px solid var(--fd-border)' }}>
+      <div className="fixed inset-0" style={{ background: 'rgba(0,0,0,0.3)', zIndex: 9998 }} onClick={onClose} />
+      <div className="fixed right-0 top-0 bottom-0 flex flex-col w-[440px] max-w-full shadow-2xl overflow-hidden"
+        style={{ background: 'var(--fd-card-bg)', borderLeft: '1px solid var(--fd-border)', zIndex: 9999 }}>
 
         {/* Drawer header */}
         <div className="flex items-start justify-between px-5 py-4 border-b"
@@ -730,6 +739,7 @@ function LeadDrawer({ lead: initialLead, onClose, onUpdate, onDelete }) {
         />
       )}
     </>
+    </Portal>
   );
 }
 
@@ -759,7 +769,8 @@ function ImportModal({ onClose, onImported }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }}
+    <Portal>
+    <div className="fixed inset-0 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)', zIndex: 9999 }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="w-full max-w-md rounded-2xl shadow-2xl"
         style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}>
@@ -808,6 +819,7 @@ function ImportModal({ onClose, onImported }) {
         </div>
       </div>
     </div>
+    </Portal>
   );
 }
 

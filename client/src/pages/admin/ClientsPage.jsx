@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Building2, ChevronRight } from 'lucide-react';
+import { Plus, Search, Building2, ChevronRight, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Select } from '../../components/ui/index';
@@ -276,18 +276,35 @@ export default function ClientsPage() {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const { serviceLabels } = useServices();
+  const { user: currentUser } = useAuthStore();
+  const isAdmin = currentUser?.role === 'admin';
+  const isManager = currentUser?.role === 'manager';
 
-  const loadClients = useCallback(async () => {
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const LIMIT = 50;
+
+  const loadClients = useCallback(async (p) => {
     setLoading(true);
+    const currentPage = p !== undefined ? p : page;
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
+      params.set('limit', LIMIT);
+      params.set('page', currentPage);
       const { data } = await api.get(`/clients?${params}`);
       setClients(data.clients);
       setTotal(data.total);
     } finally { setLoading(false); }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, page]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
 
   useEffect(() => { loadClients(); }, [loadClients]);
   useEffect(() => {
@@ -316,6 +333,29 @@ export default function ClientsPage() {
       setShowModal(false);
       loadClients();
     } finally { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/clients/${deleteTarget._id}`);
+      setDeleteTarget(null);
+      loadClients();
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Failed to delete client');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // A manager can only delete clients where they are the account manager
+  const canDeleteClient = (client) => {
+    if (isAdmin) return true;
+    if (isManager) {
+      return String(client.accountManager?._id || client.accountManager) === String(currentUser._id);
+    }
+    return false;
   };
 
   return (
@@ -467,6 +507,16 @@ export default function ClientsPage() {
                               </svg>
                             </a>
                           )}
+                          {canDeleteClient(client) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(client); }}
+                              className="w-6 h-6 rounded-md flex items-center justify-center transition-all hover:opacity-80"
+                              style={{ background: '#fef2f2', color: '#b91c1c' }}
+                              title="Delete client"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
                           <ChevronRight size={15} style={{ color: 'var(--fd-ink-5)' }} />
                         </div>
                       </td>
@@ -479,38 +529,123 @@ export default function ClientsPage() {
             {/* Mobile cards */}
             <div className="md:hidden divide-y" style={{ borderColor: 'var(--fd-border-subtle)' }}>
               {clients.map(client => (
-                <Link
+                <div
                   key={client._id}
-                  to={`/admin/clients/${client._id}`}
                   className="flex items-center gap-3.5 px-4 py-4 transition-colors hover:bg-[var(--fd-table-row-hover)]"
                 >
-                  <Avatar name={client.company} src={client.logo} size="md" />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-[13px] truncate text-[var(--fd-ink-1)]">
-                      {client.company}
+                  <Link to={`/admin/clients/${client._id}`} className="flex items-center gap-3.5 flex-1 min-w-0">
+                    <Avatar name={client.company} src={client.logo} size="md" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-[13px] truncate text-[var(--fd-ink-1)]">
+                        {client.company}
+                      </div>
+                      <div className="text-[11.5px] mt-0.5 truncate text-[var(--fd-ink-3)]">
+                        {client.name}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span
+                          className="text-[10.5px] font-medium px-2 py-0.5 rounded-full capitalize"
+                          style={getStatusStyle(client.status)}
+                        >
+                          {client.status}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[11.5px] mt-0.5 truncate text-[var(--fd-ink-3)]">
-                      {client.name}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1.5">
-                      <span
-                        className="text-[10.5px] font-medium px-2 py-0.5 rounded-full capitalize"
-                        style={getStatusStyle(client.status)}
+                  </Link>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {canDeleteClient(client) && (
+                      <button
+                        onClick={(e) => { e.preventDefault(); setDeleteTarget(client); }}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center"
+                        style={{ background: '#fef2f2', color: '#b91c1c' }}
+                        title="Delete client"
                       >
-                        {client.status}
-                      </span>
-                    </div>
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                    <ChevronRight size={14} style={{ color: 'var(--fd-ink-5)' }} />
                   </div>
-                  <ChevronRight size={14} style={{ color: 'var(--fd-ink-5)' }} className="flex-shrink-0" />
-                </Link>
+                </div>
               ))}
             </div>
           </>
         )}
       </Card>
 
+      {/* Pagination */}
+      {total > LIMIT && (
+        <div className="flex items-center justify-between">
+          <span className="text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
+            Showing {Math.min((page - 1) * LIMIT + 1, total)}–{Math.min(page * LIMIT, total)} of {total}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={page <= 1}
+              onClick={() => { const p = page - 1; setPage(p); loadClients(p); }}
+              className="px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all disabled:opacity-40"
+              style={{ background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }}
+            >
+              ← Prev
+            </button>
+            {Array.from({ length: Math.ceil(total / LIMIT) }, (_, i) => i + 1).map(p => (
+              <button
+                key={p}
+                onClick={() => { setPage(p); loadClients(p); }}
+                className="w-8 h-8 rounded-lg text-[12px] font-medium border transition-all"
+                style={page === p
+                  ? { background: '#4f6ef0', color: '#fff', borderColor: '#4060e0' }
+                  : { background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }
+                }
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              disabled={page >= Math.ceil(total / LIMIT)}
+              onClick={() => { const p = page + 1; setPage(p); loadClients(p); }}
+              className="px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all disabled:opacity-40"
+              style={{ background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="New Client" size="lg">
         <ClientForm onSubmit={handleCreate} loading={saving} managers={managers} />
+      </Modal>
+
+      {/* Delete confirmation modal */}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete Client"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button
+              loading={deleting}
+              onClick={handleDelete}
+              style={{ background: '#b91c1c', borderColor: '#b91c1c', color: '#fff' }}
+            >
+              Delete Client
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-[13.5px]" style={{ color: 'var(--fd-ink-2)' }}>
+            Are you sure you want to permanently delete{' '}
+            <span className="font-semibold" style={{ color: 'var(--fd-ink-1)' }}>
+              {deleteTarget?.company || deleteTarget?.name}
+            </span>
+            ? This action cannot be undone.
+          </p>
+          <p className="text-[12px] px-3 py-2 rounded-lg" style={{ background: '#fef2f2', color: '#b91c1c' }}>
+            All associated data (tasks, updates, files, reports) may be affected.
+          </p>
+        </div>
       </Modal>
     </div>
   );

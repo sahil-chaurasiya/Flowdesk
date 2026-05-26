@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Users, Mail, Phone, Shield, ChevronRight } from 'lucide-react';
+import { Plus, Users, Mail, Phone, Shield, ChevronRight, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, Spinner } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Select } from '../../components/ui/index';
@@ -70,6 +70,8 @@ export default function TeamPage() {
   const { user: currentUser } = useAuthStore();
   const isAdminOrManager = ['admin', 'manager'].includes(currentUser?.role);
 
+  const isAdmin = currentUser?.role === 'admin';
+
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   // email → { status, checkInTime, ... }
@@ -78,6 +80,10 @@ export default function TeamPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Delete state (admin only)
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
     name: '', email: '', password: '', role: 'copywriter',
     jobTitle: '', department: '', phone: '',
@@ -119,6 +125,20 @@ export default function TeamPage() {
     e.stopPropagation();
     await api.put(`/users/${id}`, { isActive: !isActive });
     setUsers(prev => prev.map(u => u._id === id ? { ...u, isActive: !isActive } : u));
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/users/${deleteTarget._id}`);
+      setDeleteTarget(null);
+      load();
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Failed to delete team member');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const team = users.filter(u => u.role !== 'client');
@@ -236,13 +256,25 @@ export default function TeamPage() {
                     <span className="text-[11px] font-mono" style={{ color: 'var(--fd-ink-5)' }}>
                       Since {formatDate(u.createdAt)}
                     </span>
-                    <button
-                      onClick={(e) => toggleActive(e, u._id, u.isActive)}
-                      className="text-[11.5px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
-                      style={u.isActive ? { color: '#b91c1c' } : { color: '#2a7d4f' }}
-                    >
-                      {u.isActive ? 'Deactivate' : 'Activate'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {isAdmin && u.role !== 'admin' && (
+                        <button
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(u); }}
+                          className="text-[11px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
+                          style={{ color: '#b91c1c', background: '#fef2f2' }}
+                          title="Delete member"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => toggleActive(e, u._id, u.isActive)}
+                        className="text-[11.5px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
+                        style={u.isActive ? { color: '#b91c1c' } : { color: '#2a7d4f' }}
+                      >
+                        {u.isActive ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </Link>
@@ -280,6 +312,43 @@ export default function TeamPage() {
           </div>
         </div>
       </Modal>
+
+      {/* Delete confirmation modal — admin only */}
+      {isAdmin && (
+        <Modal
+          isOpen={!!deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          title="Delete Team Member"
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+              <Button
+                loading={deleting}
+                onClick={handleDelete}
+                style={{ background: '#b91c1c', borderColor: '#b91c1c', color: '#fff' }}
+              >
+                Delete Member
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <p className="text-[13.5px]" style={{ color: 'var(--fd-ink-2)' }}>
+              Are you sure you want to permanently delete{' '}
+              <span className="font-semibold" style={{ color: 'var(--fd-ink-1)' }}>
+                {deleteTarget?.name}
+              </span>
+              {deleteTarget?.role && (
+                <span style={{ color: 'var(--fd-ink-4)' }}> ({ROLE_LABELS[deleteTarget.role] || deleteTarget.role})</span>
+              )}
+              ? This action cannot be undone.
+            </p>
+            <p className="text-[12px] px-3 py-2 rounded-lg" style={{ background: '#fef2f2', color: '#b91c1c' }}>
+              The account will be permanently removed. Consider deactivating instead to preserve history.
+            </p>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

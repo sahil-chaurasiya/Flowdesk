@@ -6,10 +6,20 @@ const Task = require('../models/Task');
 const Update = require('../models/Update');
 const Report = require('../models/Report');
 const File = require('../models/File');
+const Lead = require('../models/Lead');
+const { SocialPost } = require('../models/SocialPost');
+const CalendarEvent = require('../models/CalendarEvent');
+const { Conversation } = require('../models/Message');
+const Document = require('../models/Document');
+const Credential = require('../models/Credential');
+const ClientTarget = require('../models/ClientTarget');
+const PaymentVerification = require('../models/PaymentVerification');
+const RenewalHistory = require('../models/RenewalHistory');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
 const { sendClientWelcomeMessages } = require('../utils/messaging');
+const { logActivity } = require('../utils/activityLog');
 
 // ── Helper: calculate contractEndDate from startDate + planDuration ───────────
 // Called on create AND update so the field is always in sync.
@@ -212,10 +222,53 @@ router.put('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (r
 }));
 
 // @route DELETE /api/clients/:id
-router.delete('/:id', protect, authorize('admin'), asyncHandler(async (req, res) => {
-  const client = await Client.findByIdAndDelete(req.params.id);
+// Access: admin (any client) | manager (only their own clients)
+router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const client = await Client.findById(req.params.id);
   if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
-  res.json({ success: true, message: 'Client deleted successfully' });
+
+  // Project managers can only delete clients they manage
+  if (req.user.role === 'manager') {
+    const isOwner =
+      String(client.accountManager) === String(req.user._id) ||
+      (client.teamMembers || []).some(m => String(m) === String(req.user._id));
+    if (!isOwner) {
+      return res.status(403).json({ success: false, message: 'You can only delete your own clients' });
+    }
+  }
+
+  const id = req.params.id;
+
+  // ── Cascade delete all related data ─────────────────────────────────────────
+  await Promise.all([
+    Task.deleteMany({ client: id }),
+    Update.deleteMany({ client: id }),
+    Report.deleteMany({ client: id }),
+    File.deleteMany({ client: id }),
+    Lead.deleteMany({ client: id }),
+    SocialPost.deleteMany({ client: id }),
+    CalendarEvent.deleteMany({ client: id }),
+    Conversation.deleteMany({ client: id }),
+    Document.deleteMany({ client: id }),
+    Credential.deleteMany({ client: id }),
+    ClientTarget.deleteMany({ client: id }),
+    PaymentVerification.deleteMany({ client: id }),
+    RenewalHistory.deleteMany({ client: id }),
+    // Deactivate portal user account linked to this client (don't hard-delete — preserves audit trail)
+    User.updateMany({ clientId: id, role: 'client' }, { isActive: false }),
+  ]);
+
+  await Client.findByIdAndDelete(id);
+
+  // Fire-and-forget activity log
+  logActivity({
+    req,
+    action: 'client.deleted',
+    entity: { type: 'client', id: client._id, name: client.company || client.name },
+    meta: { deletedBy: req.user.role },
+  });
+
+  res.json({ success: true, message: 'Client and all related data deleted successfully' });
 }));
 
 // @route GET /api/clients/:id/overview

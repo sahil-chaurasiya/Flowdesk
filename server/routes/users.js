@@ -5,6 +5,7 @@ const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
+const { logActivity } = require('../utils/activityLog');
 
 const TEAM_ONLY_ROLES = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 
@@ -162,12 +163,31 @@ router.put('/:id', protect, authorize('admin'), asyncHandler(async (req, res) =>
 }));
 
 // @route DELETE /api/users/:id
+// Access: admin only — permanently removes a team member
 router.delete('/:id', protect, authorize('admin'), asyncHandler(async (req, res) => {
   if (String(req.params.id) === String(req.user._id)) {
     return res.status(400).json({ success: false, message: 'Cannot delete your own account' });
   }
-  await User.findByIdAndUpdate(req.params.id, { isActive: false });
-  res.json({ success: true, message: 'User deactivated successfully' });
+
+  const targetUser = await User.findById(req.params.id);
+  if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+  // Prevent admins from accidentally deleting other admin accounts
+  if (targetUser.role === 'admin') {
+    return res.status(403).json({ success: false, message: 'Cannot delete another admin account' });
+  }
+
+  await User.findByIdAndDelete(req.params.id);
+
+  // Fire-and-forget activity log
+  logActivity({
+    req,
+    action: 'user.deleted',
+    entity: { type: 'user', id: targetUser._id, name: targetUser.name },
+    meta: { deletedRole: targetUser.role, deletedEmail: targetUser.email },
+  });
+
+  res.json({ success: true, message: 'Team member deleted successfully' });
 }));
 
 // @route POST /api/users/:id/documents

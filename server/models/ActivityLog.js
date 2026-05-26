@@ -22,7 +22,7 @@ const activityLogSchema = new mongoose.Schema({
       // Auth
       'auth.login', 'auth.logout', 'auth.password_changed',
       // Users / Team
-      'user.created', 'user.updated', 'user.deactivated', 'user.reactivated',
+      'user.created', 'user.updated', 'user.deactivated', 'user.reactivated', 'user.deleted',
       // Clients
       'client.created', 'client.updated', 'client.deleted',
       // Tasks

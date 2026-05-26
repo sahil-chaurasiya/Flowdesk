@@ -221,7 +221,9 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
     setSaving(true);
     try {
       if (modal.mode === 'new') {
-        const { data } = await api.post('/calendar', { ...form, client: clientId, status: form.status || 'pending' });
+        const _payload = { ...form, client: clientId, status: form.status || 'pending' };
+        if (!_payload.shootSubtype) _payload.shootSubtype = null;
+        const { data } = await api.post('/calendar', _payload);
         setEvents(prev => [...prev, enrich(data.event)]);
       } else {
         const { data } = await api.put(`/calendar/${form._id}`, form);

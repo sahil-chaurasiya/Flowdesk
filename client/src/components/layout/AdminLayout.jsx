@@ -180,7 +180,7 @@ export default function AdminLayout() {
           />
           <div
             className="w-7 h-7 rounded-lg flex items-center justify-center overflow-hidden cursor-pointer"
-            style={{ background: user?.avatar ? 'transparent' : '#4f6ef0' }}
+            style={{ background: 'transparent' }}
             onClick={() => isAdmin && logoInputRef.current?.click()}
             title={isAdmin ? 'Click to upload company logo' : undefined}
           >
@@ -188,12 +188,8 @@ export default function AdminLayout() {
               <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="white" strokeWidth="3" strokeDasharray="30 70" />
               </svg>
-            ) : user?.avatar ? (
-              <img src={user.avatar} alt="logo" className="w-full h-full object-cover" />
             ) : (
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              <img src="/icon-512.png" alt="FlowDesk" className="w-full h-full object-cover rounded-lg" />
             )}
           </div>
           {isAdmin && !uploadingLogo && (!collapsed || isMobile) && (

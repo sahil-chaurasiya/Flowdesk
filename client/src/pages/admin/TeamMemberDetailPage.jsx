@@ -64,77 +64,125 @@ function fmtTime(dt) {
 }
 
 // ─── Calendar View ────────────────────────────────────────────────────────────
+const ATT_STYLE = {
+  present:  { bg: 'bg-emerald-500', ring: 'ring-emerald-300', text: 'text-white', glow: 'shadow-emerald-200' },
+  late:     { bg: 'bg-amber-400',   ring: 'ring-amber-200',   text: 'text-white', glow: 'shadow-amber-200'   },
+  absent:   { bg: 'bg-red-400',     ring: 'ring-red-200',     text: 'text-white', glow: 'shadow-red-200'     },
+  on_leave: { bg: 'bg-blue-400',    ring: 'ring-blue-200',    text: 'text-white', glow: 'shadow-blue-200'    },
+  wfh:      { bg: 'bg-violet-400',  ring: 'ring-violet-200',  text: 'text-white', glow: 'shadow-violet-200'  },
+};
+
 function AttCalendar({ records }) {
-  // Build a map: "YYYY-MM-DD" → record
+  const [hoveredKey, setHoveredKey] = useState(null);
+
   const byDate = {};
   records.forEach(r => { byDate[r.date] = r; });
 
-  // Figure out which month/year we're showing (derive from records or use first record's month)
   const sample = records[0];
   if (!sample) return null;
   const [yr, mo] = sample.date.split('-').map(Number);
 
-  const firstDay = new Date(yr, mo - 1, 1).getDay(); // 0=Sun
+  const firstDay = new Date(yr, mo - 1, 1).getDay();
   const daysInMonth = new Date(yr, mo, 0).getDate();
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
   const cells = [];
-  // Empty cells before first day
   for (let i = 0; i < firstDay; i++) cells.push(null);
-  // Day cells
   for (let d = 1; d <= daysInMonth; d++) {
     const key = `${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     cells.push({ day: d, key, record: byDate[key] || null });
   }
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const hoveredRecord = hoveredKey ? byDate[hoveredKey] : null;
+  const hoveredSt = hoveredRecord?.status;
+  const hoveredStyle = ATT_STYLE[hoveredSt];
 
   return (
-    <div>
+    <div className="select-none">
       {/* Day headers */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAYS.map(d => (
-          <div key={d} className="text-center text-[10px] font-semibold text-[var(--fd-ink-4)] uppercase py-1.5">
+      <div className="grid grid-cols-7 mb-2">
+        {['S','M','T','W','T','F','S'].map((d, i) => (
+          <div key={i} className="text-center text-[9px] font-bold text-[var(--fd-ink-4)] uppercase tracking-widest py-1">
             {d}
           </div>
         ))}
       </div>
-      {/* Cells */}
-      <div className="grid grid-cols-7 gap-1">
+
+      {/* Grid */}
+      <div className="grid grid-cols-7 gap-[3px]">
         {cells.map((cell, i) => {
-          if (!cell) return <div key={`empty-${i}`} />;
+          if (!cell) return <div key={`e-${i}`} style={{height:'34px'}} />;
           const st = cell.record?.status;
-          const cfg = ATT_STATUS[st];
+          const sty = ATT_STYLE[st];
           const isToday = cell.key === today;
+          const isHovered = hoveredKey === cell.key;
+
           return (
             <div
               key={cell.key}
-              title={cfg ? `${cfg.label}${cell.record?.checkInTime ? ' · In: ' + fmtTime(cell.record.checkInTime) : ''}` : 'No data'}
-              className={`
-                relative aspect-square rounded-lg flex flex-col items-center justify-center
-                text-[11px] font-medium transition-all select-none
-                ${isToday ? 'ring-2 ring-brand-500 ring-offset-1' : ''}
-                ${cfg ? cfg.cal + ' text-white' : 'bg-[var(--fd-surface-raised)] text-[var(--fd-ink-4)]'}
-              `}
+              onMouseEnter={() => setHoveredKey(cell.key)}
+              onMouseLeave={() => setHoveredKey(null)}
+              style={{height:'34px'}}
+              className={[
+                'relative rounded-md flex flex-col items-center justify-center cursor-default transition-all duration-150',
+                sty
+                  ? `${sty.bg} ${sty.text} shadow-sm ${isHovered ? 'scale-110 shadow-md z-10 ring-2 ' + sty.ring : ''}`
+                  : `bg-[var(--fd-surface-raised)] text-[var(--fd-ink-4)] ${isHovered ? 'scale-105 z-10' : ''}`,
+                isToday && !sty ? 'ring-2 ring-brand-400 ring-offset-1 text-brand-600 font-bold' : '',
+                isToday && sty ? 'ring-2 ring-offset-1 ring-white/60' : '',
+              ].join(' ')}
             >
-              {cell.day}
+              <span className="text-[10px] font-semibold leading-none">{cell.day}</span>
               {cell.record?.workHours > 0 && (
-                <span className="text-[8px] opacity-80 leading-none mt-0.5">{cell.record.workHours}h</span>
+                <span className="text-[7px] font-medium opacity-75 leading-none mt-[2px]">{cell.record.workHours}h</span>
               )}
             </div>
           );
         })}
       </div>
 
+      {/* Hover detail strip */}
+      <div className={`mt-3 rounded-xl px-3 py-2.5 transition-all duration-200 min-h-[38px] flex items-center gap-3
+        ${hoveredRecord
+          ? `${hoveredStyle?.bg || 'bg-[var(--fd-surface-raised)]'} bg-opacity-10 border border-opacity-20 ${hoveredStyle ? 'border-current' : 'border-[var(--fd-border)]'}`
+          : 'bg-[var(--fd-surface-raised)] border border-[var(--fd-border)]'
+        }`}>
+        {hoveredRecord ? (
+          <>
+            <span className={`w-2 h-2 rounded-full shrink-0 ${hoveredStyle?.bg || 'bg-[var(--fd-ink-4)]'}`} />
+            <span className="text-xs font-semibold text-[var(--fd-ink-1)]">{hoveredKey}</span>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${ATT_STATUS[hoveredSt]?.badge || 'bg-[var(--fd-surface)] text-[var(--fd-ink-3)]'}`}>
+              {ATT_STATUS[hoveredSt]?.label || hoveredRecord.status}
+            </span>
+            {hoveredRecord.checkInTime && (
+              <span className="text-xs text-[var(--fd-ink-3)] ml-auto">
+                {fmtTime(hoveredRecord.checkInTime)}
+                {hoveredRecord.checkOutTime ? ` → ${fmtTime(hoveredRecord.checkOutTime)}` : ''}
+                {hoveredRecord.workHours > 0 ? ` · ${hoveredRecord.workHours}h` : ''}
+              </span>
+            )}
+          </>
+        ) : hoveredKey ? (
+          <>
+            <span className="w-2 h-2 rounded-full bg-[var(--fd-ink-4)] shrink-0" />
+            <span className="text-xs font-semibold text-[var(--fd-ink-1)]">{hoveredKey}</span>
+            <span className="text-xs text-[var(--fd-ink-4)]">No record</span>
+          </>
+        ) : (
+          <span className="text-[11px] text-[var(--fd-ink-4)] w-full text-center">Hover a day to see details</span>
+        )}
+      </div>
+
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-4 flex-wrap">
-        {Object.entries(ATT_STATUS).map(([, cfg]) => (
-          <div key={cfg.label} className="flex items-center gap-1.5 text-xs text-[var(--fd-ink-3)]">
-            <span className={`w-3 h-3 rounded-sm inline-block ${cfg.cal}`} />
+      <div className="flex items-center gap-3 mt-3 flex-wrap">
+        {Object.entries(ATT_STATUS).map(([k, cfg]) => (
+          <div key={k} className="flex items-center gap-1 text-[10px] text-[var(--fd-ink-4)] font-medium">
+            <span className={`w-2 h-2 rounded-sm inline-block ${ATT_STYLE[k]?.bg || 'bg-[var(--fd-ink-4)]'}`} />
             {cfg.label}
           </div>
         ))}
-        <div className="flex items-center gap-1.5 text-xs text-[var(--fd-ink-3)]">
-          <span className="w-3 h-3 rounded-sm inline-block bg-[var(--fd-surface-raised)] border border-[var(--fd-border)]" />
+        <div className="flex items-center gap-1 text-[10px] text-[var(--fd-ink-4)] font-medium">
+          <span className="w-2 h-2 rounded-sm inline-block bg-[var(--fd-surface-raised)] border border-[var(--fd-border)]" />
           No data
         </div>
       </div>
@@ -232,15 +280,13 @@ function AttendanceTab({ memberId }) {
 
       {!loading && !error && data?.found && (
         <>
-          {/* Summary pills */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {/* Summary pills — matches attendance app: Present, Late, Absent, Hrs */}
+          <div className="grid grid-cols-4 gap-2">
             {[
-              { label: 'Present',   value: data.summary.present,         color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
-              { label: 'Late',      value: data.summary.late,            color: 'bg-amber-50 border-amber-200 text-amber-700'       },
-              { label: 'Absent',    value: data.summary.absent,          color: 'bg-red-50 border-red-200 text-red-600'             },
-              { label: 'On Leave',  value: data.summary.onLeave,         color: 'bg-blue-50 border-blue-200 text-blue-700'          },
-              { label: 'WFH',       value: data.summary.wfh,             color: 'bg-purple-50 border-purple-200 text-purple-700'    },
-              { label: 'Hrs',       value: `${data.summary.totalWorkHours}h`, color: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)] text-[var(--fd-ink-2)]' },
+              { label: 'Present', value: data.summary.present,              color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+              { label: 'Late',    value: data.summary.late,                 color: 'bg-amber-50 border-amber-200 text-amber-700'       },
+              { label: 'Absent',  value: data.summary.absent,               color: 'bg-red-50 border-red-200 text-red-600'             },
+              { label: 'Hrs',     value: `${data.summary.totalWorkHours}h`, color: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)] text-[var(--fd-ink-2)]' },
             ].map(s => (
               <div key={s.label} className={`border rounded-xl p-3 text-center ${s.color}`}>
                 <div className="text-lg font-bold">{s.value}</div>

@@ -272,17 +272,47 @@ router.get('/:id/attendance', protect, authorize('admin', 'manager'), asyncHandl
 
   const records = await _AttRecord.find(query).sort({ date: -1 }).limit(62).lean();
 
+  // Mirror attendance app calendar view exactly:
+  // present/late = ALL records with that status (not just fully-completed)
+  // workHours = only fully-completed records (both check-in AND check-out)
   const present        = records.filter(r => r.status === 'present').length;
   const late           = records.filter(r => r.status === 'late').length;
-  const absent         = records.filter(r => r.status === 'absent').length;
-  const onLeave        = records.filter(r => r.status === 'on_leave').length;
-  const wfh            = records.filter(r => (r.notes || '').toLowerCase().includes('work from home')).length;
-  const totalWorkHours = +records.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(1);
+  const fullyCompleted = records.filter(r => r.checkInTime && r.checkOutTime);
+  const totalWorkHours = +fullyCompleted.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(1);
+
+  // Absent = working days elapsed (Mon-Sat, skip Sunday) since DATA_START, minus present+late
+  const DATA_START = '2026-04-01';
+  const todayIST = (() => {
+    const now = new Date();
+    const istDate = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    return istDate.toISOString().split('T')[0];
+  })();
+
+  let absentCount = 0;
+  if (month && year) {
+    const m = String(month).padStart(2, '0');
+    const lastDay = new Date(year, month, 0).getDate();
+    const startDate = `${year}-${m}-01`;
+    const endDate   = `${year}-${m}-${String(lastDay).padStart(2, '0')}`;
+    const effectiveStart = startDate < DATA_START ? DATA_START : startDate;
+    const effectiveEnd   = endDate > todayIST ? todayIST : endDate;
+
+    if (effectiveStart <= effectiveEnd) {
+      let workingDays = 0;
+      const cur = new Date(effectiveStart + 'T00:00:00Z');
+      const end = new Date(effectiveEnd + 'T00:00:00Z');
+      while (cur <= end) {
+        if (cur.getUTCDay() !== 0) workingDays++;
+        cur.setUTCDate(cur.getUTCDate() + 1);
+      }
+      absentCount = Math.max(0, workingDays - (present + late));
+    }
+  }
 
   res.json({
     success: true,
     found: true,
-    summary: { present, late, absent, onLeave, wfh, totalWorkHours },
+    summary: { present, late, absent: absentCount, totalWorkHours },
     records,
   });
 }));

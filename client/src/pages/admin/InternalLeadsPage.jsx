@@ -814,30 +814,60 @@ function ImportModal({ onClose, onImported }) {
 // ── Stats Bar ─────────────────────────────────────────────────────────────────
 function StatsBar({ stats }) {
   if (!stats) return null;
-  const items = [
-    { label: 'Total',     value: Object.values(stats.byStage || {}).reduce((a,b) => a + b.count, 0), icon: Target,   color: '#4f6ef0' },
-    { label: 'Hot',       value: stats.byQuality?.hot || 0,      icon: Flame,     color: '#ef4444' },
-    { label: 'Follow-ups Today', value: stats.followUpsToday || 0, icon: Bell,   color: '#f59e0b' },
-    { label: 'Won Value', value: stats.totalWonValue ? `₹${stats.totalWonValue.toLocaleString('en-IN')}` : '₹0', icon: TrendingUp, color: '#22c55e' },
+
+  const byStage = stats.byStage || {};
+  const totalLeads = Object.values(byStage).reduce((a, b) => a + b.count, 0);
+
+  // Top row: summary KPIs
+  const summaryItems = [
+    { label: 'Total',             value: totalLeads,                                                                        icon: Target,    color: '#4f6ef0' },
+    { label: 'Hot',               value: stats.byQuality?.hot || 0,                                                         icon: Flame,     color: '#ef4444' },
+    { label: 'Follow-ups Today',  value: stats.followUpsToday || 0,                                                         icon: Bell,      color: '#f59e0b' },
+    { label: 'Won Value',         value: stats.totalWonValue ? `₹${stats.totalWonValue.toLocaleString('en-IN')}` : '₹0',   icon: TrendingUp, color: '#22c55e' },
   ];
+
+  // Bottom row: per-stage counts
+  const stageItems = STAGES.map(s => ({
+    label: s.label,
+    value: byStage[s.id]?.count ?? 0,
+    color: s.color,
+    bg:    s.bg,
+  }));
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      {items.map(item => {
-        const Icon = item.icon;
-        return (
-          <div key={item.label} className="rounded-xl px-4 py-3 flex items-center gap-3"
-            style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}>
-            <div className="p-2 rounded-lg flex-shrink-0"
-              style={{ background: item.color + '18' }}>
-              <Icon size={15} style={{ color: item.color }} />
+    <div className="space-y-3">
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {summaryItems.map(item => {
+          const Icon = item.icon;
+          return (
+            <div key={item.label} className="rounded-xl px-4 py-3 flex items-center gap-3"
+              style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}>
+              <div className="p-2 rounded-lg flex-shrink-0" style={{ background: item.color + '18' }}>
+                <Icon size={15} style={{ color: item.color }} />
+              </div>
+              <div>
+                <div className="text-[16px] font-bold" style={{ color: 'var(--fd-ink-1)' }}>{item.value}</div>
+                <div className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>{item.label}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-[16px] font-bold" style={{ color: 'var(--fd-ink-1)' }}>{item.value}</div>
-              <div className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>{item.label}</div>
+          );
+        })}
+      </div>
+
+      {/* Per-stage KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+        {stageItems.map(item => (
+          <div key={item.label} className="rounded-xl px-3 py-2.5 flex items-center gap-2.5"
+            style={{ background: 'var(--fd-card-bg)', border: `1px solid ${item.color}28` }}>
+            <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
+            <div className="min-w-0">
+              <div className="text-[15px] font-bold" style={{ color: item.color }}>{item.value}</div>
+              <div className="text-[10px] truncate" style={{ color: 'var(--fd-ink-4)' }}>{item.label}</div>
             </div>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }

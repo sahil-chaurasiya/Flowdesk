@@ -147,7 +147,7 @@ function EventChip({ event, isStart, isEnd, onClick }) {
 }
 
 // ─── View Modal ───────────────────────────────────────────────────────────────
-function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange }) {
+function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange, canAct }) {
   const [deleting, setDeleting] = useState(false);
   const color = EVENT_COLORS[event.type] || EVENT_COLORS.other;
 
@@ -162,12 +162,14 @@ function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange }) {
       isOpen onClose={onClose} title="" size="sm"
       footer={
         <div className="flex items-center justify-between gap-2">
-          <Button variant="danger" size="sm" onClick={del} loading={deleting}>
-            <Trash2 size={12} /> Delete
-          </Button>
+          {canAct && (
+            <Button variant="danger" size="sm" onClick={del} loading={deleting}>
+              <Trash2 size={12} /> Delete
+            </Button>
+          )}
           <div className="flex gap-2 ml-auto">
             <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
-            <Button size="sm" onClick={onEdit}><Edit2 size={12} /> Edit</Button>
+            {canAct && <Button size="sm" onClick={onEdit}><Edit2 size={12} /> Edit</Button>}
           </div>
         </div>
       }
@@ -250,7 +252,7 @@ function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange }) {
 }
 
 // ─── Edit / Create Modal ──────────────────────────────────────────────────────
-function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients, prefillClientId }) {
+function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients, prefillClientId, canAct }) {
   const isNew = !event?._id;
 
   const buildDefaults = () => {
@@ -357,7 +359,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
       isOpen onClose={onClose} title={isNew ? 'New Event' : 'Edit Event'} size="sm"
       footer={
         <div className="flex items-center justify-between gap-2">
-          {!isNew && (
+          {!isNew && canAct && (
             <Button variant="danger" size="sm" onClick={del} loading={saving}>
               <Trash2 size={12} /> Delete
             </Button>
@@ -1277,6 +1279,7 @@ export default function CalendarPage() {
           onEdit={() => setModal({ mode: 'edit', event: modal.event })}
           onDelete={handleDelete}
           onStatusChange={handleStatusChange}
+          canAct={user?.role === 'admin' || String(modal.event?.createdBy?._id || modal.event?.createdBy) === String(user?._id)}
         />
       )}
       {(modal?.mode === 'edit' || modal?.mode === 'new') && (
@@ -1288,6 +1291,7 @@ export default function CalendarPage() {
           onDelete={handleDelete}
           clients={clients}
           prefillClientId={null} // null = show client selector
+          canAct={user?.role === 'admin' || String(modal.event?.createdBy?._id || modal.event?.createdBy) === String(user?._id)}
         />
       )}
     </div>

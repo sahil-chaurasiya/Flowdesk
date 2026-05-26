@@ -171,14 +171,15 @@ router.put('/:id', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req,
   const existing = await CalendarEvent.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Event not found' });
 
-  const isManager = ['admin', 'manager'].includes(req.user.role);
-  const isOwner   = String(existing.createdBy) === String(req.user._id);
-  // Anyone assigned can update status
+  const isAdmin    = req.user.role === 'admin';
+  const isOwner    = String(existing.createdBy) === String(req.user._id);
   const isAssigned = existing.assignedTo.map(String).includes(String(req.user._id));
 
-  // For status-only updates (e.g. mark done), allow assigned users
+  // Status-only updates (mark done/pending etc.) allowed for assigned users
   const isStatusOnlyUpdate = Object.keys(req.body).length === 1 && 'status' in req.body;
-  if (!isManager && !isOwner && !isAssigned && !isStatusOnlyUpdate) {
+
+  // Admin can edit anything; everyone else only their own events (or status-only if assigned)
+  if (!isAdmin && !isOwner && !(isAssigned && isStatusOnlyUpdate)) {
     return res.status(403).json({ success: false, message: 'Not authorised to edit this event' });
   }
 
@@ -218,9 +219,9 @@ router.delete('/:id', protect, authorize(...ALL_INTERNAL), asyncHandler(async (r
   const existing = await CalendarEvent.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Event not found' });
 
-  const isManager = ['admin', 'manager'].includes(req.user.role);
-  const isOwner   = String(existing.createdBy) === String(req.user._id);
-  if (!isManager && !isOwner) {
+  const isAdmin = req.user.role === 'admin';
+  const isOwner = String(existing.createdBy) === String(req.user._id);
+  if (!isAdmin && !isOwner) {
     return res.status(403).json({ success: false, message: 'Not authorised to delete this event' });
   }
 

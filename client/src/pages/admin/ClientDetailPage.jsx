@@ -174,10 +174,15 @@ function StatusDropdown({ status, onStatusChange }) {
 
 // ─── Client-scoped mini calendar ─────────────────────────────────────────────
 function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
+  const { user } = useAuthStore();
   const toast = useToast ? useToast() : null;
   const [modal, setModal]   = useState(null); // { mode: 'new'|'view'|'edit', event?, date? }
   const [saving, setSaving] = useState(false);
   const [form, setForm]     = useState({});
+
+  const canActOnEvent = (ev) =>
+    user?.role === 'admin' ||
+    String(ev?.createdBy?._id || ev?.createdBy) === String(user?._id);
 
   const now = new Date();
 
@@ -330,7 +335,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
           size="md"
           footer={
             <div className="flex items-center justify-between gap-2">
-              {modal.mode === 'view' && (
+              {modal.mode === 'view' && canActOnEvent(form) && (
                 <Button variant="danger" size="sm" onClick={() => handleDelete(form._id)}>
                   <Trash2 size={12} /> Delete
                 </Button>
@@ -339,7 +344,9 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                 {modal.mode === 'view' ? (
                   <>
                     <Button variant="secondary" size="sm" onClick={() => setModal(null)}>Close</Button>
-                    <Button size="sm" onClick={() => setModal(m => ({ ...m, mode: 'edit' }))}><Edit3 size={12} /> Edit</Button>
+                    {canActOnEvent(form) && (
+                      <Button size="sm" onClick={() => setModal(m => ({ ...m, mode: 'edit' }))}><Edit3 size={12} /> Edit</Button>
+                    )}
                   </>
                 ) : (
                   <>

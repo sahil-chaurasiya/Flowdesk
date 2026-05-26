@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, GripVertical, AlertCircle, Clock, CheckCircle, X, Target } from 'lucide-react';
+import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag } from 'lucide-react';
 import api from '../../lib/api';
+import useAuthStore from '../../context/authStore';
 import { useToast } from '../../components/ui/index';
-import { Button, Modal } from '../../components/ui/index';
+import { Button, Modal, Input, Textarea, Select } from '../../components/ui/index';
 import { Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 import { formatDate } from '../../lib/utils';
 
@@ -17,63 +18,163 @@ const PRIORITY_COLORS = {
   low: '#a8a49e', medium: '#4f6ef0', high: '#f59e0b', urgent: '#ef4444',
 };
 
-function TaskCard({ task, onDragStart }) {
-  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
+const CATEGORY_LABELS = {
+  paid_ads: '📊 Paid Ads', social_media: '📱 Social Media', video_editing: '🎬 Video Editing',
+  graphic_design: '🎨 Graphic Design', copywriting: '✍️ Copywriting', reporting: '📋 Reporting',
+  strategy: '🧠 Strategy', client_request: '💬 Client Request', other: '📌 Other',
+};
 
+const ROLE_LABELS = {
+  admin: 'Admin', manager: 'Project Manager',
+  performance_marketer: 'Performance Marketer', social_media_manager: 'Social Media Manager',
+  video_editor: 'Video Editor', graphic_designer: 'Graphic Designer', copywriter: 'Copywriter',
+};
+
+const STATUS_STYLE = {
+  pending:     { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
+  in_progress: { background: 'rgba(79,110,240,0.12)', color: '#4f6ef0' },
+  review:      { background: 'rgba(168,85,247,0.12)', color: '#a855f7' },
+  completed:   { background: 'rgba(34,197,94,0.12)', color: '#22c55e' },
+  cancelled:   { background: 'rgba(239,68,68,0.12)', color: '#ef4444' },
+};
+
+// ── Task Detail Drawer ────────────────────────────────────────────────────────
+function TaskDrawer({ task, onClose, onStatusChange, updating }) {
+  if (!task) return null;
+  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
+  const ss = STATUS_STYLE[task.status] || STATUS_STYLE.pending;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
+      <div
+        className="fixed right-0 top-0 bottom-0 z-50 flex flex-col shadow-2xl"
+        style={{ width: 'min(420px, 100vw)', background: 'var(--fd-surface)', borderLeft: '1px solid var(--fd-border)' }}
+      >
+        <div className="flex items-start gap-3 px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--fd-border)' }}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize" style={ss}>
+                {task.status.replace('_', ' ')}
+              </span>
+              {isOverdue && <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>}
+            </div>
+            <h2 className="text-[16px] font-bold leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</h2>
+          </div>
+          <button onClick={onClose} className="flex-shrink-0 p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" style={{ color: 'var(--fd-ink-4)' }}>
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {task.description && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <FileText size={12} style={{ color: 'var(--fd-ink-4)' }} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Description</span>
+              </div>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>{task.description}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            {task.client?.company && (
+              <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><Building2 size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Client</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{task.client.company}</div>
+              </div>
+            )}
+            {task.assignedTo && (
+              <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><User size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Assigned To</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{task.assignedTo.name}</div>
+                <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{ROLE_LABELS[task.assignedTo.role] || task.assignedTo.role}</div>
+              </div>
+            )}
+            {task.createdBy && (
+              <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><User size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Created By</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{task.createdBy.name}</div>
+              </div>
+            )}
+            <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <div className="flex items-center gap-1.5 mb-1"><Flag size={11} style={{ color: PRIORITY_COLORS[task.priority] }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Priority</span></div>
+              <div className="text-[13px] font-semibold capitalize" style={{ color: PRIORITY_COLORS[task.priority] }}>{task.priority}</div>
+            </div>
+            {task.deadline && (
+              <div className="rounded-xl p-3" style={{ background: isOverdue ? 'rgba(239,68,68,0.06)' : 'var(--fd-surface-sunken)', border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.2)' : 'var(--fd-border)'}` }}>
+                <div className="flex items-center gap-1.5 mb-1"><Calendar size={11} style={{ color: isOverdue ? '#ef4444' : 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Deadline</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: isOverdue ? '#ef4444' : 'var(--fd-ink-1)' }}>{formatDate(task.deadline)}</div>
+              </div>
+            )}
+            {task.category && (
+              <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><Tag size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Category</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{CATEGORY_LABELS[task.category] || task.category}</div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide mb-2.5" style={{ color: 'var(--fd-ink-4)' }}>Move to</div>
+            <div className="flex flex-col gap-1.5">
+              {COLUMNS.filter(c => c.id !== task.status).map(col => {
+                const Icon = col.icon;
+                return (
+                  <button
+                    key={col.id}
+                    onClick={() => onStatusChange(task._id, col.id)}
+                    disabled={updating === task._id}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all hover:scale-[1.01]"
+                    style={{ background: `${col.color}10`, border: `1px solid ${col.color}30`, opacity: updating === task._id ? 0.6 : 1 }}
+                  >
+                    <Icon size={14} style={{ color: col.color }} />
+                    <span className="text-[13px] font-medium" style={{ color: col.color }}>{col.label}</span>
+                    <ChevronRight size={12} style={{ color: col.color, marginLeft: 'auto' }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Task Card ─────────────────────────────────────────────────────────────────
+function TaskCard({ task, onDragStart, onClick }) {
+  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
   return (
     <div
       draggable
-      onDragStart={e => onDragStart(e, task)}
-      className="rounded-xl p-3.5 cursor-grab active:cursor-grabbing transition-all select-none group"
-      style={{
-        background: 'var(--fd-surface)',
-        border: '1px solid var(--fd-border)',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-      }}
+      onDragStart={e => { e.stopPropagation(); onDragStart(e, task); }}
+      onClick={() => onClick(task)}
+      className="rounded-xl p-3.5 cursor-pointer transition-all select-none hover:shadow-md hover:scale-[1.01]"
+      style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}
     >
-      {/* Priority dot + title */}
       <div className="flex items-start gap-2">
-        <div
-          className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
-          style={{ background: PRIORITY_COLORS[task.priority] || '#aaa' }}
-        />
+        <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: PRIORITY_COLORS[task.priority] || '#aaa' }} />
         <div className="flex-1 min-w-0">
-          <div className="text-[12.5px] font-medium leading-snug" style={{ color: 'var(--fd-ink-1)' }}>
-            {task.title}
-          </div>
-          {task.client?.company && (
-            <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
-              {task.client.company}
-            </div>
-          )}
+          <div className="text-[12.5px] font-medium leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</div>
+          {task.client?.company && <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{task.client.company}</div>}
+          {task.description && <div className="text-[11px] mt-1 line-clamp-2 leading-relaxed" style={{ color: 'var(--fd-ink-4)' }}>{task.description}</div>}
         </div>
       </div>
-
-      {/* Footer */}
       <div className="mt-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           {task.assignedTo && (
-            <div
-              className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-              style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
-              title={task.assignedTo.name}
-            >
+            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0" style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }} title={task.assignedTo.name}>
               {task.assignedTo.name?.charAt(0)?.toUpperCase()}
             </div>
           )}
           {task.deadline && (
-            <span
-              className="text-[10.5px] font-medium"
-              style={{ color: isOverdue ? '#ef4444' : 'var(--fd-ink-5)' }}
-            >
+            <span className="text-[10.5px] font-medium" style={{ color: isOverdue ? '#ef4444' : 'var(--fd-ink-5)' }}>
               {isOverdue ? '⚠ ' : ''}{formatDate(task.deadline)}
             </span>
           )}
         </div>
-        <span
-          className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-          style={{ background: `${PRIORITY_COLORS[task.priority]}18`, color: PRIORITY_COLORS[task.priority] }}
-        >
+        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: `${PRIORITY_COLORS[task.priority]}18`, color: PRIORITY_COLORS[task.priority] }}>
           {task.priority}
         </span>
       </div>
@@ -81,152 +182,254 @@ function TaskCard({ task, onDragStart }) {
   );
 }
 
-function Column({ column, tasks, onDrop, onDragOver, onDragStart, updating }) {
+// ── Column ────────────────────────────────────────────────────────────────────
+function Column({ column, tasks, onDrop, onDragOver, onDragStart, updating, onCardClick, onAddTask }) {
   const Icon = column.icon;
-  const count = tasks.length;
-
   return (
     <div
       className="flex flex-col rounded-xl overflow-hidden flex-shrink-0 w-64"
-      style={{
-        background: 'var(--fd-surface-sunken)',
-        border: '1px solid var(--fd-border)',
-        minHeight: 400,
-      }}
+      style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', minHeight: 400 }}
       onDrop={e => onDrop(e, column.id)}
       onDragOver={onDragOver}
     >
-      {/* Header */}
-      <div
-        className="flex items-center gap-2 px-3.5 py-3 border-b flex-shrink-0"
-        style={{ borderColor: 'var(--fd-border)' }}
-      >
-        <div
-          className="w-5 h-5 rounded flex items-center justify-center"
-          style={{ background: `${column.color}18` }}
-        >
+      <div className="flex items-center gap-2 px-3.5 py-3 border-b flex-shrink-0" style={{ borderColor: 'var(--fd-border)' }}>
+        <div className="w-5 h-5 rounded flex items-center justify-center" style={{ background: `${column.color}18` }}>
           <Icon size={11} style={{ color: column.color }} />
         </div>
-        <span className="text-[12.5px] font-semibold flex-1" style={{ color: 'var(--fd-ink-1)' }}>
-          {column.label}
-        </span>
-        {count > 0 && (
-          <span
-            className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center"
-            style={{ background: `${column.color}20`, color: column.color }}
-          >
-            {count}
+        <span className="text-[12.5px] font-semibold flex-1" style={{ color: 'var(--fd-ink-1)' }}>{column.label}</span>
+        {tasks.length > 0 && (
+          <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center" style={{ background: `${column.color}20`, color: column.color }}>
+            {tasks.length}
           </span>
         )}
         {updating === column.id && <Spinner size="xs" />}
+        <button onClick={() => onAddTask(column.id)} className="w-6 h-6 rounded flex items-center justify-center transition-colors hover:opacity-80" style={{ background: `${column.color}18`, color: column.color }} title={`Add task to ${column.label}`}>
+          <Plus size={12} />
+        </button>
       </div>
 
-      {/* Cards */}
       <div className="flex-1 p-2.5 space-y-2 overflow-y-auto">
         {tasks.length === 0 && (
-          <div
-            className="text-[11.5px] text-center py-8 rounded-lg border-2 border-dashed"
-            style={{ color: 'var(--fd-ink-5)', borderColor: 'var(--fd-border)' }}
-          >
+          <div className="text-[11.5px] text-center py-8 rounded-lg border-2 border-dashed" style={{ color: 'var(--fd-ink-5)', borderColor: 'var(--fd-border)' }}>
             Drop tasks here
           </div>
         )}
-        {tasks.map(task => (
-          <TaskCard key={task._id} task={task} onDragStart={onDragStart} />
-        ))}
+        {tasks.map(task => <TaskCard key={task._id} task={task} onDragStart={onDragStart} onClick={onCardClick} />)}
       </div>
+
+      <button
+        onClick={() => onAddTask(column.id)}
+        className="flex items-center gap-2 px-3.5 py-2.5 border-t text-[12px] font-medium transition-colors hover:opacity-80 flex-shrink-0"
+        style={{ borderColor: 'var(--fd-border)', color: 'var(--fd-ink-4)', background: 'transparent' }}
+      >
+        <Plus size={13} /> Add task
+      </button>
     </div>
   );
 }
 
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function KanbanPage() {
+  const { user } = useAuthStore();
   const toast = useToast();
-  const [tasks, setTasks]       = useState([]);
-  const [loading, setLoading]   = useState(true);
-  const [updating, setUpdating] = useState(null);
-  const [filter, setFilter]     = useState('');
+  const isAdmin = user?.role === 'admin';
+
+  const [tasks, setTasks]             = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [updating, setUpdating]       = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [saving, setSaving]           = useState(false);
+
+  // Filter state
+  const [filterClient, setFilterClient]     = useState('');
+  const [filterMember, setFilterMember]     = useState('');
+  const [filterPM, setFilterPM]             = useState('');   // admin only
+
+  // Dropdown data
+  const [clients, setClients]   = useState([]);
+  const [members, setMembers]   = useState([]);   // team members only
+  const [managers, setManagers] = useState([]);   // PMs — admin only
+
+  // Add task form
+  const [form, setForm] = useState({
+    title: '', description: '', client: '', assignedTo: '',
+    priority: 'medium', status: 'pending', deadline: '',
+    category: 'other', isClientVisible: false,
+  });
+
   const dragTask = useRef(null);
+
+  // Load dropdown data
+  useEffect(() => {
+    api.get('/clients?limit=100').then(r => setClients(r.data.clients || []));
+    api.get('/users?limit=100').then(r => {
+      const all = r.data.users || [];
+      setMembers(all.filter(u => !['admin', 'manager', 'client'].includes(u.role)));
+      setManagers(all.filter(u => u.role === 'manager'));
+    });
+  }, []);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/tasks?limit=200');
-      setTasks(data.tasks || []);
+      const params = new URLSearchParams({ limit: 200 });
+      if (filterClient) params.set('client', filterClient);
+      if (filterMember) params.set('assignedTo', filterMember);
+      // PM filter: we filter client-side since backend scopes by accountManager on Client model
+      const { data } = await api.get(`/tasks?${params}`);
+      let result = data.tasks || [];
+
+      // Admin filtering by PM: keep tasks whose createdBy matches selected PM
+      if (isAdmin && filterPM) {
+        result = result.filter(t => t.createdBy?._id === filterPM || String(t.createdBy?._id) === filterPM);
+      }
+
+      setTasks(result);
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, []);
+  }, [filterClient, filterMember, filterPM, isAdmin]);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
-  const onDragStart = (e, task) => {
-    dragTask.current = task;
-    e.dataTransfer.effectAllowed = 'move';
-  };
-
-  const onDragOver = (e) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+  const onDragStart = (e, task) => { dragTask.current = task; e.dataTransfer.effectAllowed = 'move'; };
+  const onDragOver  = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
 
   const onDrop = async (e, newStatus) => {
     e.preventDefault();
     const task = dragTask.current;
     if (!task || task.status === newStatus) return;
-
-    // Optimistic update
     setTasks(prev => prev.map(t => t._id === task._id ? { ...t, status: newStatus } : t));
+    if (selectedTask?._id === task._id) setSelectedTask(prev => ({ ...prev, status: newStatus }));
     setUpdating(newStatus);
-
     try {
       await api.put(`/tasks/${task._id}`, { status: newStatus });
       toast({ type: 'success', title: 'Task moved', message: `"${task.title}" → ${newStatus.replace('_', ' ')}` });
     } catch (err) {
-      // Rollback
       setTasks(prev => prev.map(t => t._id === task._id ? { ...t, status: task.status } : t));
+      if (selectedTask?._id === task._id) setSelectedTask(prev => ({ ...prev, status: task.status }));
       toast({ type: 'error', title: 'Failed to move task', message: err?.response?.data?.message });
-    } finally {
-      setUpdating(null);
-      dragTask.current = null;
-    }
+    } finally { setUpdating(null); dragTask.current = null; }
   };
 
-  const filtered = filter
-    ? tasks.filter(t => t.client?.company?.toLowerCase().includes(filter.toLowerCase()) || t.title.toLowerCase().includes(filter.toLowerCase()))
-    : tasks;
+  const handleStatusFromDrawer = async (id, newStatus) => {
+    const task = tasks.find(t => t._id === id);
+    if (!task) return;
+    setTasks(prev => prev.map(t => t._id === id ? { ...t, status: newStatus } : t));
+    setSelectedTask(prev => prev?._id === id ? { ...prev, status: newStatus } : prev);
+    setUpdating(id);
+    try {
+      await api.put(`/tasks/${id}`, { status: newStatus });
+      toast({ type: 'success', title: 'Status updated' });
+    } catch {
+      setTasks(prev => prev.map(t => t._id === id ? { ...t, status: task.status } : t));
+      setSelectedTask(prev => prev?._id === id ? { ...prev, status: task.status } : prev);
+      toast({ type: 'error', title: 'Update failed' });
+    } finally { setUpdating(null); }
+  };
 
-  const byStatus = (status) => filtered.filter(t => t.status === status);
+  const openAddTask = (defaultStatus) => {
+    setForm({ title: '', description: '', client: filterClient || '', assignedTo: filterMember || '', priority: 'medium', status: defaultStatus, deadline: '', category: 'other', isClientVisible: false });
+    setShowAddModal(true);
+  };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
+  const handleSave = async () => {
+    if (!form.title.trim()) { toast({ type: 'error', title: 'Title is required' }); return; }
+    setSaving(true);
+    try {
+      await api.post('/tasks', form);
+      setShowAddModal(false);
+      fetchTasks();
+      toast({ type: 'success', title: 'Task created' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to create task', message: err?.response?.data?.message });
+    } finally { setSaving(false); }
+  };
+
+  const byStatus = (status) => tasks.filter(t => t.status === status);
+
+  const membersByRole = [...members, ...managers].reduce((acc, m) => {
+    const label = ROLE_LABELS[m.role] || m.role;
+    if (!acc[label]) acc[label] = [];
+    acc[label].push(m);
+    return acc;
+  }, {});
+
+  const activeFilters = [filterClient, filterMember, filterPM].filter(Boolean).length;
+
+  if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-[22px] font-bold tracking-[-0.02em]" style={{ color: 'var(--fd-ink-1)' }}>
-            Kanban Board
-          </h1>
-          <p className="text-[13px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>
-            Drag and drop tasks to update their status
-          </p>
+          <h1 className="text-[22px] font-bold tracking-[-0.02em]" style={{ color: 'var(--fd-ink-1)' }}>Kanban Board</h1>
+          <p className="text-[13px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>Drag & drop to move tasks · Click any card for details</p>
         </div>
         <div className="flex items-center gap-2">
-          <input
-            value={filter}
-            onChange={e => setFilter(e.target.value)}
-            placeholder="Filter tasks…"
-            className="fd-input text-[12.5px] w-44"
-          />
-          <Button variant="secondary" size="sm" onClick={fetchTasks}>
-            Refresh
+          <Button size="sm" onClick={() => openAddTask('pending')}>
+            <Plus size={14} /> Add Task
           </Button>
+          <Button variant="secondary" size="sm" onClick={fetchTasks}>Refresh</Button>
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap gap-2.5 items-end">
+        {/* Client filter — admin + manager */}
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Client</label>
+          <select
+            value={filterClient}
+            onChange={e => setFilterClient(e.target.value)}
+            className="fd-input text-[12.5px]"
+            style={{ minWidth: 160 }}
+          >
+            <option value="">All Clients</option>
+            {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
+          </select>
+        </div>
+
+        {/* Team member filter — admin + manager */}
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Team Member</label>
+          <select
+            value={filterMember}
+            onChange={e => setFilterMember(e.target.value)}
+            className="fd-input text-[12.5px]"
+            style={{ minWidth: 170 }}
+          >
+            <option value="">All Members</option>
+            {members.map(m => <option key={m._id} value={m._id}>{m.name} · {ROLE_LABELS[m.role] || m.role}</option>)}
+          </select>
+        </div>
+
+        {/* PM filter — admin only */}
+        {isAdmin && (
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Project Manager</label>
+            <select
+              value={filterPM}
+              onChange={e => setFilterPM(e.target.value)}
+              className="fd-input text-[12.5px]"
+              style={{ minWidth: 170 }}
+            >
+              <option value="">All Managers</option>
+              {managers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {activeFilters > 0 && (
+          <button
+            onClick={() => { setFilterClient(''); setFilterMember(''); setFilterPM(''); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors hover:opacity-80"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', alignSelf: 'flex-end' }}
+          >
+            <X size={12} /> Clear filters ({activeFilters})
+          </button>
+        )}
       </div>
 
       {/* Board */}
@@ -240,17 +443,76 @@ export default function KanbanPage() {
             onDragOver={onDragOver}
             onDragStart={onDragStart}
             updating={updating}
+            onCardClick={setSelectedTask}
+            onAddTask={openAddTask}
           />
         ))}
       </div>
 
-      {tasks.length === 0 && (
-        <EmptyState
-          icon={CheckCircle}
-          title="No tasks yet"
-          description="Create tasks from the Tasks page to see them here."
+      {tasks.length === 0 && !loading && (
+        <EmptyState icon={CheckCircle} title="No tasks found" description={activeFilters ? 'Try clearing the filters above.' : "Click 'Add Task' to create your first task."} />
+      )}
+
+      {/* Detail drawer */}
+      {selectedTask && (
+        <TaskDrawer
+          task={selectedTask}
+          onClose={() => setSelectedTask(null)}
+          onStatusChange={handleStatusFromDrawer}
+          updating={updating}
         />
       )}
+
+      {/* Add task modal */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        title="New Task"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowAddModal(false)}>Cancel</Button>
+            <Button loading={saving} onClick={handleSave}>Create Task</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="What needs to be done?" autoFocus />
+          <Textarea label="Description" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} placeholder="Add details, context, or notes…" />
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Client" value={form.client} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}>
+              <option value="">Select client…</option>
+              {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
+            </Select>
+            <Select label="Category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
+              {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Assign To</label>
+            <select value={form.assignedTo} onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))} className="fd-input">
+              <option value="">Unassigned</option>
+              {Object.entries(membersByRole).map(([roleLabel, roleMembers]) => (
+                <optgroup key={roleLabel} label={roleLabel}>
+                  {roleMembers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Select label="Priority" value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
+              {['low','medium','high','urgent'].map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase()+v.slice(1)}</option>)}
+            </Select>
+            <Select label="Status" value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
+              {COLUMNS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </Select>
+            <Input label="Deadline" type="date" value={form.deadline} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={form.isClientVisible} onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
+            <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
+          </label>
+        </div>
+      </Modal>
     </div>
   );
 }

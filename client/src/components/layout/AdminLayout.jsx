@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, CheckSquare,
+  LayoutDashboard, Users,
   BarChart3, Upload, Bell, LogOut, ChevronLeft,
   ChevronRight, Menu, X, Rss, Building2, Target,
   ListChecks, Instagram, Sun, Moon, Search,
@@ -31,7 +31,6 @@ const ROLE_LABELS = {
 const navItems = [
   { to: '/admin/dashboard',        icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/clients',          icon: Building2,       label: 'Clients',           managerOnly: true },
-  { to: '/admin/tasks',            icon: CheckSquare,     label: 'All Tasks',          managerOnly: true },
   { to: '/admin/kanban',           icon: Kanban,          label: 'Kanban',             managerOnly: true },
   { to: '/admin/my-tasks',         icon: ListChecks,      label: 'My Tasks',           teamOnly: true },
   { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       managerOnly: true },

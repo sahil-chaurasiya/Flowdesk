@@ -6,7 +6,7 @@ import {
   ChevronRight, Menu, X, Rss, Building2, Target,
   ListChecks, Instagram, Sun, Moon, Search,
   Kanban, Calendar, Activity, Settings, Briefcase,
-  FileSearch, Key, BookUser, CreditCard,
+  FileSearch, Key, BookUser, CreditCard, PhoneCall,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -35,6 +35,7 @@ const navItems = [
   { to: '/admin/my-tasks',         icon: ListChecks,      label: 'My Tasks',           teamOnly: true },
   { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       managerOnly: true },
   { to: '/admin/internal-leads',   icon: Briefcase,       label: 'Internal Leads',     internalLeadsOnly: true },
+  { to: '/admin/call-tracker',     icon: PhoneCall,       label: 'Call Tracker',       callTrackerOnly: true },
   { to: '/admin/calendar',         icon: Calendar,        label: 'Calendar' },
   { to: '/admin/updates',    icon: Rss,             label: 'Updates',          hideForPM: true },
   { to: '/admin/social',     icon: Instagram,       label: 'Social Media', managerOnly: true },
@@ -52,7 +53,7 @@ const navItems = [
 const NAV_SECTIONS = [
   {
     label: 'Workspace',
-    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/leads', '/admin/internal-leads'],
+    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/leads', '/admin/internal-leads', '/admin/call-tracker'],
   },
   {
     label: 'Delivery',
@@ -144,12 +145,14 @@ export default function AdminLayout() {
   const isPM       = user?.role === 'performance_marketer';
   const isTeamOnly = TEAM_ROLES.includes(user?.role);
   const isInternalLeads = ['admin', 'performance_marketer'].includes(user?.role);
+  const isCallTracker   = ['admin', 'performance_marketer'].includes(user?.role);
 
   const filteredNavItems = navItems.filter(item => {
     if (item.adminOnly         && !isAdmin)         return false;
     if (item.managerOnly       && !isManager)       return false;
     if (item.teamOnly          && !isTeamOnly)      return false;
     if (item.internalLeadsOnly && !isInternalLeads) return false;
+    if (item.callTrackerOnly   && !isCallTracker)   return false;
     if (item.hideForPM         && isPM)             return false;
     return true;
   });

@@ -35,6 +35,9 @@ const searchRouter    = require('./routes/search');
 // ── AI Assistant route ────────────────────────────────────────────────────────
 const aiRouter = require('./routes/ai');
 
+// ── Call Log Tracker (admin + performance_marketer only) ──────────────────────
+const callLogsRouter      = require('./routes/callLogs');
+
 // ── Internal Lead Management (admin + performance_marketer only) ───────────────
 const internalLeadsRouter = require('./routes/internalLeads');
 const servicesRouter      = require('./routes/services');
@@ -117,6 +120,7 @@ app.use('/api/ai', aiRouter);
 
 // ── Internal Lead Management ──────────────────────────────────────────────────
 app.use('/api/internal-leads', internalLeadsRouter);
+app.use('/api/call-logs',      callLogsRouter);
 app.use('/api/services',       servicesRouter);
 app.use('/api/logs',           apiLogsRouter);
 app.use('/api/credentials',    credentialsRouter);

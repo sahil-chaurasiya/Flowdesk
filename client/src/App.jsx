@@ -38,6 +38,7 @@ import SettingsPage         from './pages/admin/SettingsPage';
 import ActivityPage         from './pages/admin/ActivityPage';
 import PaymentVerificationsPage from './pages/admin/PaymentVerificationsPage';
 import InternalLeadsPage    from './pages/admin/InternalLeadsPage';
+import CallTrackerPage      from './pages/admin/CallTrackerPage';
 import ApiLogsPage          from './pages/admin/ApiLogsPage';
 import ContactsPage         from './pages/admin/ContactsPage';
 import CredentialsPage      from './pages/admin/CredentialsPage';
@@ -163,6 +164,13 @@ export default function App() {
                 <Route path="internal-leads" element={
                   <ProtectedRoute roles={['admin', 'performance_marketer']}>
                     <InternalLeadsPage />
+                  </ProtectedRoute>
+                } />
+
+                {/* ── Call Tracker (admin + performance_marketer only) ─────── */}
+                <Route path="call-tracker" element={
+                  <ProtectedRoute roles={['admin', 'performance_marketer']}>
+                    <CallTrackerPage />
                   </ProtectedRoute>
                 } />
               </Route>

@@ -7,7 +7,7 @@ import {
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye, EyeOff,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
   ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
-  Target, Settings, Save, ChevronDown, Filter, Key, Copy,
+  Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -2418,6 +2418,11 @@ export default function ClientDetailPage() {
   const [socialAnalytics, setSocialAnalytics] = useState(null);
   const [socialPosts, setSocialPosts] = useState([]);
   const [socialDays, setSocialDays] = useState(30);
+  const [showConnectAccountModal, setShowConnectAccountModal] = useState(false);
+  const [connectAccountForm, setConnectAccountForm] = useState({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' });
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [disconnectAccountId, setDisconnectAccountId] = useState(null);
+  const [disconnectingAccount, setDisconnectingAccount] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
@@ -2451,11 +2456,11 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     if (activeTab === 'social' && id) {
-      api.get(`/social/analytics?client=${id}&days=${socialDays}`)
+      api.get(`/social/analytics?clientId=${id}&days=${socialDays}`)
         .then(r => setSocialAnalytics(r.data.analytics || null))
         .catch(() => {});
     }
-  }, [socialDays, activeTab]);
+  }, [socialDays, activeTab, id]);
 
   useEffect(() => {
     if (activeTab === 'calendar' && id) {
@@ -2468,17 +2473,29 @@ export default function ClientDetailPage() {
   }, [activeTab, calendarMonth, id]);
 
   const loadData = async () => {
+    // Reset all client-scoped state immediately so stale data from a previous
+    // client is never visible while the new client's data is loading.
+    setOverview(null);
+    setTasks([]);
+    setUpdates([]);
+    setFiles([]);
+    setReports([]);
+    setSocialAccounts([]);
+    setSocialAnalytics(null);
+    setSocialPosts([]);
+    setCredentials([]);
+    setCalendarEvents([]);
     setLoading(true);
     try {
       const [ovRes, taskRes, updRes, fileRes, repRes, socialAccRes, socialAnaRes, socialPostRes, credRes] = await Promise.all([
         api.get(`/clients/${id}/overview`),
-        api.get(`/tasks?client=${id}&limit=50`),
-        api.get(`/updates?client=${id}&limit=20`),
-        api.get(`/files?client=${id}&limit=20`),
-        api.get(`/reports?client=${id}&limit=10`),
-        api.get(`/social/accounts?client=${id}`),
-        api.get(`/social/analytics?client=${id}&days=${socialDays}`),
-        api.get(`/social/posts?client=${id}&limit=10`),
+        api.get(`/tasks?clientId=${id}&limit=50`),
+        api.get(`/updates?clientId=${id}&limit=20`),
+        api.get(`/files?clientId=${id}&limit=20`),
+        api.get(`/reports?clientId=${id}&limit=10`),
+        api.get(`/social/accounts?clientId=${id}`),
+        api.get(`/social/analytics?clientId=${id}&days=${socialDays}`),
+        api.get(`/social/posts?clientId=${id}&limit=10`),
         api.get(`/credentials?clientId=${id}`),
       ]);
       setOverview(ovRes.data);
@@ -2550,6 +2567,40 @@ export default function ClientDetailPage() {
       setShowEditModal(false);
       loadData();
     } finally { setSaving(false); }
+  };
+
+  const handleConnectAccount = async () => {
+    if (!connectAccountForm.accountName.trim() || !connectAccountForm.platform) return;
+    setSavingAccount(true);
+    try {
+      await api.post('/social/accounts', {
+        client: id,
+        platform: connectAccountForm.platform,
+        accountName: connectAccountForm.accountName.trim(),
+        accountUrl: connectAccountForm.accountUrl.trim() || undefined,
+        followers: connectAccountForm.followers ? Number(connectAccountForm.followers) : 0,
+        isActive: true,
+      });
+      setShowConnectAccountModal(false);
+      setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' });
+      const res = await api.get(`/social/accounts?clientId=${id}`);
+      setSocialAccounts(res.data.accounts || []);
+    } catch (err) {
+      console.error('Failed to connect account', err);
+    } finally { setSavingAccount(false); }
+  };
+
+  const handleDisconnectAccount = async () => {
+    if (!disconnectAccountId) return;
+    setDisconnectingAccount(true);
+    try {
+      await api.delete(`/social/accounts/${disconnectAccountId}`);
+      setDisconnectAccountId(null);
+      const res = await api.get(`/social/accounts?clientId=${id}`);
+      setSocialAccounts(res.data.accounts || []);
+    } catch (err) {
+      console.error('Failed to disconnect account', err);
+    } finally { setDisconnectingAccount(false); }
   };
 
   const handleAddTeamMember = async () => {
@@ -3042,28 +3093,186 @@ export default function ClientDetailPage() {
               </div>
             </div>
             <Card>
-              <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Connected Accounts</h3></CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Connected Accounts</h3>
+                  {isManager && (
+                    <button
+                      onClick={() => setShowConnectAccountModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+                    >
+                      <Link2 size={12} />
+                      Connect Account
+                    </button>
+                  )}
+                </div>
+              </CardHeader>
               <CardContent>
                 {socialAccounts.length === 0 ? (
-                  <p className="text-[var(--fd-ink-4)] text-sm text-center py-4">No social accounts connected yet</p>
+                  <div className="text-center py-8">
+                    <Link2 size={28} className="mx-auto text-[var(--fd-border)] mb-2" />
+                    <p className="text-[var(--fd-ink-3)] text-sm font-medium">No social accounts connected yet</p>
+                    {isManager && (
+                      <button
+                        onClick={() => setShowConnectAccountModal(true)}
+                        className="mt-3 text-xs text-brand-600 hover:underline font-medium"
+                      >
+                        + Connect first account
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {socialAccounts.map(acc => (
-                      <div key={acc._id} className={`flex items-center gap-2.5 p-3 rounded-xl border ${PLATFORM_BG[acc.platform] || 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]'}`}>
-                        <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                      <div key={acc._id} className={`relative group flex items-center gap-2.5 p-3 rounded-xl border transition-all ${PLATFORM_BG[acc.platform] || 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]'} ${acc.accountUrl ? 'hover:shadow-md hover:scale-[1.02] cursor-pointer' : ''}`}>
+                        {acc.accountUrl ? (
+                          <a
+                            href={acc.accountUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute inset-0 z-0 rounded-xl"
+                            aria-label={`Open ${acc.accountName}`}
+                          />
+                        ) : null}
+                        <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 relative z-10">
                           {PLATFORM_ICONS[acc.platform] || <Globe size={16} />}
                         </div>
-                        <div className="min-w-0">
-                          <div className="text-xs font-semibold text-[var(--fd-ink-1)] truncate">{acc.accountName}</div>
+                        <div className="min-w-0 flex-1 relative z-10">
+                          <div className="flex items-center gap-1">
+                            <div className="text-xs font-semibold text-[var(--fd-ink-1)] truncate">{acc.accountName}</div>
+                            {acc.accountUrl && <Globe size={9} className="text-[var(--fd-ink-4)] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                          </div>
                           <div className="text-xs text-[var(--fd-ink-3)] capitalize">{acc.platform.replace('_', ' ')}</div>
                           {acc.followers > 0 && <div className="text-xs text-[var(--fd-ink-4)]">{acc.followers.toLocaleString()} followers</div>}
                         </div>
+                        {isManager && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setDisconnectAccountId(acc._id); }}
+                            className="absolute top-1.5 right-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-100 text-[var(--fd-ink-4)] hover:text-red-600"
+                            title="Disconnect account"
+                          >
+                            <Unlink size={11} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
               </CardContent>
             </Card>
+
+            {/* ── Connect Account Modal ── */}
+            {showConnectAccountModal && (
+              <Modal isOpen onClose={() => { setShowConnectAccountModal(false); setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' }); }}>
+                <div className="p-5 sm:p-6 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+                      <Link2 size={16} className="text-brand-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-[var(--fd-ink-1)]">Connect Social Account</h3>
+                      <p className="text-xs text-[var(--fd-ink-3)] mt-0.5">Add a social media profile for this client</p>
+                    </div>
+                  </div>
+
+                  {/* Platform picker */}
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--fd-ink-2)] mb-2">Platform</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { id: 'instagram', label: 'Instagram', icon: <Instagram size={18} className="text-pink-500" />, bg: 'border-pink-200 bg-pink-50' },
+                        { id: 'facebook',  label: 'Facebook',  icon: <Facebook size={18} className="text-blue-600" />,  bg: 'border-blue-200 bg-blue-50' },
+                        { id: 'tiktok',    label: 'TikTok',    icon: <span className="text-sm font-bold text-[var(--fd-ink-1)]">TT</span>, bg: 'border-[var(--fd-border-strong)] bg-[var(--fd-surface-raised)]' },
+                        { id: 'youtube',   label: 'YouTube',   icon: <Youtube size={18} className="text-red-500" />,    bg: 'border-red-200 bg-red-50' },
+                        { id: 'linkedin',  label: 'LinkedIn',  icon: <Linkedin size={18} className="text-blue-700" />,  bg: 'border-blue-200 bg-blue-50' },
+                        { id: 'twitter',   label: 'Twitter/X', icon: <Twitter size={18} className="text-sky-500" />,   bg: 'border-sky-200 bg-sky-50' },
+                        { id: 'google_business', label: 'Google Biz', icon: <span className="text-sm font-bold text-emerald-600">G</span>, bg: 'border-emerald-200 bg-emerald-50' },
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => setConnectAccountForm(f => ({ ...f, platform: p.id }))}
+                          className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all ${
+                            connectAccountForm.platform === p.id
+                              ? `${p.bg} border-opacity-100 ring-2 ring-brand-500 ring-offset-1`
+                              : 'border-[var(--fd-border)] bg-[var(--fd-surface)] hover:border-[var(--fd-border-strong)]'
+                          }`}
+                        >
+                          <div className="w-7 h-7 flex items-center justify-center">{p.icon}</div>
+                          <span className="text-[10px] font-medium text-[var(--fd-ink-2)] leading-tight text-center">{p.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Account name */}
+                  <Input
+                    label="Account Name / Handle *"
+                    placeholder={connectAccountForm.platform === 'instagram' ? '@handle' : connectAccountForm.platform === 'facebook' ? 'Page name' : 'Account name'}
+                    value={connectAccountForm.accountName}
+                    onChange={e => setConnectAccountForm(f => ({ ...f, accountName: e.target.value }))}
+                  />
+
+                  {/* Profile URL */}
+                  <Input
+                    label="Profile URL"
+                    placeholder={`https://${connectAccountForm.platform}.com/...`}
+                    value={connectAccountForm.accountUrl}
+                    onChange={e => setConnectAccountForm(f => ({ ...f, accountUrl: e.target.value }))}
+                  />
+
+                  {/* Followers */}
+                  <Input
+                    label="Current Followers"
+                    type="number"
+                    placeholder="e.g. 12500"
+                    value={connectAccountForm.followers}
+                    onChange={e => setConnectAccountForm(f => ({ ...f, followers: e.target.value }))}
+                  />
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button variant="ghost" onClick={() => { setShowConnectAccountModal(false); setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' }); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      loading={savingAccount}
+                      disabled={!connectAccountForm.accountName.trim()}
+                      onClick={handleConnectAccount}
+                    >
+                      Connect Account
+                    </Button>
+                  </div>
+                </div>
+              </Modal>
+            )}
+
+            {/* ── Disconnect Confirm Modal ── */}
+            {disconnectAccountId && (
+              <Modal isOpen onClose={() => setDisconnectAccountId(null)}>
+                <div className="p-5 sm:p-6 space-y-4">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Unlink size={16} className="text-red-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-[var(--fd-ink-1)]">Disconnect Account?</h3>
+                      <p className="text-sm text-[var(--fd-ink-3)] mt-1">
+                        This will remove the account from this client. Associated posts and analytics data will not be deleted.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" onClick={() => setDisconnectAccountId(null)}>Cancel</Button>
+                    <Button
+                      variant="danger"
+                      loading={disconnectingAccount}
+                      onClick={handleDisconnectAccount}
+                    >
+                      Disconnect
+                    </Button>
+                  </div>
+                </div>
+              </Modal>
+            )}
             {totals.totalPosts > 0 ? (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

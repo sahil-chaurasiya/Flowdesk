@@ -2423,6 +2423,8 @@ export default function ClientDetailPage() {
   const [savingAccount, setSavingAccount] = useState(false);
   const [disconnectAccountId, setDisconnectAccountId] = useState(null);
   const [disconnectingAccount, setDisconnectingAccount] = useState(false);
+  const [editAccountData, setEditAccountData] = useState(null); // { _id, platform, accountName, accountUrl, followers }
+  const [savingEditAccount, setSavingEditAccount] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
 
@@ -2601,6 +2603,24 @@ export default function ClientDetailPage() {
     } catch (err) {
       console.error('Failed to disconnect account', err);
     } finally { setDisconnectingAccount(false); }
+  };
+
+  const handleSaveEditAccount = async () => {
+    if (!editAccountData) return;
+    setSavingEditAccount(true);
+    try {
+      await api.put(`/social/accounts/${editAccountData._id}`, {
+        platform: editAccountData.platform,
+        accountName: editAccountData.accountName.trim(),
+        accountUrl: editAccountData.accountUrl.trim() || undefined,
+        followers: editAccountData.followers ? Number(editAccountData.followers) : 0,
+      });
+      setEditAccountData(null);
+      const res = await api.get(`/social/accounts?clientId=${id}`);
+      setSocialAccounts(res.data.accounts || []);
+    } catch (err) {
+      console.error('Failed to update account', err);
+    } finally { setSavingEditAccount(false); }
   };
 
   const handleAddTeamMember = async () => {
@@ -3124,35 +3144,45 @@ export default function ClientDetailPage() {
                 ) : (
                   <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     {socialAccounts.map(acc => (
-                      <div key={acc._id} className={`relative group flex items-center gap-2.5 p-3 rounded-xl border transition-all ${PLATFORM_BG[acc.platform] || 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]'} ${acc.accountUrl ? 'hover:shadow-md hover:scale-[1.02] cursor-pointer' : ''}`}>
-                        {acc.accountUrl ? (
-                          <a
-                            href={acc.accountUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="absolute inset-0 z-0 rounded-xl"
-                            aria-label={`Open ${acc.accountName}`}
-                          />
-                        ) : null}
-                        <div className="w-7 h-7 flex items-center justify-center flex-shrink-0 relative z-10">
-                          {PLATFORM_ICONS[acc.platform] || <Globe size={16} />}
-                        </div>
-                        <div className="min-w-0 flex-1 relative z-10">
-                          <div className="flex items-center gap-1">
-                            <div className="text-xs font-semibold text-[var(--fd-ink-1)] truncate">{acc.accountName}</div>
-                            {acc.accountUrl && <Globe size={9} className="text-[var(--fd-ink-4)] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                      <div key={acc._id} className="relative group">
+                        {/* The whole card is an <a> so clicking anywhere opens the link */}
+                        <a
+                          href={acc.accountUrl || undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => { if (!acc.accountUrl) e.preventDefault(); }}
+                          className={`flex items-center gap-2.5 p-3 rounded-xl border transition-all hover:shadow-md hover:scale-[1.02] ${acc.accountUrl ? 'cursor-pointer' : 'cursor-default'} ${PLATFORM_BG[acc.platform] || 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]'}`}
+                        >
+                          <div className="w-7 h-7 flex items-center justify-center flex-shrink-0">
+                            {PLATFORM_ICONS[acc.platform] || <Globe size={16} />}
                           </div>
-                          <div className="text-xs text-[var(--fd-ink-3)] capitalize">{acc.platform.replace('_', ' ')}</div>
-                          {acc.followers > 0 && <div className="text-xs text-[var(--fd-ink-4)]">{acc.followers.toLocaleString()} followers</div>}
-                        </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1">
+                              <div className="text-xs font-semibold text-[var(--fd-ink-1)] truncate">{acc.accountName}</div>
+                              {acc.accountUrl && <Globe size={9} className="text-[var(--fd-ink-4)] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />}
+                            </div>
+                            <div className="text-xs text-[var(--fd-ink-3)] capitalize">{acc.platform.replace('_', ' ')}</div>
+                            {acc.followers > 0 && <div className="text-xs text-[var(--fd-ink-4)]">{acc.followers.toLocaleString()} followers</div>}
+                          </div>
+                        </a>
+                        {/* Action buttons float above the card — stopPropagation so they don't trigger the link */}
                         {isManager && (
-                          <button
-                            onClick={e => { e.stopPropagation(); setDisconnectAccountId(acc._id); }}
-                            className="absolute top-1.5 right-1.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-red-100 text-[var(--fd-ink-4)] hover:text-red-600"
-                            title="Disconnect account"
-                          >
-                            <Unlink size={11} />
-                          </button>
+                          <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); setEditAccountData({ _id: acc._id, platform: acc.platform, accountName: acc.accountName, accountUrl: acc.accountUrl || '', followers: acc.followers || '' }); }}
+                              className="p-1 rounded-md bg-white/70 backdrop-blur-sm hover:bg-brand-100 text-[var(--fd-ink-4)] hover:text-brand-600 transition-colors shadow-sm"
+                              title="Edit account"
+                            >
+                              <Edit3 size={11} />
+                            </button>
+                            <button
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); setDisconnectAccountId(acc._id); }}
+                              className="p-1 rounded-md bg-white/70 backdrop-blur-sm hover:bg-red-100 text-[var(--fd-ink-4)] hover:text-red-600 transition-colors shadow-sm"
+                              title="Disconnect account"
+                            >
+                              <Unlink size={11} />
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -3273,6 +3303,86 @@ export default function ClientDetailPage() {
                 </div>
               </Modal>
             )}
+
+            {/* ── Edit Account Modal ── */}
+            {editAccountData && (
+              <Modal isOpen onClose={() => setEditAccountData(null)}>
+                <div className="p-5 sm:p-6 space-y-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
+                      <Edit3 size={16} className="text-brand-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-[var(--fd-ink-1)]">Edit Social Account</h3>
+                      <p className="text-xs text-[var(--fd-ink-3)] mt-0.5">Update the details for this account</p>
+                    </div>
+                  </div>
+
+                  {/* Platform picker */}
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--fd-ink-2)] mb-2">Platform</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[
+                        { id: 'instagram', label: 'Instagram', icon: <Instagram size={18} className="text-pink-500" />, bg: 'border-pink-200 bg-pink-50' },
+                        { id: 'facebook',  label: 'Facebook',  icon: <Facebook size={18} className="text-blue-600" />,  bg: 'border-blue-200 bg-blue-50' },
+                        { id: 'tiktok',    label: 'TikTok',    icon: <span className="text-sm font-bold text-[var(--fd-ink-1)]">TT</span>, bg: 'border-[var(--fd-border-strong)] bg-[var(--fd-surface-raised)]' },
+                        { id: 'youtube',   label: 'YouTube',   icon: <Youtube size={18} className="text-red-500" />,    bg: 'border-red-200 bg-red-50' },
+                        { id: 'linkedin',  label: 'LinkedIn',  icon: <Linkedin size={18} className="text-blue-700" />,  bg: 'border-blue-200 bg-blue-50' },
+                        { id: 'twitter',   label: 'Twitter/X', icon: <Twitter size={18} className="text-sky-500" />,   bg: 'border-sky-200 bg-sky-50' },
+                        { id: 'google_business', label: 'Google Biz', icon: <span className="text-sm font-bold text-emerald-600">G</span>, bg: 'border-emerald-200 bg-emerald-50' },
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => setEditAccountData(d => ({ ...d, platform: p.id }))}
+                          className={`flex flex-col items-center gap-1.5 p-2.5 rounded-xl border-2 transition-all ${
+                            editAccountData.platform === p.id
+                              ? `${p.bg} border-opacity-100 ring-2 ring-brand-500 ring-offset-1`
+                              : 'border-[var(--fd-border)] bg-[var(--fd-surface)] hover:border-[var(--fd-border-strong)]'
+                          }`}
+                        >
+                          <div className="w-7 h-7 flex items-center justify-center">{p.icon}</div>
+                          <span className="text-[10px] font-medium text-[var(--fd-ink-2)] leading-tight text-center">{p.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Input
+                    label="Account Name / Handle *"
+                    placeholder={editAccountData.platform === 'instagram' ? '@handle' : editAccountData.platform === 'facebook' ? 'Page name' : 'Account name'}
+                    value={editAccountData.accountName}
+                    onChange={e => setEditAccountData(d => ({ ...d, accountName: e.target.value }))}
+                  />
+
+                  <Input
+                    label="Profile URL"
+                    placeholder={`https://${editAccountData.platform}.com/...`}
+                    value={editAccountData.accountUrl}
+                    onChange={e => setEditAccountData(d => ({ ...d, accountUrl: e.target.value }))}
+                  />
+
+                  <Input
+                    label="Current Followers"
+                    type="number"
+                    placeholder="e.g. 12500"
+                    value={editAccountData.followers}
+                    onChange={e => setEditAccountData(d => ({ ...d, followers: e.target.value }))}
+                  />
+
+                  <div className="flex justify-end gap-2 pt-1">
+                    <Button variant="ghost" onClick={() => setEditAccountData(null)}>Cancel</Button>
+                    <Button
+                      loading={savingEditAccount}
+                      disabled={!editAccountData.accountName.trim()}
+                      onClick={handleSaveEditAccount}
+                    >
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </Modal>
+            )}
+
             {totals.totalPosts > 0 ? (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

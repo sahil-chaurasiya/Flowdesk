@@ -75,9 +75,13 @@ router.post('/my-requests', protect, authorize('client'), asyncHandler(async (re
 // @route GET /api/tasks
 router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
   const {
-    status, priority, category, client: clientId,
+    status, priority, category, client,
+    clientId: clientIdParam,
     assignedTo, page = 1, limit = 50, search
   } = req.query;
+
+  // Accept both ?client=<id> and ?clientId=<id>
+  const clientId = client || clientIdParam;
 
   const isManager = MANAGER_ROLES.includes(req.user.role);
   const query = {};

@@ -98,11 +98,23 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Auth-specific stricter limit
+// Trust Hostinger's reverse proxy — critical for correct IP detection
+app.set('trust proxy', 1);
+
+// Auth-specific stricter limit — keyed by real IP, not proxy IP
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: 500,
+  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip,
   message: { success: false, message: 'Too many login attempts, please try again later.' },
+  // Always include CORS headers even on rate-limit errors
+  handler: (req, res) => {
+    const origin = req.headers.origin;
+    const allowed = [process.env.CLIENT_URL, 'https://flowdesk.toflymediaa.com', 'http://localhost:5173'].filter(Boolean);
+    if (!origin || allowed.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.status(429).json({ success: false, message: 'Too many login attempts, please try again later.' });
+  },
 });
 
 // Body Parser

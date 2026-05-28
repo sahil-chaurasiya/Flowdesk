@@ -5,7 +5,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const path = require('path');
-const rateLimit = require('express-rate-limit');
 
 const connectDB = require('./config/database');
 const { initSocket } = require('./config/socket');
@@ -61,61 +60,21 @@ connectDB();
 // Security Middleware
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
-// ── CORS — manual headers first (belt), then cors() middleware (suspenders) ──
-app.use((req, res, next) => {
-  const allowed = [
-    process.env.CLIENT_URL,
+// CORS
+app.use(cors({
+  origin: [
     'https://flowdesk.toflymediaa.com',
+    process.env.CLIENT_URL,
     'http://localhost:5173',
     'http://localhost:3000',
-  ].filter(Boolean);
-  const origin = req.headers.origin;
-  if (!origin || allowed.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  // Immediately respond to preflight
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
-});
-
-app.use(cors({
-  origin: function (origin, callback) {
-    const allowed = [
-      process.env.CLIENT_URL,
-      'https://flowdesk.toflymediaa.com',
-      'http://localhost:5173',
-      'http://localhost:3000',
-    ].filter(Boolean);
-    if (!origin) return callback(null, true);
-    if (allowed.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS: origin ${origin} not allowed`));
-  },
+  ].filter(Boolean),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-// Trust Hostinger's reverse proxy — critical for correct IP detection
-app.set('trust proxy', 1);
-
-// Auth-specific stricter limit — keyed by real IP, not proxy IP
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 500,
-  keyGenerator: (req) => req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip,
-  message: { success: false, message: 'Too many login attempts, please try again later.' },
-  // Always include CORS headers even on rate-limit errors
-  handler: (req, res) => {
-    const origin = req.headers.origin;
-    const allowed = [process.env.CLIENT_URL, 'https://flowdesk.toflymediaa.com', 'http://localhost:5173'].filter(Boolean);
-    if (!origin || allowed.includes(origin)) res.setHeader('Access-Control-Allow-Origin', origin || '*');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.status(429).json({ success: false, message: 'Too many login attempts, please try again later.' });
-  },
-});
+// Handle preflight for all routes
+app.options('*', cors());
 
 // Body Parser
 app.use(express.json({ limit: '10mb' }));
@@ -137,8 +96,8 @@ app.locals.emitEvent = emitEvent;
 
 // ── Mount routes ──────────────────────────────────────────────────────────────
 
-// Existing
-app.use('/api/auth',          authLimiter, authRoutes);
+// Existing — rate limiter REMOVED from auth
+app.use('/api/auth',          authRoutes);
 app.use('/api/users',         userRoutes);
 app.use('/api/clients',       clientRoutes);
 app.use('/api/tasks',         taskRoutes);
@@ -158,8 +117,6 @@ app.use('/api/calendar',  calendarRouter);
 app.use('/api/search',    searchRouter);
 
 // ── AI Assistant ──────────────────────────────────────────────────────────────
-// All AI requests require JWT auth. Context is built server-side — the frontend
-// has zero control over what data the AI receives.
 app.use('/api/ai', aiRouter);
 
 // ── Internal Lead Management ──────────────────────────────────────────────────

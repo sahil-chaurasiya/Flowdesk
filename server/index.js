@@ -60,6 +60,27 @@ connectDB();
 
 // Security Middleware
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// ── CORS — manual headers first (belt), then cors() middleware (suspenders) ──
+app.use((req, res, next) => {
+  const allowed = [
+    process.env.CLIENT_URL,
+    'https://flowdesk.toflymediaa.com',
+    'http://localhost:5173',
+    'http://localhost:3000',
+  ].filter(Boolean);
+  const origin = req.headers.origin;
+  if (!origin || allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  }
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  // Immediately respond to preflight
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 app.use(cors({
   origin: function (origin, callback) {
     const allowed = [
@@ -68,7 +89,6 @@ app.use(cors({
       'http://localhost:5173',
       'http://localhost:3000',
     ].filter(Boolean);
-    // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     if (allowed.includes(origin)) return callback(null, true);
     callback(new Error(`CORS: origin ${origin} not allowed`));
@@ -76,7 +96,7 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-}))
+}));
 
 // Auth-specific stricter limit
 const authLimiter = rateLimit({

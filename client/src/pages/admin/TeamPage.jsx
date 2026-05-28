@@ -91,7 +91,7 @@ export default function TeamPage() {
 
   const load = () => {
     setLoading(true);
-    api.get('/users').then(r => {
+    api.get('/users?limit=200').then(r => {
       setUsers(r.data.users || []);
       setLoading(false);
     }).catch(() => setLoading(false));

@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Plus, Trash2, Send, Clock, CheckCircle2, AlertTriangle,
-  RotateCcw, ChevronDown, Building2, Save, History, X,
-  ClipboardList,
+  Plus, Send, CheckCircle2, AlertTriangle,
+  RotateCcw, Save, History, X, Sparkles, Zap, Target, Coffee,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -22,134 +21,302 @@ const CATEGORY_OPTIONS = [
 ];
 
 const STATUS_OPTIONS = [
-  { value: 'completed',    label: '✅ Completed',    color: '#22c55e' },
-  { value: 'in_progress',  label: '🔄 In Progress',  color: '#4f6ef0' },
-  { value: 'carried_over', label: '⏩ Carried Over', color: '#f59e0b' },
+  { value: 'completed',    label: '✅ Done' },
+  { value: 'in_progress',  label: '🔄 In Progress' },
+  { value: 'carried_over', label: '⏩ Carried Over' },
 ];
 
 const STATUS_META = {
-  completed:    { label: 'Completed',    color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
-  in_progress:  { label: 'In Progress',  color: '#4f6ef0', bg: 'rgba(79,110,240,0.1)' },
-  carried_over: { label: 'Carried Over', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  completed:    { label: 'Done',         color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
+  in_progress:  { label: 'In Progress',  color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+  carried_over: { label: 'Carried Over', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
+
+const MOTIVATIONAL = [
+  "Every task logged is a step forward 🚀",
+  "Your work matters. Document it! ✨",
+  "Small wins add up to big victories 💪",
+  "Log it. Ship it. Own it. 🔥",
+];
 
 function todayLabel() {
   return new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function blankEntry() {
-  return { description: '', client: '', hoursSpent: '', category: 'other', status: 'completed' };
+  return { description: '', client: '', category: 'other', status: 'completed' };
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────────────────
+
+const css = `
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.myd { font-family: 'Plus+Jakarta+Sans', 'Plus Jakarta Sans', sans-serif; }
+.myd * { box-sizing: border-box; }
+
+@keyframes myd-spin { to { transform: rotate(360deg); } }
+@keyframes myd-in   { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.myd { animation: myd-in .3s ease both; }
+
+/* ── Entry card ── */
+.myd .ec {
+  position: relative;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--fd-border);
+  background: var(--fd-surface);
+  transition: border-color .2s, box-shadow .2s;
+}
+.myd .ec:focus-within {
+  border-color: rgba(99,102,241,.45);
+  box-shadow: 0 0 0 3px rgba(99,102,241,.08);
+}
+.myd .ec textarea {
+  width: 100%; border: none; outline: none; resize: none;
+  background: transparent;
+  color: var(--fd-ink-1);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.myd .ec textarea::placeholder { color: var(--fd-ink-4); }
+
+/* ── Pill selects — inherit theme ── */
+.myd .ps-wrap { position: relative; display: inline-flex; align-items: center; }
+.myd .ps-wrap svg { position:absolute; right:7px; pointer-events:none; }
+.myd .ps {
+  appearance: none; -webkit-appearance: none;
+  border-radius: 20px;
+  padding: 5px 26px 5px 11px;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer; outline: none;
+  border: 1px solid var(--fd-border);
+  background: var(--fd-canvas);
+  color: var(--fd-ink-2);
+  font-family: inherit;
+  transition: border-color .15s;
+}
+.myd .ps:hover { border-color: rgba(99,102,241,.4); }
+.myd .ps:focus { border-color: #6366f1; }
+
+/* ── Remove btn ── */
+.myd .rb {
+  position: absolute; top: 10px; right: 10px;
+  width: 24px; height: 24px;
+  border-radius: 7px; border: none;
+  background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--fd-ink-4); opacity: 0; transition: all .15s;
+}
+.myd .ec:hover .rb { opacity: 1; }
+.myd .rb:hover { background: rgba(239,68,68,.12); color: #ef4444; }
+
+/* ── Number badge ── */
+.myd .nb {
+  width: 22px; height: 22px; border-radius: 7px; flex-shrink: 0;
+  background: rgba(99,102,241,.12); color: #6366f1;
+  font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Submit btn ── */
+.myd .sub-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 13px 24px; border-radius: 14px; border: none;
+  background: linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);
+  color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: all .2s; font-family: inherit; position: relative; overflow: hidden;
+}
+.myd .sub-btn::before {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(135deg,rgba(255,255,255,.15) 0%,transparent 60%);
+}
+.myd .sub-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,102,241,.35); }
+.myd .sub-btn:disabled { opacity:.6; cursor:not-allowed; }
+
+/* ── Save btn ── */
+.myd .save-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 12px 18px; border-radius: 14px;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--fd-border); background: var(--fd-surface);
+  color: var(--fd-ink-2); transition: all .2s; font-family: inherit;
+}
+.myd .save-btn.saved { border-color: rgba(16,185,129,.4); color: #10b981; }
+.myd .save-btn:hover:not(:disabled) { border-color: rgba(99,102,241,.4); }
+
+/* ── Add task btn ── */
+.myd .add-btn {
+  width: 100%; padding: 12px; border-radius: 14px;
+  border: 2px dashed var(--fd-border); background: transparent;
+  cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 12px; font-weight: 600; color: var(--fd-ink-4);
+  transition: all .2s; font-family: inherit;
+}
+.myd .add-btn:hover { border-color: #6366f1; color: #6366f1; background: rgba(99,102,241,.04); }
+
+/* ── Stat card ── */
+.myd .sc {
+  flex: 1; border-radius: 16px; padding: 16px 14px; text-align: center;
+  border: 1px solid var(--fd-border); background: var(--fd-surface);
+  position: relative; overflow: hidden;
+}
+
+/* ── Greeting bar ── */
+.myd .greet {
+  background: rgba(99,102,241,.07);
+  border: 1px solid rgba(99,102,241,.15);
+  border-radius: 14px; padding: 13px 18px; margin-bottom: 24px;
+  display: flex; align-items: center; gap: 12px;
+}
+
+/* ── Submitted banner ── */
+.myd .sub-banner {
+  background: rgba(16,185,129,.07);
+  border: 1px solid rgba(16,185,129,.2);
+  border-radius: 16px; padding: 15px 18px; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 12px;
+}
+
+/* ── Blockers ── */
+.myd .blk {
+  border-radius: 16px; padding: 16px; margin-bottom: 20px;
+  background: var(--fd-surface); border: 1px solid rgba(245,158,11,.2);
+  transition: border-color .2s, box-shadow .2s;
+}
+.myd .blk:focus-within {
+  border-color: rgba(245,158,11,.45);
+  box-shadow: 0 0 0 3px rgba(245,158,11,.06);
+}
+.myd .blk textarea {
+  width: 100%; border: none; outline: none; resize: none;
+  background: transparent; color: var(--fd-ink-1);
+  font-family: inherit; font-size: 12px; line-height: 1.55;
+}
+.myd .blk textarea::placeholder { color: var(--fd-ink-4); }
+
+/* ── History modal ── */
+.myd .hm-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.myd .hm-bg {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.5); backdrop-filter: blur(4px);
+}
+.myd .hm-box {
+  position: relative; width: 100%; max-width: 520px;
+  border-radius: 20px; background: var(--fd-surface);
+  border: 1px solid var(--fd-border); max-height: 82vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 24px 60px rgba(0,0,0,.25);
+}
+.myd .hm-row {
+  border-radius: 12px; overflow: hidden; margin-bottom: 8px;
+  border: 1px solid var(--fd-border); transition: border-color .15s;
+}
+.myd .hm-row:hover { border-color: rgba(99,102,241,.3); }
+.myd .hm-row-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: transparent; border: none; cursor: pointer; text-align: left;
+}
+.myd .hm-row-btn:hover { background: var(--fd-canvas); }
+
+.myd .spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid #6366f1; border-top-color: transparent;
+  animation: myd-spin .8s linear infinite;
+}
+`;
+
+// ── Sub-components ─────────────────────────────────────────────────────────────
 
 function EntryRow({ entry, index, clients, onChange, onRemove, readOnly }) {
   return (
-    <div
-      className="rounded-xl p-4 mb-3 relative"
-      style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
-    >
+    <div className="ec">
       {!readOnly && (
-        <button
-          onClick={() => onRemove(index)}
-          className="absolute top-3 right-3 p-1 rounded-lg hover:bg-red-500/10 transition-colors"
-          title="Remove entry"
-        >
-          <X size={13} style={{ color: 'var(--fd-ink-4)' }} />
-        </button>
+        <button className="rb" onClick={() => onRemove(index)}><X size={12} /></button>
       )}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <div className="nb" style={{ marginTop: 2 }}>{index + 1}</div>
+        <div style={{ flex: 1 }}>
+          {entry.status === 'carried_over' && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10,
+              fontWeight: 700, padding: '3px 8px', borderRadius: 20, marginBottom: 8,
+              background: 'rgba(245,158,11,.12)', color: '#f59e0b',
+            }}>
+              <RotateCcw size={9} /> Carried from yesterday
+            </div>
+          )}
 
-      {/* Status badge (carried over highlight) */}
-      {entry.status === 'carried_over' && (
-        <div
-          className="inline-flex items-center gap-1 text-[10px] font-semibold rounded px-2 py-0.5 mb-2"
-          style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}
-        >
-          <RotateCcw size={9} /> Carried over from yesterday
+          <textarea
+            value={entry.description}
+            onChange={e => onChange(index, 'description', e.target.value)}
+            readOnly={readOnly}
+            placeholder="What did you work on? e.g. 'Edited 3 Reels for client, uploaded to Drive'"
+            rows={2}
+          />
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+            {/* Category */}
+            <div className="ps-wrap">
+              <select className="ps" value={entry.category} onChange={e => onChange(index, 'category', e.target.value)} disabled={readOnly}>
+                {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+              <svg width="9" height="9" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="var(--fd-ink-4)" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </div>
+
+            {/* Status */}
+            <div className="ps-wrap">
+              <select
+                className="ps"
+                value={entry.status}
+                onChange={e => onChange(index, 'status', e.target.value)}
+                disabled={readOnly}
+                style={{
+                  background: STATUS_META[entry.status]?.bg,
+                  borderColor: STATUS_META[entry.status]?.color + '55',
+                  color: STATUS_META[entry.status]?.color,
+                }}
+              >
+                {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+              <svg width="9" height="9" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke={STATUS_META[entry.status]?.color || 'var(--fd-ink-4)'} strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </div>
+
+            {/* Client — shows company name */}
+            {clients.length > 0 && (
+              <div className="ps-wrap">
+                <select
+                  className="ps"
+                  value={entry.client || ''}
+                  onChange={e => onChange(index, 'client', e.target.value)}
+                  disabled={readOnly}
+                  style={entry.client ? {
+                    background: 'rgba(99,102,241,.1)',
+                    borderColor: 'rgba(99,102,241,.35)',
+                    color: '#6366f1',
+                  } : {}}
+                >
+                  <option value="">No client</option>
+                  {clients.map(c => (
+                    <option key={c._id} value={c._id}>{c.company || c.name}</option>
+                  ))}
+                </select>
+                <svg width="9" height="9" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke={entry.client ? '#6366f1' : 'var(--fd-ink-4)'} strokeWidth="1.5" strokeLinecap="round"/></svg>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {/* Description */}
-      <textarea
-        value={entry.description}
-        onChange={e => onChange(index, 'description', e.target.value)}
-        readOnly={readOnly}
-        placeholder="What did you work on? Be specific — e.g. 'Edited 3 Reels for client X, uploaded to Drive'"
-        rows={2}
-        className="w-full text-[13px] resize-none outline-none bg-transparent"
-        style={{ color: 'var(--fd-ink-1)', '::placeholder': { color: 'var(--fd-ink-5)' } }}
-      />
-
-      {/* Row 2: meta fields */}
-      <div className="flex flex-wrap gap-2 mt-3">
-        {/* Category */}
-        <div className="relative">
-          <select
-            value={entry.category}
-            onChange={e => onChange(index, 'category', e.target.value)}
-            disabled={readOnly}
-            className="text-[11px] rounded-lg pl-2 pr-6 py-1 outline-none appearance-none cursor-pointer"
-            style={{ background: 'var(--fd-canvas)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-2)' }}
-          >
-            {CATEGORY_OPTIONS.map(c => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fd-ink-4)' }} />
-        </div>
-
-        {/* Status */}
-        <div className="relative">
-          <select
-            value={entry.status}
-            onChange={e => onChange(index, 'status', e.target.value)}
-            disabled={readOnly}
-            className="text-[11px] rounded-lg pl-2 pr-6 py-1 outline-none appearance-none cursor-pointer"
-            style={{ background: 'var(--fd-canvas)', border: '1px solid var(--fd-border)', color: STATUS_META[entry.status]?.color || 'var(--fd-ink-2)' }}
-          >
-            {STATUS_OPTIONS.map(s => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
-          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fd-ink-4)' }} />
-        </div>
-
-        {/* Client */}
-        <div className="relative">
-          <select
-            value={entry.client || ''}
-            onChange={e => onChange(index, 'client', e.target.value)}
-            disabled={readOnly}
-            className="text-[11px] rounded-lg pl-2 pr-6 py-1 outline-none appearance-none cursor-pointer"
-            style={{ background: 'var(--fd-canvas)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-2)' }}
-          >
-            <option value="">No client</option>
-            {clients.map(c => (
-              <option key={c._id} value={c._id}>{c.name}</option>
-            ))}
-          </select>
-          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--fd-ink-4)' }} />
-        </div>
-
-        {/* Hours */}
-        <input
-          type="number"
-          min="0"
-          max="24"
-          step="0.5"
-          value={entry.hoursSpent}
-          onChange={e => onChange(index, 'hoursSpent', e.target.value)}
-          readOnly={readOnly}
-          placeholder="hrs"
-          className="text-[11px] rounded-lg px-2 py-1 outline-none w-16 text-center"
-          style={{ background: 'var(--fd-canvas)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-2)' }}
-        />
       </div>
     </div>
   );
 }
 
-function HistoryModal({ onClose, userId }) {
+function HistoryModal({ onClose }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(null);
@@ -161,74 +328,89 @@ function HistoryModal({ onClose, userId }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[3px]" onClick={onClose} />
-      <div
-        className="relative w-full max-w-xl rounded-2xl flex flex-col overflow-hidden"
-        style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', maxHeight: '80vh' }}
-      >
-        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--fd-border)' }}>
-          <div className="text-[14px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>Past Logs</div>
-          <button onClick={onClose} className="btn-ghost p-1.5 rounded-lg"><X size={14} /></button>
+    <div className="hm-overlay">
+      <div className="hm-bg" onClick={onClose} />
+      <div className="hm-box">
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:'1px solid var(--fd-border)' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+            <History size={15} style={{ color:'#6366f1' }} />
+            <span style={{ fontSize:14, fontWeight:700, color:'var(--fd-ink-1)' }}>Past Logs</span>
+          </div>
+          <button onClick={onClose} style={{ padding:6, borderRadius:8, border:'none', background:'transparent', cursor:'pointer', color:'var(--fd-ink-3)', display:'flex' }}>
+            <X size={14} />
+          </button>
         </div>
-        <div className="overflow-y-auto flex-1 p-4">
-          {loading && (
-            <div className="flex items-center justify-center py-10">
-              <div className="w-5 h-5 border-2 border-[#4f6ef0] border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
+        <div style={{ overflowY:'auto', flex:1, padding:16 }}>
+          {loading && <div style={{ display:'flex', justifyContent:'center', padding:'40px 0' }}><div className="spinner" /></div>}
           {!loading && logs.length === 0 && (
-            <div className="text-center py-10 text-[13px]" style={{ color: 'var(--fd-ink-4)' }}>No past logs yet.</div>
+            <div style={{ textAlign:'center', padding:'40px 0', color:'var(--fd-ink-4)', fontSize:13 }}>No past logs yet. Start logging today! 🌱</div>
           )}
           {logs.map(log => {
             const isOpen = expanded === log._id;
-            const totalHours = log.entries.reduce((s, e) => s + (parseFloat(e.hoursSpent) || 0), 0);
+            const completedCount = log.entries.filter(e => e.status === 'completed').length;
             return (
-              <div
-                key={log._id}
-                className="mb-2 rounded-xl overflow-hidden"
-                style={{ border: '1px solid var(--fd-border)' }}
-              >
-                <button
-                  onClick={() => setExpanded(isOpen ? null : log._id)}
-                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[var(--fd-canvas)] transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>
-                      {new Date(log.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+              <div key={log._id} className="hm-row">
+                <button className="hm-row-btn" onClick={() => setExpanded(isOpen ? null : log._id)}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                    <div style={{
+                      width:36, height:36, borderRadius:10, flexShrink:0,
+                      display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+                      background: isOpen ? 'rgba(99,102,241,.12)' : 'var(--fd-canvas)',
+                    }}>
+                      <span style={{ fontSize:14, fontWeight:800, lineHeight:1, color: isOpen ? '#6366f1' : 'var(--fd-ink-1)' }}>
+                        {new Date(log.date + 'T00:00:00').getDate()}
+                      </span>
+                      <span style={{ fontSize:8, fontWeight:700, textTransform:'uppercase', color: isOpen ? '#6366f1' : 'var(--fd-ink-4)' }}>
+                        {new Date(log.date + 'T00:00:00').toLocaleDateString('en-IN', { month:'short' })}
+                      </span>
                     </div>
-                    <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{log.entries.length} task{log.entries.length !== 1 ? 's' : ''}</div>
-                    {totalHours > 0 && <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{totalHours}h</div>}
+                    <div>
+                      <div style={{ fontSize:12, fontWeight:600, color:'var(--fd-ink-1)' }}>
+                        {new Date(log.date + 'T00:00:00').toLocaleDateString('en-IN', { weekday:'long' })}
+                      </div>
+                      <div style={{ fontSize:10, color:'var(--fd-ink-4)', marginTop:1 }}>
+                        {log.entries.length} task{log.entries.length !== 1 ? 's' : ''}
+                        {completedCount > 0 && <span style={{ color:'#10b981', marginLeft:6 }}>{completedCount} done</span>}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {log.isSubmitted
-                      ? <span className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e' }}>Submitted</span>
-                      : <span className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>Draft</span>
-                    }
-                    <ChevronDown size={12} style={{ color: 'var(--fd-ink-4)', transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }} />
+                  <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                    <span style={{
+                      fontSize:10, fontWeight:700, padding:'3px 9px', borderRadius:20,
+                      background: log.isSubmitted ? 'rgba(16,185,129,.12)' : 'rgba(245,158,11,.12)',
+                      color: log.isSubmitted ? '#10b981' : '#f59e0b',
+                    }}>
+                      {log.isSubmitted ? 'Submitted' : 'Draft'}
+                    </span>
+                    <svg width="12" height="12" viewBox="0 0 10 6" fill="none" style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition:'transform .2s' }}>
+                      <path d="M1 1l4 4 4-4" stroke="var(--fd-ink-4)" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
                   </div>
                 </button>
                 {isOpen && (
-                  <div className="px-4 pb-4" style={{ background: 'var(--fd-canvas)' }}>
-                    {log.entries.map((e, i) => (
-                      <div key={i} className="py-2" style={{ borderTop: i === 0 ? '1px solid var(--fd-border)' : 'none' }}>
-                        <div className="text-[12px]" style={{ color: 'var(--fd-ink-1)' }}>{e.description}</div>
-                        <div className="flex gap-2 mt-1 flex-wrap">
-                          <span
-                            className="text-[10px] px-1.5 py-0.5 rounded"
-                            style={{ background: STATUS_META[e.status]?.bg, color: STATUS_META[e.status]?.color }}
-                          >
-                            {STATUS_META[e.status]?.label}
-                          </span>
-                          {e.client?.name && <span className="text-[10px]" style={{ color: 'var(--fd-ink-4)' }}>{e.client.name}</span>}
-                          {e.hoursSpent && <span className="text-[10px]" style={{ color: 'var(--fd-ink-4)' }}>{e.hoursSpent}h</span>}
+                  <div style={{ padding:'0 16px 14px', borderTop:'1px solid var(--fd-border)' }}>
+                    <div style={{ paddingTop:12, display:'flex', flexDirection:'column', gap:8 }}>
+                      {log.entries.map((e, i) => (
+                        <div key={i} style={{ display:'flex', gap:8 }}>
+                          <div style={{ width:6, height:6, borderRadius:'50%', background:STATUS_META[e.status]?.color, flexShrink:0, marginTop:5 }} />
+                          <div>
+                            <div style={{ fontSize:12, color:'var(--fd-ink-1)' }}>{e.description}</div>
+                            <div style={{ display:'flex', gap:6, marginTop:3, flexWrap:'wrap' }}>
+                              <span style={{ fontSize:10, padding:'1px 7px', borderRadius:10, background:STATUS_META[e.status]?.bg, color:STATUS_META[e.status]?.color, fontWeight:600 }}>
+                                {STATUS_META[e.status]?.label}
+                              </span>
+                              {(e.client?.company || e.client?.name) && (
+                                <span style={{ fontSize:10, color:'var(--fd-ink-4)' }}>{e.client.company || e.client.name}</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                     {log.blockers && (
-                      <div className="mt-3 p-3 rounded-lg" style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.15)' }}>
-                        <div className="text-[10px] font-semibold mb-1" style={{ color: '#ef4444' }}>Blocker</div>
-                        <div className="text-[12px]" style={{ color: 'var(--fd-ink-2)' }}>{log.blockers}</div>
+                      <div style={{ marginTop:10, padding:'10px 12px', borderRadius:10, background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.15)' }}>
+                        <div style={{ fontSize:10, fontWeight:700, color:'#ef4444', marginBottom:3 }}>⚠ Blocker</div>
+                        <div style={{ fontSize:11, color:'var(--fd-ink-2)' }}>{log.blockers}</div>
                       </div>
                     )}
                   </div>
@@ -242,7 +424,7 @@ function HistoryModal({ onClose, userId }) {
   );
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function MyDayPage() {
   const { user } = useAuthStore();
@@ -256,6 +438,7 @@ export default function MyDayPage() {
   const [saved, setSaved] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [error, setError] = useState('');
+  const [motiveTip] = useState(() => MOTIVATIONAL[Math.floor(Math.random() * MOTIVATIONAL.length)]);
 
   const isSubmitted = log?.isSubmitted || false;
 
@@ -263,14 +446,13 @@ export default function MyDayPage() {
     try {
       const [logRes, clientRes] = await Promise.all([
         api.get('/daily-logs/my/today'),
-        api.get('/clients?limit=200&fields=name'),
+        api.get('/clients?limit=200&fields=name,company'),
       ]);
       const l = logRes.data.log;
       setLog(l);
       setEntries(l.entries?.length ? l.entries.map(e => ({
         ...e,
         client: e.client?._id || e.client || '',
-        hoursSpent: e.hoursSpent ?? '',
       })) : [blankEntry()]);
       setBlockers(l.blockers || '');
       setClients(clientRes.data.clients || []);
@@ -288,231 +470,188 @@ export default function MyDayPage() {
     setSaved(false);
   };
 
-  const addEntry = () => {
-    setEntries(prev => [...prev, blankEntry()]);
-    setSaved(false);
-  };
+  const addEntry = () => { setEntries(prev => [...prev, blankEntry()]); setSaved(false); };
+  const removeEntry = (idx) => { setEntries(prev => prev.filter((_, i) => i !== idx)); setSaved(false); };
 
-  const removeEntry = (idx) => {
-    setEntries(prev => prev.filter((_, i) => i !== idx));
-    setSaved(false);
-  };
+  const buildPayload = () => ({
+    entries: entries.filter(e => e.description.trim()).map(e => ({
+      description: e.description.trim(),
+      client: e.client || null,
+      category: e.category,
+      status: e.status,
+    })),
+    blockers: blockers.trim(),
+  });
 
   const handleSave = async () => {
     const valid = entries.filter(e => e.description.trim());
-    if (valid.length === 0) { setError('Add at least one entry.'); return; }
-    setError('');
-    setSaving(true);
+    if (!valid.length) { setError('Add at least one task.'); return; }
+    setError(''); setSaving(true);
     try {
-      const payload = {
-        entries: valid.map(e => ({
-          description: e.description.trim(),
-          client: e.client || null,
-          hoursSpent: e.hoursSpent ? parseFloat(e.hoursSpent) : null,
-          category: e.category,
-          status: e.status,
-        })),
-        blockers: blockers.trim(),
-      };
-      const res = await api.put('/daily-logs/my/today', payload);
-      setLog(res.data.log);
-      setSaved(true);
+      const res = await api.put('/daily-logs/my/today', buildPayload());
+      setLog(res.data.log); setSaved(true);
     } catch (err) {
       setError(err.response?.data?.message || 'Save failed.');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleSubmit = async () => {
-    await handleSave();
-    setSubmitting(true);
+    const valid = entries.filter(e => e.description.trim());
+    if (!valid.length) { setError('Add at least one task.'); return; }
+    setError(''); setSubmitting(true);
     try {
-      const valid = entries.filter(e => e.description.trim());
-      const res = await api.post('/daily-logs/my/today/submit', {
-        entries: valid.map(e => ({
-          description: e.description.trim(),
-          client: e.client || null,
-          hoursSpent: e.hoursSpent ? parseFloat(e.hoursSpent) : null,
-          category: e.category,
-          status: e.status,
-        })),
-        blockers: blockers.trim(),
-      });
+      await api.put('/daily-logs/my/today', buildPayload());
+      const res = await api.post('/daily-logs/my/today/submit', buildPayload());
       setLog(res.data.log);
     } catch (err) {
       setError(err.response?.data?.message || 'Submit failed.');
-    } finally {
-      setSubmitting(false);
-    }
+    } finally { setSubmitting(false); }
   };
 
-  const totalHours = entries.reduce((s, e) => s + (parseFloat(e.hoursSpent) || 0), 0);
   const completedCount = entries.filter(e => e.status === 'completed').length;
+  const totalTasks = entries.filter(e => e.description.trim()).length;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-6 h-6 border-2 border-[#4f6ef0] border-t-transparent rounded-full animate-spin" />
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:240 }}>
+        <div style={{ width:28, height:28, borderRadius:'50%', border:'2.5px solid #6366f1', borderTopColor:'transparent', animation:'myd-spin .8s linear infinite' }} />
+        <style>{`@keyframes myd-spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <>
+      <style>{css}</style>
+      <div className="myd" style={{ maxWidth:640, margin:'0 auto' }}>
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <ClipboardList size={18} style={{ color: '#4f6ef0' }} />
-            <h1 className="text-[18px] font-bold" style={{ color: 'var(--fd-ink-1)' }}>My Day</h1>
-          </div>
-          <p className="text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>{todayLabel()}</p>
-        </div>
-        <button
-          onClick={() => setShowHistory(true)}
-          className="flex items-center gap-1.5 text-[12px] btn-ghost px-3 py-1.5 rounded-lg"
-          style={{ color: 'var(--fd-ink-3)' }}
-        >
-          <History size={13} /> Past Logs
-        </button>
-      </div>
-
-      {/* Submitted banner */}
-      {isSubmitted && (
-        <div
-          className="flex items-center gap-3 p-4 rounded-xl mb-5"
-          style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}
-        >
-          <CheckCircle2 size={18} style={{ color: '#22c55e', flexShrink: 0 }} />
+        {/* Header */}
+        <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:20 }}>
           <div>
-            <div className="text-[13px] font-semibold" style={{ color: '#22c55e' }}>Day submitted!</div>
-            <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>
-              Submitted at {log?.submittedAt ? new Date(log.submittedAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}. Your manager can see this.
+            <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:4 }}>
+              <div style={{ width:32, height:32, borderRadius:10, background:'linear-gradient(135deg,#6366f1,#8b5cf6)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <Sparkles size={15} color="white" />
+              </div>
+              <h1 style={{ fontSize:22, fontWeight:800, color:'var(--fd-ink-1)', margin:0 }}>My Day</h1>
             </div>
+            <p style={{ fontSize:12, color:'var(--fd-ink-4)', margin:0 }}>{todayLabel()}</p>
           </div>
+          <button
+            onClick={() => setShowHistory(true)}
+            style={{
+              display:'flex', alignItems:'center', gap:6, fontSize:12, fontWeight:600,
+              padding:'8px 14px', borderRadius:12, cursor:'pointer',
+              background:'var(--fd-surface)', border:'1px solid var(--fd-border)', color:'var(--fd-ink-3)',
+              fontFamily:'inherit',
+            }}
+          >
+            <History size={13} /> Past Logs
+          </button>
         </div>
-      )}
 
-      {/* Stats strip */}
-      {entries.length > 0 && (
-        <div className="flex gap-3 mb-5">
-          <div className="flex-1 rounded-xl px-4 py-3 text-center" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
-            <div className="text-[18px] font-bold" style={{ color: 'var(--fd-ink-1)' }}>{entries.filter(e => e.description.trim()).length}</div>
-            <div className="text-[10px]" style={{ color: 'var(--fd-ink-4)' }}>Tasks logged</div>
+        {/* Greeting */}
+        {!isSubmitted && (
+          <div className="greet">
+            <Coffee size={15} style={{ color:'#6366f1', flexShrink:0 }} />
+            <span style={{ fontSize:12, color:'var(--fd-ink-2)', fontWeight:500 }}>{motiveTip}</span>
           </div>
-          <div className="flex-1 rounded-xl px-4 py-3 text-center" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
-            <div className="text-[18px] font-bold" style={{ color: '#22c55e' }}>{completedCount}</div>
-            <div className="text-[10px]" style={{ color: 'var(--fd-ink-4)' }}>Completed</div>
-          </div>
-          {totalHours > 0 && (
-            <div className="flex-1 rounded-xl px-4 py-3 text-center" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
-              <div className="text-[18px] font-bold" style={{ color: '#4f6ef0' }}>{totalHours}h</div>
-              <div className="text-[10px]" style={{ color: 'var(--fd-ink-4)' }}>Hours logged</div>
+        )}
+
+        {/* Submitted banner */}
+        {isSubmitted && (
+          <div className="sub-banner">
+            <CheckCircle2 size={20} style={{ color:'#10b981', flexShrink:0 }} />
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:'#10b981' }}>Day submitted! Great work 🎉</div>
+              <div style={{ fontSize:11, color:'var(--fd-ink-4)', marginTop:2 }}>
+                {log?.submittedAt
+                  ? `Submitted at ${new Date(log.submittedAt).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })} · Visible to your manager.`
+                  : 'Visible to your manager.'}
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* Stats */}
+        {totalTasks > 0 && (
+          <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+            {[
+              { value: totalTasks, label: 'Tasks logged', color: '#6366f1' },
+              { value: completedCount, label: 'Completed', color: '#10b981' },
+              { value: `${totalTasks > 0 ? Math.round(completedCount/totalTasks*100) : 0}%`, label: 'Done rate', color: '#f59e0b' },
+            ].map(s => (
+              <div key={s.label} className="sc">
+                <div style={{ fontSize:24, fontWeight:800, color:s.color, lineHeight:1 }}>{s.value}</div>
+                <div style={{ fontSize:10, fontWeight:600, color:'var(--fd-ink-4)', marginTop:4 }}>{s.label}</div>
+                <div style={{ position:'absolute', bottom:0, left:'50%', transform:'translateX(-50%)', width:'40%', height:2, borderRadius:2, background:s.color, opacity:.4 }} />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Section label */}
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
+          <Target size={13} style={{ color:'#6366f1' }} />
+          <span style={{ fontSize:13, fontWeight:700, color:'var(--fd-ink-2)' }}>What did you work on today?</span>
+        </div>
+
+        {/* Entries */}
+        <div style={{ marginBottom:12 }}>
+          {entries.map((entry, i) => (
+            <EntryRow key={i} entry={entry} index={i} clients={clients} onChange={handleEntryChange} onRemove={removeEntry} readOnly={isSubmitted} />
+          ))}
+          {!isSubmitted && (
+            <button className="add-btn" onClick={addEntry}>
+              <Plus size={14} /> Add another task
+            </button>
           )}
         </div>
-      )}
 
-      {/* Entries */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>What did you work on today?</div>
-        </div>
-
-        {entries.map((entry, i) => (
-          <EntryRow
-            key={i}
-            entry={entry}
-            index={i}
-            clients={clients}
-            onChange={handleEntryChange}
-            onRemove={removeEntry}
+        {/* Blockers */}
+        <div className="blk">
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
+            <AlertTriangle size={13} style={{ color:'#f59e0b' }} />
+            <span style={{ fontSize:12, fontWeight:700, color:'var(--fd-ink-2)' }}>Blockers</span>
+            <span style={{ fontSize:10, color:'var(--fd-ink-5)' }}>optional</span>
+          </div>
+          <textarea
+            value={blockers}
+            onChange={e => { setBlockers(e.target.value); setSaved(false); }}
             readOnly={isSubmitted}
+            placeholder="Anything stopping you? e.g. 'Waiting for client assets for the Reel project'"
+            rows={2}
           />
-        ))}
+        </div>
 
-        {!isSubmitted && (
-          <button
-            onClick={addEntry}
-            className="w-full py-2.5 rounded-xl text-[12px] font-medium flex items-center justify-center gap-2 transition-colors"
-            style={{
-              background: 'var(--fd-surface)',
-              border: '1px dashed var(--fd-border)',
-              color: 'var(--fd-ink-4)',
-            }}
-          >
-            <Plus size={13} /> Add another task
-          </button>
+        {/* Error */}
+        {error && (
+          <div style={{ marginBottom:12, fontSize:12, color:'#ef4444', padding:'8px 12px', borderRadius:10, background:'rgba(239,68,68,.07)', border:'1px solid rgba(239,68,68,.2)' }}>
+            {error}
+          </div>
         )}
+
+        {/* Actions */}
+        {!isSubmitted && (
+          <div style={{ display:'flex', gap:10 }}>
+            <button className={`save-btn ${saved ? 'saved' : ''}`} onClick={handleSave} disabled={saving}>
+              {saving
+                ? <div style={{ width:14, height:14, borderRadius:'50%', border:'2px solid #6366f1', borderTopColor:'transparent', animation:'myd-spin .8s linear infinite' }} />
+                : <Save size={14} />
+              }
+              {saved ? '✓ Saved' : 'Save draft'}
+            </button>
+            <button className="sub-btn" onClick={handleSubmit} disabled={submitting || saving}>
+              {submitting
+                ? <div style={{ width:16, height:16, borderRadius:'50%', border:'2px solid white', borderTopColor:'transparent', animation:'myd-spin .8s linear infinite' }} />
+                : <Zap size={15} />
+              }
+              Submit day
+            </button>
+          </div>
+        )}
+
+        {showHistory && <HistoryModal onClose={() => setShowHistory(false)} />}
       </div>
-
-      {/* Blockers */}
-      <div
-        className="rounded-xl p-4 mb-5"
-        style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
-      >
-        <div className="flex items-center gap-2 mb-2">
-          <AlertTriangle size={13} style={{ color: '#f59e0b' }} />
-          <div className="text-[12px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>Blockers</div>
-          <span className="text-[10px]" style={{ color: 'var(--fd-ink-5)' }}>optional</span>
-        </div>
-        <textarea
-          value={blockers}
-          onChange={e => { setBlockers(e.target.value); setSaved(false); }}
-          readOnly={isSubmitted}
-          placeholder="Anything stopping you? e.g. 'Waiting for client assets for the Reel project'"
-          rows={2}
-          className="w-full text-[12px] resize-none outline-none bg-transparent"
-          style={{ color: 'var(--fd-ink-1)' }}
-        />
-      </div>
-
-      {/* Error */}
-      {error && (
-        <div className="mb-4 text-[12px] text-red-500 px-1">{error}</div>
-      )}
-
-      {/* Actions */}
-      {!isSubmitted && (
-        <div className="flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-colors"
-            style={{
-              background: 'var(--fd-surface)',
-              border: '1px solid var(--fd-border)',
-              color: saved ? '#22c55e' : 'var(--fd-ink-2)',
-            }}
-          >
-            {saving ? (
-              <div className="w-4 h-4 border-2 border-[#4f6ef0] border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Save size={14} />
-            )}
-            {saved ? 'Saved' : 'Save draft'}
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={submitting || saving}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold text-white transition-opacity"
-            style={{ background: '#4f6ef0', opacity: submitting ? 0.7 : 1 }}
-          >
-            {submitting ? (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <Send size={14} />
-            )}
-            Submit day
-          </button>
-        </div>
-      )}
-
-      {/* History modal */}
-      {showHistory && <HistoryModal onClose={() => setShowHistory(false)} />}
-    </div>
+    </>
   );
 }

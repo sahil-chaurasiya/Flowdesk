@@ -158,7 +158,7 @@ const css = `
 }
 .tdl .back-btn:hover { background:rgba(99,102,241,.06); border-color:rgba(99,102,241,.3); color:#6366f1; }
 
-.tdl .av { border-radius:14px; display:flex; align-items:center; justify-content:center; color:white; font-weight:800; overflow:hidden; flex-shrink:0; }
+.tdl .av, .modal-box .av { border-radius:14px; display:flex; align-items:center; justify-content:center; color:white; font-weight:800; overflow:hidden; flex-shrink:0; }
 .tdl .spinner { width:26px; height:26px; border-radius:50%; border:2.5px solid #6366f1; border-top-color:transparent; animation:tdl-spin .8s linear infinite; }
 
 /* History log item */

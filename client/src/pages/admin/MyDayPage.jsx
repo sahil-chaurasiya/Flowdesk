@@ -62,44 +62,52 @@ const css = `
 /* ── Entry card ── */
 .myd .ec {
   position: relative;
-  border-radius: 16px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 18px 18px 14px 18px;
   margin-bottom: 10px;
-  border: 1px solid var(--fd-border);
-  background: var(--fd-surface);
-  transition: border-color .2s, box-shadow .2s;
+  border: 1.5px solid rgba(99,102,241,.13);
+  background: linear-gradient(145deg, rgba(99,102,241,.04) 0%, var(--fd-surface) 60%);
+  box-shadow: 0 2px 12px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.04);
+  transition: border-color .2s, box-shadow .2s, transform .15s;
+}
+.myd .ec:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99,102,241,.1), 0 2px 6px rgba(0,0,0,.05);
 }
 .myd .ec:focus-within {
-  border-color: rgba(99,102,241,.45);
-  box-shadow: 0 0 0 3px rgba(99,102,241,.08);
+  border-color: rgba(99,102,241,.5);
+  box-shadow: 0 0 0 3px rgba(99,102,241,.1), 0 6px 20px rgba(99,102,241,.1);
+  transform: translateY(-1px);
 }
 .myd .ec textarea {
-  width: 100%; border: none; outline: none; resize: none;
+  width: 100%; border: none !important; outline: none !important; resize: none;
   background: transparent;
   color: var(--fd-ink-1);
   font-family: inherit;
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.6;
+  box-shadow: none !important;
 }
-.myd .ec textarea::placeholder { color: var(--fd-ink-4); }
+.myd .ec textarea::placeholder { color: var(--fd-ink-4); font-weight: 400; }
 
 /* ── Pill selects — inherit theme ── */
 .myd .ps-wrap { position: relative; display: inline-flex; align-items: center; }
-.myd .ps-wrap svg { position:absolute; right:7px; pointer-events:none; }
+.myd .ps-wrap svg { position:absolute; right:8px; pointer-events:none; }
 .myd .ps {
   appearance: none; -webkit-appearance: none;
   border-radius: 20px;
-  padding: 5px 26px 5px 11px;
+  padding: 5px 28px 5px 12px;
   font-size: 11px; font-weight: 600;
   cursor: pointer; outline: none;
-  border: 1px solid var(--fd-border);
+  border: 1.5px solid var(--fd-border);
   background: var(--fd-canvas);
   color: var(--fd-ink-2);
   font-family: inherit;
-  transition: border-color .15s;
+  transition: border-color .15s, box-shadow .15s;
 }
-.myd .ps:hover { border-color: rgba(99,102,241,.4); }
-.myd .ps:focus { border-color: #6366f1; }
+.myd .ps:hover { border-color: rgba(99,102,241,.45); box-shadow: 0 2px 8px rgba(99,102,241,.1); }
+.myd .ps:focus { border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,.15); }
 
 /* ── Remove btn ── */
 .myd .rb {
@@ -149,13 +157,13 @@ const css = `
 
 /* ── Add task btn ── */
 .myd .add-btn {
-  width: 100%; padding: 12px; border-radius: 14px;
-  border: 2px dashed var(--fd-border); background: transparent;
+  width: 100%; padding: 13px; border-radius: 16px;
+  border: 2px dashed rgba(99,102,241,.25); background: rgba(99,102,241,.02);
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-  font-size: 12px; font-weight: 600; color: var(--fd-ink-4);
-  transition: all .2s; font-family: inherit;
+  font-size: 12px; font-weight: 700; color: var(--fd-ink-4);
+  transition: all .2s; font-family: inherit; letter-spacing: .01em;
 }
-.myd .add-btn:hover { border-color: #6366f1; color: #6366f1; background: rgba(99,102,241,.04); }
+.myd .add-btn:hover { border-color: #6366f1; color: #6366f1; background: rgba(99,102,241,.06); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(99,102,241,.1); }
 
 /* ── Stat card ── */
 .myd .sc {
@@ -182,20 +190,28 @@ const css = `
 
 /* ── Blockers ── */
 .myd .blk {
-  border-radius: 16px; padding: 16px; margin-bottom: 20px;
-  background: var(--fd-surface); border: 1px solid rgba(245,158,11,.2);
-  transition: border-color .2s, box-shadow .2s;
+  border-radius: 18px; padding: 16px 18px; margin-bottom: 20px;
+  background: linear-gradient(145deg, rgba(245,158,11,.05) 0%, var(--fd-surface) 70%);
+  border: 1.5px solid rgba(245,158,11,.22);
+  box-shadow: 0 2px 12px rgba(245,158,11,.06), 0 1px 3px rgba(0,0,0,.04);
+  transition: border-color .2s, box-shadow .2s, transform .15s;
+}
+.myd .blk:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(245,158,11,.1), 0 2px 6px rgba(0,0,0,.04);
 }
 .myd .blk:focus-within {
-  border-color: rgba(245,158,11,.45);
-  box-shadow: 0 0 0 3px rgba(245,158,11,.06);
+  border-color: rgba(245,158,11,.5);
+  box-shadow: 0 0 0 3px rgba(245,158,11,.1), 0 6px 18px rgba(245,158,11,.08);
+  transform: translateY(-1px);
 }
 .myd .blk textarea {
-  width: 100%; border: none; outline: none; resize: none;
+  width: 100%; border: none !important; outline: none !important; resize: none;
+  box-shadow: none !important;
   background: transparent; color: var(--fd-ink-1);
-  font-family: inherit; font-size: 12px; line-height: 1.55;
+  font-family: inherit; font-size: 13px; font-weight: 500; line-height: 1.6;
 }
-.myd .blk textarea::placeholder { color: var(--fd-ink-4); }
+.myd .blk textarea::placeholder { color: var(--fd-ink-4); font-weight: 400; }
 
 /* ── History modal ── */
 .myd .hm-overlay {
@@ -260,7 +276,7 @@ function EntryRow({ entry, index, clients, onChange, onRemove, readOnly }) {
             rows={2}
           />
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(99,102,241,.08)' }}>
             {/* Category */}
             <div className="ps-wrap">
               <select className="ps" value={entry.category} onChange={e => onChange(index, 'category', e.target.value)} disabled={readOnly}>

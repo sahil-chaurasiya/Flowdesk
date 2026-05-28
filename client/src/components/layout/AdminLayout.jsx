@@ -7,6 +7,7 @@ import {
   ListChecks, Instagram, Sun, Moon, Search,
   Kanban, Calendar, Activity, Settings, Briefcase,
   FileSearch, Key, BookUser, CreditCard, PhoneCall,
+  ClipboardList,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/admin/clients',          icon: Building2,       label: 'Clients',           managerOnly: true },
   { to: '/admin/kanban',           icon: Kanban,          label: 'Kanban',             managerOnly: true },
   { to: '/admin/my-tasks',         icon: ListChecks,      label: 'My Tasks',           teamOnly: true },
+  { to: '/admin/my-day',           icon: ClipboardList,   label: 'My Day',             myDayOnly: true },
   { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       managerOnly: true },
   { to: '/admin/internal-leads',   icon: Briefcase,       label: 'Internal Leads',     internalLeadsOnly: true },
   { to: '/admin/call-tracker',     icon: PhoneCall,       label: 'Call Tracker',       callTrackerOnly: true },
@@ -42,6 +44,7 @@ const navItems = [
   { to: '/admin/reports',    icon: BarChart3,       label: 'Reports',          hideForPM: true },
   { to: '/admin/files',      icon: Upload,          label: 'Files',            hideForPM: true },
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
+  { to: '/admin/team-log',   icon: ClipboardList,   label: 'Team Log',     adminManagerOnly: true },
   { to: '/admin/credentials', icon: Key,            label: 'Credentials',  managerOnly: true },
   { to: '/admin/contacts',   icon: BookUser,        label: 'Contacts',     adminOnly: true },
   { to: '/admin/activity',   icon: Activity,        label: 'Activity',     adminOnly: true },
@@ -53,7 +56,7 @@ const navItems = [
 const NAV_SECTIONS = [
   {
     label: 'Workspace',
-    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/leads', '/admin/internal-leads', '/admin/call-tracker'],
+    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/my-day', '/admin/leads', '/admin/internal-leads', '/admin/call-tracker'],
   },
   {
     label: 'Delivery',
@@ -61,7 +64,7 @@ const NAV_SECTIONS = [
   },
   {
     label: 'Connect',
-    keys: ['/admin/team', '/admin/credentials', '/admin/contacts'],
+    keys: ['/admin/team', '/admin/team-log', '/admin/credentials', '/admin/contacts'],
   },
   {
     label: 'System',
@@ -125,6 +128,8 @@ export default function AdminLayout() {
   const isTeamOnly = TEAM_ROLES.includes(user?.role);
   const isInternalLeads = ['admin', 'performance_marketer'].includes(user?.role);
   const isCallTracker   = ['admin', 'performance_marketer'].includes(user?.role);
+  const isMyDay         = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter', 'manager'].includes(user?.role);
+  const isAdminManager  = ['admin', 'manager'].includes(user?.role);
 
   const filteredNavItems = navItems.filter(item => {
     if (item.adminOnly         && !isAdmin)         return false;
@@ -133,6 +138,8 @@ export default function AdminLayout() {
     if (item.internalLeadsOnly && !isInternalLeads) return false;
     if (item.callTrackerOnly   && !isCallTracker)   return false;
     if (item.hideForPM         && isPM)             return false;
+    if (item.myDayOnly         && !isMyDay)         return false;
+    if (item.adminManagerOnly  && !isAdminManager)  return false;
     return true;
   });
 

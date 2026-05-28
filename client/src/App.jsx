@@ -42,6 +42,8 @@ import CallTrackerPage      from './pages/admin/CallTrackerPage';
 import ApiLogsPage          from './pages/admin/ApiLogsPage';
 import ContactsPage         from './pages/admin/ContactsPage';
 import CredentialsPage      from './pages/admin/CredentialsPage';
+import MyDayPage            from './pages/admin/MyDayPage';
+import TeamDailyLogPage     from './pages/admin/TeamDailyLogPage';
 
 // Client Pages
 import ClientDashboard    from './pages/client/Dashboard';
@@ -173,9 +175,19 @@ export default function App() {
                     <CallTrackerPage />
                   </ProtectedRoute>
                 } />
-              </Route>
 
-              {/* Client Portal Routes */}
+                {/* ── Daily Log ────────────────────────────────────────── */}
+                <Route path="my-day" element={
+                  <ProtectedRoute roles={['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter', 'manager']}>
+                    <MyDayPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="team-log" element={
+                  <ProtectedRoute roles={['admin', 'manager']}>
+                    <TeamDailyLogPage />
+                  </ProtectedRoute>
+                } />
+              </Route>
               <Route path="/portal" element={
                 <ProtectedRoute roles={['client']}>
                   <ClientLayout />

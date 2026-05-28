@@ -132,9 +132,9 @@ const css = `
 .tdl .cal-day:disabled { opacity:.25; cursor:not-allowed; }
 
 /* Modal */
-.tdl .modal-ov { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
-.tdl .modal-bg { position:absolute; inset:0; background:rgba(0,0,0,.5); backdrop-filter:blur(4px); }
-.tdl .modal-box {
+.modal-ov { position:fixed; inset:0; z-index:50; display:flex; align-items:center; justify-content:center; padding:16px; }
+.modal-bg { position:absolute; inset:0; background:rgba(0,0,0,.5); backdrop-filter:blur(4px); }
+.modal-box {
   position:relative; width:100%; max-width:520px;
   border-radius:22px; background:var(--fd-surface);
   border:1px solid var(--fd-border); max-height:88vh;
@@ -664,8 +664,8 @@ export default function TeamDailyLogPage() {
           </div>
         )}
 
-        {selected && <DayLogModal item={selected} date={date} onClose={() => setSelected(null)} onViewHistory={m => setHistoryMember(m)} />}
       </div>
+      {selected && <DayLogModal item={selected} date={date} onClose={() => setSelected(null)} onViewHistory={m => setHistoryMember(m)} />}
     </>
   );
 }

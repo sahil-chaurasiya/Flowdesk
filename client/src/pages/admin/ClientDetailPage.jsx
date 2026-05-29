@@ -16,10 +16,11 @@ import {
 } from 'date-fns';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
+import { useServices } from '../../hooks/useServices';
 import { Button, Modal, Input, Textarea, Select, useToast } from '../../components/ui/index';
 import { Avatar, Badge, Card, CardHeader, CardContent, Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 import {
-  formatDate, getStatusColor, PLAN_LABELS, PLAN_COLORS, SERVICE_LABELS,
+  formatDate, getStatusColor, PLAN_LABELS, PLAN_COLORS,
   formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo
 } from '../../lib/utils';
 
@@ -2394,6 +2395,8 @@ export default function ClientDetailPage() {
   const { user } = useAuthStore();
   const isManager = ['admin', 'manager'].includes(user?.role);
   const isAdmin = user?.role === 'admin';
+  const { services: servicesList, serviceLabels } = useServices();
+  const SERVICES_LIST = servicesList.filter(s => s.isActive).map(s => [s.key, s.label]);
   const logoInputRef = useRef(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
@@ -2792,6 +2795,7 @@ export default function ClientDetailPage() {
                   industry: client.industry || '', status: client.status,
                   plan: client.plan, monthlyBudget: client.monthlyBudget, notes: client.notes || '',
                   whatsappGroup: client.whatsappGroup || '', whatsappPhone: client.whatsappPhone || '',
+                  services: client.services || [],
                 });
                 setShowEditModal(true);
               }}><Edit3 size={14} />Edit</Button>
@@ -2832,7 +2836,7 @@ export default function ClientDetailPage() {
                     <div className="mt-4">
                       <div className="text-xs font-medium text-[var(--fd-ink-3)] mb-2 uppercase tracking-wide">Services</div>
                       <div className="flex flex-wrap gap-1.5">
-                        {client.services.map(s => <span key={s} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">{SERVICE_LABELS[s] || s}</span>)}
+                        {client.services.map(s => <span key={s} className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">{serviceLabels[s] || s}</span>)}
                       </div>
                     </div>
                   )}
@@ -3777,6 +3781,35 @@ export default function ClientDetailPage() {
               <Input label="Monthly Budget" type="number" value={editForm.monthlyBudget || ''} onChange={e => setEditForm(p => ({ ...p, monthlyBudget: e.target.value }))} />
             )}
             <Textarea label="Notes" value={editForm.notes || ''} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} rows={3} />
+            {SERVICES_LIST.length > 0 && (
+              <div className="pt-1 border-t border-[var(--fd-border)]">
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--fd-ink-4)] mb-2">Services</div>
+                <div className="flex flex-wrap gap-2">
+                  {SERVICES_LIST.map(([val, label]) => {
+                    const active = (editForm.services || []).includes(val);
+                    return (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => setEditForm(p => ({
+                          ...p,
+                          services: active
+                            ? (p.services || []).filter(s => s !== val)
+                            : [...(p.services || []), val]
+                        }))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          active
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-transparent text-[var(--fd-ink-2)] border-[var(--fd-border)] hover:border-blue-400 hover:text-blue-600'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div className="pt-1 border-t border-[var(--fd-border)]">
               <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--fd-ink-4)] mb-2">WhatsApp</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

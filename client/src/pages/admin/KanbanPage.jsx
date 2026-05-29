@@ -268,6 +268,7 @@ export default function KanbanPage() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [saving, setSaving]           = useState(false);
+  const [memberTaskCounts, setMemberTaskCounts] = useState({});
 
   // Filter state
   const [filterClient, setFilterClient]     = useState('');
@@ -296,6 +297,24 @@ export default function KanbanPage() {
       setMembers(all.filter(u => !['admin', 'manager', 'client'].includes(u.role)));
       setManagers(all.filter(u => u.role === 'manager'));
     });
+    // Fetch active task counts per member
+    Promise.all([
+      api.get('/tasks?status=pending&limit=500'),
+      api.get('/tasks?status=today&limit=500'),
+      api.get('/tasks?status=in_progress&limit=500'),
+    ]).then(([p, t, ip]) => {
+      const allActive = [
+        ...(p.data.tasks || []),
+        ...(t.data.tasks || []),
+        ...(ip.data.tasks || []),
+      ];
+      const counts = {};
+      allActive.forEach(task => {
+        const id = task.assignedTo?._id;
+        if (id) counts[id] = (counts[id] || 0) + 1;
+      });
+      setMemberTaskCounts(counts);
+    }).catch(() => {});
   }, []);
 
   const fetchTasks = useCallback(async () => {
@@ -571,7 +590,10 @@ export default function KanbanPage() {
               <option value="">Unassigned</option>
               {Object.entries(membersByRole).map(([roleLabel, roleMembers]) => (
                 <optgroup key={roleLabel} label={roleLabel}>
-                  {roleMembers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                  {roleMembers.map(m => {
+                    const c = memberTaskCounts[m._id] || 0;
+                    return <option key={m._id} value={m._id}>{m.name}{c > 0 ? ` (${c} active)` : ''}</option>;
+                  })}
                 </optgroup>
               ))}
             </select>
@@ -621,7 +643,10 @@ export default function KanbanPage() {
               <option value="">Unassigned</option>
               {Object.entries(membersByRole).map(([roleLabel, roleMembers]) => (
                 <optgroup key={roleLabel} label={roleLabel}>
-                  {roleMembers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                  {roleMembers.map(m => {
+                    const c = memberTaskCounts[m._id] || 0;
+                    return <option key={m._id} value={m._id}>{m.name}{c > 0 ? ` (${c} active)` : ''}</option>;
+                  })}
                 </optgroup>
               ))}
             </select>

@@ -128,7 +128,6 @@ function TaskRow({ task, onStatusChange, updating }) {
           <option value="pending">To Do</option>
           <option value="in_progress">In Progress</option>
           <option value="review">Review</option>
-          <option value="completed">Completed</option>
         </select>
       ) : (
         <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full flex-shrink-0" style={sStyle}>

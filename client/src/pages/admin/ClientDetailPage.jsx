@@ -2417,6 +2417,7 @@ export default function ClientDetailPage() {
   const [credClients, setCredClients] = useState([]);
   const [credManagers, setCredManagers] = useState([]);
   const [allTeamMembers, setAllTeamMembers] = useState([]);
+  const [memberTaskCounts, setMemberTaskCounts] = useState({});
   const [socialAccounts, setSocialAccounts] = useState([]);
   const [socialAnalytics, setSocialAnalytics] = useState(null);
   const [socialPosts, setSocialPosts] = useState([]);
@@ -2454,6 +2455,28 @@ export default function ClientDetailPage() {
     api.get('/users?limit=100').then(r => {
       const team = (r.data.users || []).filter(u => u.role !== 'client');
       setAllTeamMembers(team);
+    }).catch(() => {});
+    // Fetch global active task counts per member (all clients)
+    Promise.all([
+      api.get('/tasks?status=pending&limit=500'),
+      api.get('/tasks?status=today&limit=500'),
+      api.get('/tasks?status=in_progress&limit=500'),
+    ]).then(([p, t, ip]) => {
+      const allActive = [
+        ...(p.data.tasks || []),
+        ...(t.data.tasks || []),
+        ...(ip.data.tasks || []),
+      ];
+      const counts = {};
+      allActive.forEach(task => {
+        const mid = task.assignedTo?._id;
+        if (!mid) return;
+        const key = String(mid);
+        if (!counts[key]) counts[key] = { total: 0, byStatus: {} };
+        counts[key].total += 1;
+        counts[key].byStatus[task.status] = (counts[key].byStatus[task.status] || 0) + 1;
+      });
+      setMemberTaskCounts(counts);
     }).catch(() => {});
   }, []);
 
@@ -3636,23 +3659,83 @@ export default function ClientDetailPage() {
                 </div>
               ) : (
                 <div className="divide-y divide-[var(--fd-border)]">
-                  {client.teamMembers.map(m => (
-                    <div key={m._id} className="flex items-center gap-3 py-3">
-                      <Avatar name={m.name} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-[var(--fd-ink-1)] text-sm">{m.name}</div>
-                        <div className="text-xs text-[var(--fd-ink-3)]">{m.jobTitle || ROLE_LABELS[m.role] || m.role}</div>
-                        {m.email && <div className="text-xs text-[var(--fd-ink-4)] truncate">{m.email}</div>}
+                  {client.teamMembers.map(m => {
+                    const key = String(m._id);
+                    // This-client task breakdown
+                    const mTasks = tasks.filter(t => String(t.assignedTo?._id) === key);
+                    const todayCount      = mTasks.filter(t => t.status === 'today').length;
+                    const pendingCount    = mTasks.filter(t => t.status === 'pending').length;
+                    const inProgressCount = mTasks.filter(t => t.status === 'in_progress').length;
+                    const reviewCount     = mTasks.filter(t => t.status === 'review').length;
+                    const completedCount  = mTasks.filter(t => t.status === 'completed').length;
+                    // Global counts
+                    const globalTotal  = memberTaskCounts[key]?.total || 0;
+                    const globalBS     = memberTaskCounts[key]?.byStatus || {};
+                    return (
+                      <div key={m._id} className="py-3.5">
+                        {/* Member header row */}
+                        <div className="flex items-center gap-3 mb-2.5">
+                          <Avatar name={m.name} size="md" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-[var(--fd-ink-1)] text-sm">{m.name}</div>
+                            <div className="text-xs text-[var(--fd-ink-3)]">{m.jobTitle || ROLE_LABELS[m.role] || m.role}</div>
+                            {m.email && <div className="text-xs text-[var(--fd-ink-4)] truncate">{m.email}</div>}
+                          </div>
+                          <button onClick={() => handleRemoveTeamMember(m._id)} disabled={savingTeam}
+                            className="p-1.5 text-[var(--fd-ink-4)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0">
+                            <X size={14} />
+                          </button>
+                        </div>
+
+                        {/* This client's tasks */}
+                        <div className="ml-11 space-y-1.5">
+                          <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fd-ink-5)' }}>This Client</div>
+                          {mTasks.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {todayCount > 0 && (
+                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>Today · {todayCount}</span>
+                              )}
+                              {pendingCount > 0 && (
+                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}>Pending · {pendingCount}</span>
+                              )}
+                              {inProgressCount > 0 && (
+                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(79,110,240,0.12)', color: '#4f6ef0' }}>In Progress · {inProgressCount}</span>
+                              )}
+                              {reviewCount > 0 && (
+                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7' }}>In Review · {reviewCount}</span>
+                              )}
+                              {completedCount > 0 && (
+                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e' }}>Done · {completedCount}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px]" style={{ color: 'var(--fd-ink-5)' }}>No tasks for this client</span>
+                          )}
+
+                          {/* Global total */}
+                          {globalTotal > 0 && (
+                            <div className="mt-1.5">
+                              <div className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fd-ink-5)' }}>All Clients (active)</div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {(globalBS.today || 0) > 0 && (
+                                  <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.07)', color: '#b45309', border: '1px dashed rgba(245,158,11,0.3)' }}>Today · {globalBS.today}</span>
+                                )}
+                                {(globalBS.pending || 0) > 0 && (
+                                  <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)', border: '1px dashed var(--fd-border)' }}>Pending · {globalBS.pending}</span>
+                                )}
+                                {(globalBS.in_progress || 0) > 0 && (
+                                  <span className="text-[10.5px] font-medium px-2 py-0.5 rounded-full" style={{ background: 'rgba(79,110,240,0.07)', color: '#3b5bd6', border: '1px dashed rgba(79,110,240,0.3)' }}>In Progress · {globalBS.in_progress}</span>
+                                )}
+                                <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(100,100,100,0.08)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}>
+                                  {globalTotal} total active
+                                </span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                      <span className="hidden sm:inline-flex px-2.5 py-1 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs font-medium flex-shrink-0">
-                        {ROLE_LABELS[m.role] || m.role}
-                      </span>
-                      <button onClick={() => handleRemoveTeamMember(m._id)} disabled={savingTeam}
-                        className="p-1.5 text-[var(--fd-ink-4)] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-40 flex-shrink-0">
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -3737,8 +3820,21 @@ export default function ClientDetailPage() {
               <option value="">Unassigned</option>
               {client.teamMembers?.length > 0 && (
                 <optgroup label="This Client's Team">
-                  {client.accountManager && <option value={client.accountManager._id}>{client.accountManager.name} (AM)</option>}
-                  {client.teamMembers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                  {client.accountManager && (() => {
+                    const am = client.accountManager;
+                    const key = String(am._id);
+                    const globalActive = memberTaskCounts[key]?.total || 0;
+                    const clientActive = tasks.filter(t => String(t.assignedTo?._id) === key && ['pending','today','in_progress'].includes(t.status)).length;
+                    const suffix = globalActive > 0 ? ` (${clientActive} here · ${globalActive} total)` : '';
+                    return <option value={am._id}>{am.name} (AM){suffix}</option>;
+                  })()}
+                  {client.teamMembers.map(m => {
+                    const key = String(m._id);
+                    const globalActive = memberTaskCounts[key]?.total || 0;
+                    const clientActive = tasks.filter(t => String(t.assignedTo?._id) === key && ['pending','today','in_progress'].includes(t.status)).length;
+                    const suffix = globalActive > 0 ? ` (${clientActive} here · ${globalActive} total)` : '';
+                    return <option key={m._id} value={m._id}>{m.name}{suffix}</option>;
+                  })}
                 </optgroup>
               )}
               <optgroup label="All Team Members">
@@ -3746,7 +3842,12 @@ export default function ClientDetailPage() {
                   const inClientTeam = client.teamMembers?.some(tm => String(tm._id) === String(m._id));
                   const isAM = String(client.accountManager?._id) === String(m._id);
                   return !inClientTeam && !isAM;
-                }).map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                }).map(m => {
+                  const key = String(m._id);
+                  const globalActive = memberTaskCounts[key]?.total || 0;
+                  const suffix = globalActive > 0 ? ` (${globalActive} active total)` : '';
+                  return <option key={m._id} value={m._id}>{m.name}{suffix}</option>;
+                })}
               </optgroup>
             </Select>
           </div>

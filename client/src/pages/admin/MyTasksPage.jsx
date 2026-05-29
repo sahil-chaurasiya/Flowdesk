@@ -1,7 +1,8 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   ListChecks, Clock, CheckCircle, AlertCircle, Play,
-  X, Calendar, User, Tag, Flag, Building2, FileText, ChevronRight, ArrowRight,
+  X, Calendar, User, Tag, Flag, Building2, FileText, ChevronRight,
+  ArrowRight, ChevronDown, UserCheck, Send, Zap,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -55,6 +56,137 @@ const STATUS_META = {
   cancelled:   { label: 'Cancelled',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
 };
 
+// ── Status Action Button with Confirm Dropdown ────────────────────────────────
+// Prevents accidental clicks: first click opens a dropdown with confirm + cancel
+function StatusActionButton({ task, onStatusUpdate, updating, size = 'md' }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  const isUpdating = updating === task._id;
+  const canStart = task.status === 'today' || task.status === 'pending';
+  const canReview = task.status === 'in_progress';
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  if (!canStart && !canReview) return null;
+
+  const action = canStart
+    ? { label: 'Start Working', icon: Play, nextStatus: 'in_progress', color: '#4f6ef0', gradient: 'linear-gradient(135deg,#4f6ef0,#6366f1)', shadow: 'rgba(79,110,240,0.3)', confirmMsg: 'Begin this task?', confirmIcon: Zap }
+    : { label: 'Send for Review', icon: Send, nextStatus: 'review', color: '#a855f7', gradient: 'linear-gradient(135deg,#a855f7,#9333ea)', shadow: 'rgba(168,85,247,0.3)', confirmMsg: 'Done? Send to PM for review?', confirmIcon: CheckCircle };
+
+  const ActionIcon = action.icon;
+  const ConfirmIcon = action.confirmIcon;
+
+  const px = size === 'lg' ? 'px-4 py-3' : 'px-3 py-1.5';
+  const textSize = size === 'lg' ? 'text-[13.5px]' : 'text-[12px]';
+
+  return (
+    <div ref={ref} className="relative" style={{ display: 'inline-block' }}>
+      {/* Trigger button */}
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        disabled={isUpdating}
+        className={`flex items-center gap-1.5 ${px} rounded-xl ${textSize} font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] select-none`}
+        style={{
+          background: action.gradient,
+          color: '#fff',
+          boxShadow: open ? `0 4px 16px ${action.shadow}` : `0 2px 8px ${action.shadow}`,
+          opacity: isUpdating ? 0.7 : 1,
+        }}
+      >
+        {isUpdating ? (
+          <Spinner size="xs" />
+        ) : (
+          <>
+            <ActionIcon size={size === 'lg' ? 14 : 11} />
+            {action.label}
+            <ChevronDown size={size === 'lg' ? 13 : 10} style={{ opacity: 0.7, marginLeft: 2, transition: 'transform 0.18s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+          </>
+        )}
+      </button>
+
+      {/* Confirmation dropdown */}
+      {open && (
+        <div
+          className="absolute z-50 animate-fade-in"
+          style={{
+            bottom: 'calc(100% + 8px)',
+            left: 0,
+            minWidth: 220,
+            background: 'var(--fd-surface)',
+            border: `1.5px solid ${action.color}33`,
+            borderRadius: 14,
+            boxShadow: `0 8px 32px rgba(0,0,0,0.18), 0 2px 8px ${action.shadow}`,
+            overflow: 'hidden',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div
+            className="px-4 py-3 flex items-center gap-2.5"
+            style={{ background: `${action.color}12`, borderBottom: `1px solid ${action.color}22` }}
+          >
+            <ConfirmIcon size={14} style={{ color: action.color, flexShrink: 0 }} />
+            <span className="text-[12.5px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>
+              {action.confirmMsg}
+            </span>
+          </div>
+
+          {/* Buttons */}
+          <div className="p-3 flex gap-2">
+            <button
+              onClick={() => { setOpen(false); onStatusUpdate(task._id, action.nextStatus); }}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12.5px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: action.gradient,
+                color: '#fff',
+                boxShadow: `0 2px 8px ${action.shadow}`,
+              }}
+            >
+              <ActionIcon size={12} /> Yes, {action.label.split(' ')[0]}
+            </button>
+            <button
+              onClick={() => setOpen(false)}
+              className="flex items-center justify-center px-3 py-2.5 rounded-xl text-[12.5px] font-semibold transition-all hover:scale-[1.02]"
+              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Assigned By Badge ─────────────────────────────────────────────────────────
+function AssignedByBadge({ createdBy, isClientRequest, style }) {
+  if (!createdBy && !isClientRequest) return null;
+  const name = isClientRequest ? 'Client Request' : (createdBy?.name || 'Unknown');
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+      style={{
+        background: isClientRequest ? 'rgba(245,158,11,0.1)' : 'rgba(79,110,240,0.08)',
+        color: isClientRequest ? '#92400e' : 'var(--fd-ink-3)',
+        border: `1px solid ${isClientRequest ? 'rgba(245,158,11,0.25)' : 'rgba(79,110,240,0.15)'}`,
+        ...style,
+      }}
+    >
+      <UserCheck size={9} style={{ flexShrink: 0 }} />
+      {name}
+    </span>
+  );
+}
+
 // ── Task Detail Modal ─────────────────────────────────────────────────────────
 function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
   if (!task) return null;
@@ -96,13 +228,14 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
                 {isOverdue && (
                   <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>
                 )}
-                {task.isClientRequest && (
-                  <span className="text-[11px] bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Client Request</span>
-                )}
               </div>
               <h2 className="text-[17px] font-bold leading-snug" style={{ color: 'var(--fd-ink-1)' }}>
                 {task.title}
               </h2>
+              {/* Assigned by — prominent in modal */}
+              <div className="mt-1.5">
+                <AssignedByBadge createdBy={task.createdBy} isClientRequest={task.isClientRequest} />
+              </div>
             </div>
             <button
               onClick={onClose}
@@ -156,6 +289,13 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
                 accent={isOverdue}
               />
             )}
+            {/* Assigned By tile */}
+            <InfoTile
+              icon={UserCheck}
+              label="Assigned By"
+              value={task.isClientRequest ? 'Client Request' : (task.createdBy?.name || '—')}
+              valueColor={task.isClientRequest ? '#92400e' : undefined}
+            />
           </div>
 
           {/* Action zone */}
@@ -164,51 +304,13 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
               className="rounded-xl p-4"
               style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
             >
-              <div className="text-[12px] font-semibold mb-3" style={{ color: 'var(--fd-ink-3)' }}>
+              <div className="text-[12px] font-semibold mb-3 flex items-center gap-1.5" style={{ color: 'var(--fd-ink-3)' }}>
                 Update Status
+                <span className="text-[10px] font-normal px-1.5 py-0.5 rounded-md" style={{ background: 'var(--fd-border)', color: 'var(--fd-ink-4)' }}>
+                  tap arrow to confirm
+                </span>
               </div>
-              {(task.status === 'today' || task.status === 'pending') && (
-                <button
-                  onClick={() => onStatusUpdate(task._id, 'in_progress')}
-                  disabled={updating === task._id}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[13.5px] font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
-                  style={{
-                    background: 'linear-gradient(135deg, #4f6ef0, #6366f1)',
-                    color: '#fff',
-                    boxShadow: '0 2px 8px rgba(79,110,240,0.35)',
-                    opacity: updating === task._id ? 0.7 : 1,
-                  }}
-                >
-                  {updating === task._id ? (
-                    <Spinner size="xs" />
-                  ) : (
-                    <>
-                      <Play size={14} /> Start Working
-                    </>
-                  )}
-                </button>
-              )}
-              {task.status === 'in_progress' && (
-                <button
-                  onClick={() => onStatusUpdate(task._id, 'review')}
-                  disabled={updating === task._id}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-[13.5px] font-semibold transition-all hover:scale-[1.01] active:scale-[0.99]"
-                  style={{
-                    background: 'linear-gradient(135deg, #a855f7, #9333ea)',
-                    color: '#fff',
-                    boxShadow: '0 2px 8px rgba(168,85,247,0.35)',
-                    opacity: updating === task._id ? 0.7 : 1,
-                  }}
-                >
-                  {updating === task._id ? (
-                    <Spinner size="xs" />
-                  ) : (
-                    <>
-                      <ArrowRight size={14} /> Send for Review
-                    </>
-                  )}
-                </button>
-              )}
+              <StatusActionButton task={task} onStatusUpdate={onStatusUpdate} updating={updating} size="lg" />
             </div>
           )}
 
@@ -289,18 +391,15 @@ export default function MyTasksPage() {
     try {
       await api.put(`/tasks/${id}`, { status });
       setTasks(prev => prev.map(t => t._id === id ? { ...t, status } : t));
-      // Update drawer task too
       setSelectedTask(prev => prev?._id === id ? { ...prev, status } : prev);
     } finally { setUpdating(null); }
   };
 
   const openTaskDetail = (task) => {
-    // Use fresh data from tasks state
     const fresh = tasks.find(t => t._id === task._id) || task;
     setSelectedTask(fresh);
   };
 
-  // Keep selectedTask in sync with tasks state
   useEffect(() => {
     if (selectedTask) {
       const fresh = tasks.find(t => t._id === selectedTask._id);
@@ -313,7 +412,6 @@ export default function MyTasksPage() {
   const welcome = ROLE_WELCOME[user?.role] || { greeting: 'Your Tasks', icon: '📋', tip: '' };
 
   const today     = tasks.filter(t => t.status === 'today').length;
-  const pending = tasks.filter(t => t.status === 'pending').length;
   const inProgress = tasks.filter(t => t.status === 'in_progress').length;
   const review = tasks.filter(t => t.status === 'review').length;
   const completed = tasks.filter(t => t.status === 'completed').length;
@@ -346,7 +444,7 @@ export default function MyTasksPage() {
           ))}
         </Select>
         <span className="text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
-          Click any task card to view details & update status
+          Click any task to view details &amp; update status
         </span>
       </div>
 
@@ -375,19 +473,18 @@ export default function MyTasksPage() {
                 }}
               >
                 {/* Title row */}
-                <div className="flex items-start justify-between gap-3 mb-2">
+                <div className="flex items-start justify-between gap-3 mb-1.5">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="font-semibold text-[14px]" style={{ color: 'var(--fd-ink-1)' }}>
                         {task.title}
                       </span>
-                      {task.isClientRequest && (
-                        <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Client Request</span>
-                      )}
                       {isOverdue && (
                         <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>
                       )}
                     </div>
+                    {/* Assigned by — visible on card */}
+                    <AssignedByBadge createdBy={task.createdBy} isClientRequest={task.isClientRequest} />
                   </div>
                   <span
                     className="px-2.5 py-1 rounded-full text-[11px] font-semibold flex-shrink-0"
@@ -397,7 +494,7 @@ export default function MyTasksPage() {
                   </span>
                 </div>
 
-                <p className="text-sm line-clamp-2 mb-3" style={{ color: 'var(--fd-ink-4)' }}>
+                <p className="text-sm line-clamp-2 mb-3 mt-2" style={{ color: 'var(--fd-ink-4)' }}>
                   {linkifyText(task.description) || 'No description provided.'}
                 </p>
 
@@ -420,28 +517,10 @@ export default function MyTasksPage() {
                   )}
                 </div>
 
-                {/* Quick action buttons — still functional inline, but also open modal */}
+                {/* Action area */}
                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                  {(task.status === 'today' || task.status === 'pending') && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); updateStatus(task._id, 'in_progress'); }}
-                      disabled={updating === task._id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all hover:scale-[1.02]"
-                      style={{ background: 'linear-gradient(135deg, #4f6ef0, #6366f1)', color: '#fff', opacity: updating === task._id ? 0.7 : 1 }}
-                    >
-                      {updating === task._id ? <Spinner size="xs" /> : <><Play size={11} /> Start</>}
-                    </button>
-                  )}
-                  {task.status === 'in_progress' && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); updateStatus(task._id, 'review'); }}
-                      disabled={updating === task._id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all hover:scale-[1.02]"
-                      style={{ background: 'linear-gradient(135deg, #a855f7, #9333ea)', color: '#fff', opacity: updating === task._id ? 0.7 : 1 }}
-                    >
-                      {updating === task._id ? <Spinner size="xs" /> : <><ArrowRight size={11} /> Send for Review</>}
-                    </button>
-                  )}
+                  <StatusActionButton task={task} onStatusUpdate={updateStatus} updating={updating} size="sm" />
+
                   {task.status === 'review' && (
                     <span className="text-xs italic flex items-center gap-1" style={{ color: '#a855f7' }}>
                       <Clock size={11} /> Awaiting PM review

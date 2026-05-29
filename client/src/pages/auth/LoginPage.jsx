@@ -193,7 +193,7 @@ export default function LoginPage() {
           </form>
         </div>
 
-        {/* Demo accounts */}
+        {/* Demo accounts
         <div
           className="lp-demo"
           style={{
@@ -244,7 +244,7 @@ export default function LoginPage() {
               Credentials filled — hit <strong style={{ color: 'var(--fd-ink-2)' }}>Sign in</strong> ↑
             </p>
           )}
-        </div>
+        </div> */}
 
       </div>
     </>

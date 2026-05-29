@@ -163,7 +163,7 @@ export default function AdminLayout() {
         </div>
         {(!collapsed || isMobile) && (
           <span className="text-[14px] font-bold tracking-tight" style={{ color: 'var(--fd-ink-1)' }}>
-            FlowDesk
+             To Fly Media FlowDesk
           </span>
         )}
         {isMobile && (

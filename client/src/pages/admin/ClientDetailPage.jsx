@@ -56,11 +56,17 @@ const EVENT_COLORS = {
   follow_up:     { bg: '#a855f7', light: '#faf5ff', text: '#7e22ce' },
   campaign:      { bg: '#22c55e', light: '#f0fdf4', text: '#15803d' },
   shoot:         { bg: '#ec4899', light: '#fdf2f8', text: '#be185d' },
+  reel:          { bg: '#06b6d4', light: '#ecfeff', text: '#0e7490' },
+  static_post:   { bg: '#8b5cf6', light: '#f5f3ff', text: '#6d28d9' },
+  carousel:      { bg: '#f97316', light: '#fff7ed', text: '#c2410c' },
+  story:         { bg: '#e11d48', light: '#fff1f2', text: '#9f1239' },
   other:         { bg: '#94a3b8', light: '#f8fafc', text: '#475569' },
 };
 const TYPE_LABELS = {
   task_deadline: 'Task Deadline', meeting: 'Meeting', reminder: 'Reminder',
-  follow_up: 'Follow Up', campaign: 'Campaign', shoot: 'Shoot', other: 'Other',
+  follow_up: 'Follow Up', campaign: 'Campaign', shoot: 'Shoot',
+  reel: 'Reel', static_post: 'Static Post', carousel: 'Carousel', story: 'Story',
+  other: 'Other',
 };
 const SHOOT_SUBTYPES = [
   { value: 'photo_shoot',   label: 'Photo Shoot',    icon: '📷' },
@@ -271,9 +277,18 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
             className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
             style={{ color: 'var(--fd-ink-3)' }}><ChevronRight size={16} /></button>
         </div>
-        <Button size="sm" onClick={() => openNew(new Date())}>
-          <Plus size={13} /> Add Event
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setMonth(new Date())}
+            className="text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-colors"
+            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-3)' }}
+          >
+            Today
+          </button>
+          <Button size="sm" onClick={() => openNew(new Date())}>
+            <Plus size={13} /> Add Event
+          </Button>
+        </div>
       </div>
 
       {/* Grid */}
@@ -410,6 +425,23 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
               </div>
               <Input label="Title" value={form.title || ''} autoFocus
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Event title" />
+              {/* Date & Time */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Start</label>
+                  <input type="datetime-local" className="fd-input text-[12px]"
+                    value={form.startDate ? form.startDate.slice(0, 16) : ''}
+                    onChange={e => setForm(f => ({ ...f, startDate: new Date(e.target.value).toISOString() }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>End</label>
+                  <input type="datetime-local" className="fd-input text-[12px]"
+                    value={form.endDate ? form.endDate.slice(0, 16) : ''}
+                    onChange={e => setForm(f => ({ ...f, endDate: new Date(e.target.value).toISOString() }))}
+                  />
+                </div>
+              </div>
               {/* Status */}
               <div className="space-y-1.5">
                 <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Status</label>

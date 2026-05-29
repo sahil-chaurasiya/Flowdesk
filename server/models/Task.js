@@ -26,7 +26,7 @@ const taskSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'in_progress', 'review', 'completed', 'cancelled'],
+    enum: ['today', 'pending', 'in_progress', 'review', 'completed', 'cancelled'],
     default: 'pending'
   },
   priority: {

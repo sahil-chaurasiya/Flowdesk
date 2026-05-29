@@ -17,7 +17,7 @@ const calendarEventSchema = new mongoose.Schema({
   // Type — drives colour coding in UI
   type: {
     type: String,
-    enum: ['task_deadline', 'meeting', 'reminder', 'follow_up', 'campaign', 'shoot', 'other'],
+    enum: ['task_deadline', 'meeting', 'reminder', 'follow_up', 'campaign', 'shoot', 'reel', 'static_post', 'carousel', 'story', 'other'],
     default: 'other',
   },
 

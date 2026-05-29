@@ -2444,7 +2444,7 @@ export default function ClientDetailPage() {
 
   const [updateForm, setUpdateForm] = useState({ title: '', content: '', type: 'general' });
   const [taskForm, setTaskForm] = useState({
-    title: '', description: '', priority: 'medium', deadline: '',
+    title: '', description: '', priority: 'medium', status: 'pending', deadline: '',
     assignedTo: '', category: 'other', isClientVisible: true
   });
   const [editForm, setEditForm] = useState({});
@@ -3718,12 +3718,17 @@ export default function ClientDetailPage() {
         <div className="space-y-4">
           <Input label="Title" value={taskForm.title} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} required />
           <Textarea label="Description" value={taskForm.description} onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))} rows={3} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select label="Category" value={taskForm.category} onChange={e => setTaskForm(p => ({ ...p, category: e.target.value }))}>
               {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </Select>
             <Select label="Priority" value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}>
               {['low', 'medium', 'high', 'urgent'].map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+            </Select>
+            <Select label="Status" value={taskForm.status} onChange={e => setTaskForm(p => ({ ...p, status: e.target.value }))}>
+              {['today', 'pending', 'in_progress', 'review', 'completed', 'cancelled'].map(s => (
+                <option key={s} value={s}>{{ today: 'Today', pending: 'Pending', in_progress: 'In Progress', review: 'Review', completed: 'Completed', cancelled: 'Cancelled' }[s]}</option>
+              ))}
             </Select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

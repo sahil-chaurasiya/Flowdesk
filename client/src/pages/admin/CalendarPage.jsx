@@ -22,6 +22,10 @@ const EVENT_COLORS = {
   follow_up:     { bg: '#a855f7', light: '#faf5ff', text: '#7e22ce', border: '#e9d5ff' },
   campaign:      { bg: '#22c55e', light: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
   shoot:         { bg: '#ec4899', light: '#fdf2f8', text: '#be185d', border: '#fbcfe8' },
+  reel:          { bg: '#06b6d4', light: '#ecfeff', text: '#0e7490', border: '#a5f3fc' },
+  static_post:   { bg: '#8b5cf6', light: '#f5f3ff', text: '#6d28d9', border: '#ddd6fe' },
+  carousel:      { bg: '#f97316', light: '#fff7ed', text: '#c2410c', border: '#fed7aa' },
+  story:         { bg: '#e11d48', light: '#fff1f2', text: '#9f1239', border: '#fecdd3' },
   other:         { bg: '#94a3b8', light: '#f8fafc', text: '#475569', border: '#e2e8f0' },
 };
 
@@ -32,6 +36,10 @@ const TYPE_LABELS = {
   follow_up:     'Follow Up',
   campaign:      'Campaign',
   shoot:         'Shoot',
+  reel:          'Reel',
+  static_post:   'Static Post',
+  carousel:      'Carousel',
+  story:         'Story',
   other:         'Other',
 };
 

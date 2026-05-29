@@ -8,7 +8,8 @@ import { Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 import { formatDate } from '../../lib/utils';
 
 const COLUMNS = [
-  { id: 'pending',     label: 'To Do',       color: '#f59e0b', icon: AlertCircle },
+  { id: 'today',       label: 'Today',        color: '#f59e0b', icon: AlertCircle },
+  { id: 'pending',     label: 'Pending',      color: '#94a3b8', icon: AlertCircle },
   { id: 'in_progress', label: 'In Progress',  color: '#4f6ef0', icon: Clock },
   { id: 'review',      label: 'In Review',    color: '#a855f7', icon: Target },
   { id: 'completed',   label: 'Completed',    color: '#22c55e', icon: CheckCircle },
@@ -31,6 +32,7 @@ const ROLE_LABELS = {
 };
 
 const STATUS_STYLE = {
+  today:       { background: 'rgba(245,158,11,0.12)', color: '#f59e0b' },
   pending:     { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
   in_progress: { background: 'rgba(79,110,240,0.12)', color: '#4f6ef0' },
   review:      { background: 'rgba(168,85,247,0.12)', color: '#a855f7' },
@@ -55,7 +57,7 @@ function TaskDrawer({ task, onClose, onStatusChange, updating }) {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize" style={ss}>
-                {task.status.replace('_', ' ')}
+                {(COLUMNS.find(c => c.id === task.status)?.label) || task.status.replace('_', ' ')}
               </span>
               {isOverdue && <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>}
             </div>

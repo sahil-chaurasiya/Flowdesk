@@ -32,6 +32,7 @@ const PRIORITY_STYLE = {
 };
 
 const STATUS_STYLE = {
+  today:       { background: 'rgba(245,158,11,0.12)', color: '#f59e0b' },
   pending:     { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
   in_progress: { background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' },
   review:      { background: 'rgba(126,34,206,0.12)', color: '#a855f7' },
@@ -39,7 +40,16 @@ const STATUS_STYLE = {
   cancelled:   { background: 'rgba(185,28,28,0.12)', color: '#ef4444' },
 };
 
-const STATUSES = ['pending', 'in_progress', 'review', 'completed', 'cancelled'];
+const STATUSES = ['today', 'pending', 'in_progress', 'review', 'completed', 'cancelled'];
+
+const STATUS_LABELS = {
+  today:       'Today',
+  pending:     'Pending',
+  in_progress: 'In Progress',
+  review:      'Review',
+  completed:   'Completed',
+  cancelled:   'Cancelled',
+};
 
 export default function TasksPage() {
   const { user } = useAuthStore();
@@ -134,6 +144,7 @@ export default function TasksPage() {
 
   const FILTER_TABS = [
     { label: 'All',         value: '' },
+    { label: 'Today',       value: 'today' },
     { label: 'Pending',     value: 'pending' },
     { label: 'In Progress', value: 'in_progress' },
     { label: 'Review',      value: 'review' },
@@ -284,7 +295,7 @@ export default function TasksPage() {
                           >
                             {STATUSES.map(s => (
                               <option key={s} value={s} style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}>
-                                {s.replace('_', ' ')}
+                                {STATUS_LABELS[s] || s.replace('_', ' ')}
                               </option>
                             ))}
                           </select>
@@ -293,7 +304,7 @@ export default function TasksPage() {
                             className="text-[11.5px] font-medium px-2.5 py-1.5 rounded-lg capitalize inline-block"
                             style={ss}
                           >
-                            {task.status.replace('_', ' ')}
+                            {STATUS_LABELS[task.status] || task.status.replace('_', ' ')}
                           </span>
                         )}
                       </td>
@@ -346,13 +357,13 @@ export default function TasksPage() {
                       >
                         {STATUSES.map(s => (
                           <option key={s} value={s} style={{ background: 'var(--fd-surface)', color: 'var(--fd-ink-1)' }}>
-                            {s.replace('_', ' ')}
+                            {STATUS_LABELS[s] || s.replace('_', ' ')}
                           </option>
                         ))}
                       </select>
                     ) : (
                       <span className="text-[11px] font-medium px-2 py-0.5 rounded-lg capitalize" style={ss}>
-                        {task.status.replace('_', ' ')}
+                        {STATUS_LABELS[task.status] || task.status.replace('_', ' ')}
                       </span>
                     )}
                     <span className="text-[11.5px]" style={{ color: 'var(--fd-ink-4)' }}>
@@ -429,7 +440,7 @@ export default function TasksPage() {
               ))}
             </Select>
             <Select label="Status" value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
-              {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+              {STATUSES.map(s => <option key={s} value={s}>{STATUS_LABELS[s] || s.replace('_', ' ')}</option>)}
             </Select>
             <Input label="Deadline" type="date" value={form.deadline} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
           </div>

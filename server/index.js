@@ -149,6 +149,24 @@ server.listen(PORT, () => {
   console.log(`🚀 FlowDesk Server running on port ${PORT}`);
   console.log(`📡 Environment: ${process.env.NODE_ENV}`);
   console.log(`🤖 AI Assistant: ${process.env.GROQ_API_KEY ? 'enabled' : 'GROQ_API_KEY not set — AI disabled'}`);
+
+  // ── Deadline auto-move: 'today' tasks past their deadline → 'pending' ──────
+  const Task = require('./models/Task');
+  const runDeadlineCheck = async () => {
+    try {
+      const result = await Task.updateMany(
+        { status: 'today', deadline: { $lt: new Date() } },
+        { $set: { status: 'pending' } }
+      );
+      if (result.modifiedCount > 0) {
+        console.log(`⏰ Moved ${result.modifiedCount} overdue "today" task(s) → pending`);
+      }
+    } catch (err) {
+      console.error('Deadline check error:', err.message);
+    }
+  };
+  runDeadlineCheck();
+  setInterval(runDeadlineCheck, 60 * 60 * 1000);
 });
 
 module.exports = { app, server };

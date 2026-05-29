@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag } from 'lucide-react';
+import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag, Trash2, Edit2, Play, ArrowRight } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { useToast } from '../../components/ui/index';
@@ -40,8 +40,20 @@ const STATUS_STYLE = {
   cancelled:   { background: 'rgba(239,68,68,0.12)', color: '#ef4444' },
 };
 
+// Converts URLs in text to clickable links
+function linkifyText(text) {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) =>
+    urlRegex.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#4f6ef0', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
+      : part
+  );
+}
+
 // ── Task Detail Drawer ────────────────────────────────────────────────────────
-function TaskDrawer({ task, onClose, onStatusChange, updating }) {
+function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit, isManager }) {
   if (!task) return null;
   const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
   const ss = STATUS_STYLE[task.status] || STATUS_STYLE.pending;
@@ -63,9 +75,21 @@ function TaskDrawer({ task, onClose, onStatusChange, updating }) {
             </div>
             <h2 className="text-[16px] font-bold leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</h2>
           </div>
-          <button onClick={onClose} className="flex-shrink-0 p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" style={{ color: 'var(--fd-ink-4)' }}>
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {isManager && (
+              <>
+                <button onClick={() => onEdit(task)} className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" style={{ color: 'var(--fd-ink-4)' }} title="Edit task">
+                  <Edit2 size={15} />
+                </button>
+                <button onClick={() => onDelete(task._id)} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" style={{ color: '#ef4444' }} title="Delete task">
+                  <Trash2 size={15} />
+                </button>
+              </>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" style={{ color: 'var(--fd-ink-4)' }}>
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
@@ -75,7 +99,7 @@ function TaskDrawer({ task, onClose, onStatusChange, updating }) {
                 <FileText size={12} style={{ color: 'var(--fd-ink-4)' }} />
                 <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Description</span>
               </div>
-              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>{task.description}</p>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>{linkifyText(task.description)}</p>
             </div>
           )}
 
@@ -180,6 +204,7 @@ function TaskCard({ task, onDragStart, onClick }) {
           {task.priority}
         </span>
       </div>
+
     </div>
   );
 }
@@ -226,6 +251,7 @@ function Column({ column, tasks, onDrop, onDragOver, onDragStart, updating, onCa
       >
         <Plus size={13} /> Add task
       </button>
+
     </div>
   );
 }
@@ -348,6 +374,53 @@ export default function KanbanPage() {
     } finally { setSaving(false); }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this task? This cannot be undone.')) return;
+    try {
+      await api.delete(`/tasks/${id}`);
+      setTasks(prev => prev.filter(t => t._id !== id));
+      setSelectedTask(null);
+      toast({ type: 'success', title: 'Task deleted' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to delete task', message: err?.response?.data?.message });
+    }
+  };
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [editSaving, setEditSaving] = useState(false);
+
+  const openEdit = (task) => {
+    setEditForm({
+      title: task.title,
+      description: task.description || '',
+      client: task.client?._id || '',
+      assignedTo: task.assignedTo?._id || '',
+      priority: task.priority,
+      status: task.status,
+      deadline: task.deadline ? task.deadline.split('T')[0] : '',
+      category: task.category || 'other',
+      isClientVisible: task.isClientVisible || false,
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditSave = async () => {
+    if (!editForm.title.trim()) { toast({ type: 'error', title: 'Title is required' }); return; }
+    setEditSaving(true);
+    try {
+      const { data } = await api.put(`/tasks/${selectedTask._id}`, editForm);
+      setTasks(prev => prev.map(t => t._id === selectedTask._id ? data.task : t));
+      setSelectedTask(data.task);
+      setShowEditModal(false);
+      toast({ type: 'success', title: 'Task updated' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to update task', message: err?.response?.data?.message });
+    } finally { setEditSaving(false); }
+  };
+
+  const isManager = ['admin', 'manager'].includes(user?.role);
+
   const byStatus = (status) => tasks.filter(t => t.status === status);
 
   const membersByRole = [...members, ...managers].reduce((acc, m) => {
@@ -462,6 +535,9 @@ export default function KanbanPage() {
           onClose={() => setSelectedTask(null)}
           onStatusChange={handleStatusFromDrawer}
           updating={updating}
+          onDelete={handleDelete}
+          onEdit={openEdit}
+          isManager={isManager}
         />
       )}
 
@@ -511,6 +587,56 @@ export default function KanbanPage() {
           </div>
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input type="checkbox" checked={form.isClientVisible} onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
+            <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
+          </label>
+        </div>
+      </Modal>
+      {/* Edit task modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        title="Edit Task"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowEditModal(false)}>Cancel</Button>
+            <Button loading={editSaving} onClick={handleEditSave}>Save Changes</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Input label="Title *" value={editForm.title || ''} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
+          <Textarea label="Description" value={editForm.description || ''} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} />
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Client" value={editForm.client || ''} onChange={e => setEditForm(p => ({ ...p, client: e.target.value }))}>
+              <option value="">Select client…</option>
+              {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
+            </Select>
+            <Select label="Category" value={editForm.category || 'other'} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}>
+              {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </Select>
+          </div>
+          <div>
+            <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Assign To</label>
+            <select value={editForm.assignedTo || ''} onChange={e => setEditForm(p => ({ ...p, assignedTo: e.target.value }))} className="fd-input">
+              <option value="">Unassigned</option>
+              {Object.entries(membersByRole).map(([roleLabel, roleMembers]) => (
+                <optgroup key={roleLabel} label={roleLabel}>
+                  {roleMembers.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Select label="Priority" value={editForm.priority || 'medium'} onChange={e => setEditForm(p => ({ ...p, priority: e.target.value }))}>
+              {['low','medium','high','urgent'].map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase()+v.slice(1)}</option>)}
+            </Select>
+            <Select label="Status" value={editForm.status || 'pending'} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}>
+              {COLUMNS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </Select>
+            <Input label="Deadline" type="date" value={editForm.deadline || ''} onChange={e => setEditForm(p => ({ ...p, deadline: e.target.value }))} />
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input type="checkbox" checked={editForm.isClientVisible || false} onChange={e => setEditForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
             <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
           </label>
         </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { CheckSquare, Plus, Clock, Search } from 'lucide-react';
+import { CheckSquare, Plus, Clock, Search, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner } from '../../components/shared/LoadingScreen';
@@ -120,6 +120,12 @@ export default function TasksPage() {
       setShowModal(false);
       load();
     } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this task? This cannot be undone.')) return;
+    await api.delete(`/tasks/${id}`);
+    setTasks(prev => prev.filter(t => t._id !== id));
   };
 
   const updateStatus = async (id, status) => {
@@ -317,7 +323,19 @@ export default function TasksPage() {
                         ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>}
                       </td>
                       <td>
-                        <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
+                        <div className="flex items-center gap-1">
+                          <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
+                          {isManager && (
+                            <button
+                              onClick={() => handleDelete(task._id)}
+                              className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                              style={{ color: '#ef4444' }}
+                              title="Delete task"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -339,7 +357,7 @@ export default function TasksPage() {
                         {task.client?.company} · {timeAgo(task.createdAt)}
                       </div>
                     </div>
-                    <Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>
+                    <div className="flex items-center gap-1"><Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>{isManager && (<button onClick={() => handleDelete(task._id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" style={{ color: '#ef4444' }} title="Delete task"><Trash2 size={13} /></button>)}</div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span

@@ -9,6 +9,19 @@ import { PageHeader, EmptyState, Card, Spinner, StatCard } from '../../component
 import { Button, Select } from '../../components/ui/index';
 import { formatDate, getTaskStatusColor, getPriorityColor, timeAgo } from '../../lib/utils';
 
+
+// Converts URLs in text to clickable anchor elements
+function linkifyText(text) {
+  if (!text) return null;
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) =>
+    urlRegex.test(part)
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#4f6ef0', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
+      : part
+  );
+}
+
 const CATEGORY_LABELS = {
   paid_ads: '📊 Paid Ads',
   social_media: '📱 Social Media',
@@ -34,7 +47,8 @@ const PRIORITY_COLORS = {
 };
 
 const STATUS_META = {
-  pending:     { label: 'To Do',       color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  today:       { label: 'Today',       color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  pending:     { label: 'Pending',     color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
   in_progress: { label: 'In Progress', color: '#4f6ef0', bg: 'rgba(79,110,240,0.1)' },
   review:      { label: 'In Review',   color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },
   completed:   { label: 'Completed',   color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
@@ -112,7 +126,7 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
                 </span>
               </div>
               <p className="text-[13.5px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>
-                {task.description}
+                {linkifyText(task.description)}
               </p>
             </div>
           ) : (
@@ -145,7 +159,7 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
           </div>
 
           {/* Action zone */}
-          {(task.status === 'pending' || task.status === 'in_progress') && (
+          {(task.status === 'today' || task.status === 'pending' || task.status === 'in_progress') && (
             <div
               className="rounded-xl p-4"
               style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
@@ -153,7 +167,7 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
               <div className="text-[12px] font-semibold mb-3" style={{ color: 'var(--fd-ink-3)' }}>
                 Update Status
               </div>
-              {task.status === 'pending' && (
+              {(task.status === 'today' || task.status === 'pending') && (
                 <button
                   onClick={() => onStatusUpdate(task._id, 'in_progress')}
                   disabled={updating === task._id}
@@ -298,12 +312,13 @@ export default function MyTasksPage() {
 
   const welcome = ROLE_WELCOME[user?.role] || { greeting: 'Your Tasks', icon: '📋', tip: '' };
 
+  const today     = tasks.filter(t => t.status === 'today').length;
   const pending = tasks.filter(t => t.status === 'pending').length;
   const inProgress = tasks.filter(t => t.status === 'in_progress').length;
   const review = tasks.filter(t => t.status === 'review').length;
   const completed = tasks.filter(t => t.status === 'completed').length;
 
-  const statuses = ['pending', 'in_progress', 'review', 'completed', 'cancelled'];
+  const statuses = ['today', 'pending', 'in_progress', 'review', 'completed', 'cancelled'];
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -316,7 +331,7 @@ export default function MyTasksPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="To Do"       value={pending}    icon={AlertCircle} color="orange" subtitle="Pending" />
+        <StatCard title="Today"       value={today}      icon={AlertCircle} color="orange" subtitle="Due today" />
         <StatCard title="In Progress" value={inProgress} icon={Play}        color="blue"   subtitle="Active" />
         <StatCard title="In Review"   value={review}     icon={Clock}       color="purple" subtitle="Awaiting approval" />
         <StatCard title="Completed"   value={completed}  icon={CheckCircle} color="green"  subtitle="Done" />
@@ -327,9 +342,7 @@ export default function MyTasksPage() {
         <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-44">
           <option value="">All Statuses</option>
           {statuses.map(s => (
-            <option key={s} value={s}>
-              {s.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
-            </option>
+            <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>
           ))}
         </Select>
         <span className="text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
@@ -385,7 +398,7 @@ export default function MyTasksPage() {
                 </div>
 
                 <p className="text-sm line-clamp-2 mb-3" style={{ color: 'var(--fd-ink-4)' }}>
-                  {task.description || 'No description provided.'}
+                  {linkifyText(task.description) || 'No description provided.'}
                 </p>
 
                 {/* Meta */}
@@ -409,7 +422,7 @@ export default function MyTasksPage() {
 
                 {/* Quick action buttons — still functional inline, but also open modal */}
                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                  {task.status === 'pending' && (
+                  {(task.status === 'today' || task.status === 'pending') && (
                     <button
                       onClick={(e) => { e.stopPropagation(); updateStatus(task._id, 'in_progress'); }}
                       disabled={updating === task._id}

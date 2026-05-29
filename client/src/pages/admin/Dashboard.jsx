@@ -352,91 +352,86 @@ function ProductivityPanel() {
   );
 }
 
-// ── Manager Dashboard ─────────────────────────────────────────────────────────
-function ManagerDashboard() {
-  const [stats, setStats]     = useState({});
-  const [tasks, setTasks]     = useState([]);
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
+// ── Manager KPI Stats ─────────────────────────────────────────────────────────
+function ManagerKPIs({ stats, loading }) {
+  if (loading) return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="rounded-xl h-24 animate-pulse" style={{ background: 'var(--fd-surface-sunken)' }} />
+      ))}
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <StatCard title="Active Clients" value={stats?.activeClients ?? 0} icon={Building2}    color="blue"   linkTo="/admin/clients?status=active" />
+      <StatCard title="Open Tasks"     value={stats?.openTasks    ?? 0} icon={CheckSquare}   color="orange" subtitle="Pending + In Progress" linkTo="/admin/tasks?status=pending" />
+      <StatCard title="In Review"      value={stats?.reviewTasks  ?? 0} icon={Clock}         color="purple" subtitle="Awaiting approval"     linkTo="/admin/tasks?status=in_review" />
+      <StatCard title="Team Members"   value={stats?.teamCount    ?? 0} icon={Users}         color="green"  linkTo="/admin/team" />
+    </div>
+  );
+}
 
-  useEffect(() => {
-    Promise.all([
-      api.get('/dashboard/stats').catch(() => ({ data: {} })),
-      api.get('/tasks?status=pending&limit=6'),
-      api.get('/clients?limit=5&status=active'),
-    ]).then(([s, t, c]) => {
-      setStats(s.data);
-      setTasks(t.data.tasks || []);
-      setClients(c.data.clients || []);
-    }).finally(() => setLoading(false));
-  }, []);
+// ── Manager Pending Tasks ─────────────────────────────────────────────────────
+function ManagerPendingTasks({ tasks, loading }) {
+  return (
+    <Card>
+      <CardHeader>
+        <SectionHeading title="Pending Tasks" count={loading ? undefined : tasks.length} linkTo="/admin/tasks" />
+      </CardHeader>
+      <CardContent className="p-0">
+        {loading ? (
+          <div className="flex items-center justify-center h-32"><Spinner /></div>
+        ) : tasks.length === 0 ? (
+          <EmptyState icon={CheckSquare} title="No pending tasks" description="All tasks are in progress or completed." />
+        ) : (
+          tasks.map(t => <TaskRow key={t._id} task={t} />)
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-  if (loading) return <div className="flex items-center justify-center h-60"><Spinner size="lg" /></div>;
-
+// ── Manager Dashboard (Analytics + Clients + Productivity) ───────────────────
+function ManagerDashboard({ clients, loadingClients }) {
   return (
     <div className="space-y-5">
-      {/* KPI row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <StatCard title="Active Clients" value={stats?.activeClients ?? 0} icon={Building2}    color="blue"   linkTo="/admin/clients?status=active" />
-        <StatCard title="Open Tasks"     value={stats?.openTasks    ?? 0} icon={CheckSquare}   color="orange" subtitle="Pending + In Progress" linkTo="/admin/tasks?status=pending" />
-        <StatCard title="In Review"      value={stats?.reviewTasks  ?? 0} icon={Clock}         color="purple" subtitle="Awaiting approval"     linkTo="/admin/tasks?status=in_review" />
-        <StatCard title="Team Members"   value={stats?.teamCount    ?? 0} icon={Users}         color="green"  linkTo="/admin/team" />
-      </div>
-
       {/* Analytics charts */}
       <AnalyticsPanel />
 
-      {/* Tasks + Clients row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <SectionHeading title="Pending Tasks" count={tasks.length} linkTo="/admin/tasks" />
-            </CardHeader>
-            <CardContent className="p-0">
-              {tasks.length === 0 ? (
-                <EmptyState icon={CheckSquare} title="No pending tasks" description="All tasks are in progress or completed." />
-              ) : (
-                tasks.map(t => <TaskRow key={t._id} task={t} />)
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div>
-          <Card>
-            <CardHeader>
-              <SectionHeading title="Active Clients" linkTo="/admin/clients" />
-            </CardHeader>
-            <CardContent className="p-0">
-              {clients.length === 0 ? (
-                <div className="py-8 text-center text-[13px]" style={{ color: 'var(--fd-ink-4)' }}>No active clients</div>
-              ) : (
-                clients.map(client => (
-                  <Link
-                    key={client._id}
-                    to={`/admin/clients/${client._id}`}
-                    className="flex items-center gap-3 px-5 py-3.5 border-b last:border-0 group transition-colors hover:bg-[var(--fd-table-row-hover)]"
-                    style={{ borderColor: 'var(--fd-table-row-border)' }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                      style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
-                    >
-                      {client.company?.charAt(0)?.toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[12.5px] font-medium truncate" style={{ color: 'var(--fd-ink-1)' }}>{client.company}</div>
-                      <div className="text-[11px] truncate" style={{ color: 'var(--fd-ink-4)' }}>{client.industry}</div>
-                    </div>
-                    <ChevronRight size={13} style={{ color: 'var(--fd-ink-5)' }} />
-                  </Link>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {/* Clients row */}
+      <Card>
+        <CardHeader>
+          <SectionHeading title="Active Clients" linkTo="/admin/clients" />
+        </CardHeader>
+        <CardContent className="p-0">
+          {loadingClients ? (
+            <div className="flex items-center justify-center h-32"><Spinner /></div>
+          ) : clients.length === 0 ? (
+            <div className="py-8 text-center text-[13px]" style={{ color: 'var(--fd-ink-4)' }}>No active clients</div>
+          ) : (
+            clients.map(client => (
+              <Link
+                key={client._id}
+                to={`/admin/clients/${client._id}`}
+                className="flex items-center gap-3 px-5 py-3.5 border-b last:border-0 group transition-colors hover:bg-[var(--fd-table-row-hover)]"
+                style={{ borderColor: 'var(--fd-table-row-border)' }}
+              >
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                  style={{ background: 'var(--fd-sidebar-active)', color: 'var(--fd-sidebar-link-active)' }}
+                >
+                  {client.company?.charAt(0)?.toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] font-medium truncate" style={{ color: 'var(--fd-ink-1)' }}>{client.company}</div>
+                  <div className="text-[11px] truncate" style={{ color: 'var(--fd-ink-4)' }}>{client.industry}</div>
+                </div>
+                <ChevronRight size={13} style={{ color: 'var(--fd-ink-5)' }} />
+              </Link>
+            ))
+          )}
+        </CardContent>
+      </Card>
 
       {/* Productivity */}
       <ProductivityPanel />
@@ -1405,11 +1400,36 @@ export default function AdminDashboard() {
   const showFollowUps    = ['admin', 'performance_marketer'].includes(user?.role);
   const isPM             = user?.role === 'performance_marketer';
 
+  // Data fetching for admin/manager dashboard at top level
+  const [stats,          setStats]          = useState({});
+  const [tasks,          setTasks]          = useState([]);
+  const [clients,        setClients]        = useState([]);
+  const [loadingStats,   setLoadingStats]   = useState(true);
+  const [loadingTasks,   setLoadingTasks]   = useState(true);
+  const [loadingClients, setLoadingClients] = useState(true);
+
+  useEffect(() => {
+    if (!isManagerOrAdmin) return;
+    api.get('/dashboard/stats')
+      .then(r => setStats(r.data))
+      .catch(() => {})
+      .finally(() => setLoadingStats(false));
+    api.get('/tasks?status=pending&limit=6')
+      .then(r => setTasks(r.data.tasks || []))
+      .catch(() => {})
+      .finally(() => setLoadingTasks(false));
+    api.get('/clients?limit=5&status=active')
+      .then(r => setClients(r.data.clients || []))
+      .catch(() => {})
+      .finally(() => setLoadingClients(false));
+  }, [isManagerOrAdmin]);
+
   // Performance marketer gets their own focused dashboard
   if (isPM) return <PerformanceMarketerDashboard />;
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-[22px] font-bold tracking-[-0.02em] leading-none mb-1.5" style={{ color: 'var(--fd-ink-1)' }}>
@@ -1429,13 +1449,26 @@ export default function AdminDashboard() {
         )}
       </div>
 
-{/* Follow-up reminders: admin + performance_marketer */}
-{showFollowUps && <FollowUpsWidget />}
+      {isManagerOrAdmin ? (
+        <>
+          {/* 1. KPIs — very top */}
+          <ManagerKPIs stats={stats} loading={loadingStats} />
 
-{/* Shoot schedule: admin & manager only (shoots-specific view) */}
-{isManagerOrAdmin && <ShootScheduleWidget />}
+          {/* 2. Follow-up reminders (admin only) */}
+          {showFollowUps && <FollowUpsWidget />}
 
-{isManagerOrAdmin ? <ManagerDashboard /> : <TeamMemberDashboard user={user} />}
+          {/* 3. Pending Tasks */}
+          <ManagerPendingTasks tasks={tasks} loading={loadingTasks} />
+
+          {/* 4. Shoot Schedule */}
+          <ShootScheduleWidget />
+
+          {/* 6. Rest: Analytics + Clients + Productivity */}
+          <ManagerDashboard clients={clients} loadingClients={loadingClients} />
+        </>
+      ) : (
+        <TeamMemberDashboard user={user} />
+      )}
     </div>
   );
 }

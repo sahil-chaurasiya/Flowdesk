@@ -321,24 +321,74 @@ router.post('/:id/logo', protect, authorize('admin', 'manager'), asyncHandler(as
 }));
 
 // @route GET /api/clients/:id/gmb
+// Returns all GMB profiles. If the client has none but has legacy `gmb` data,
+// it auto-migrates the legacy data into gmbProfiles[0].
 router.get('/:id/gmb', protect, asyncHandler(async (req, res) => {
   if (req.user.role === 'client' && String(req.user.clientId) !== req.params.id) {
     return res.status(403).json({ success: false, message: 'Not authorized' });
   }
-  const client = await Client.findById(req.params.id).select('gmb');
+  const client = await Client.findById(req.params.id).select('gmb gmbProfiles');
   if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
-  res.json({ success: true, gmb: client.gmb || {} });
+
+  // Auto-migrate legacy single gmb → gmbProfiles if gmbProfiles is empty
+  if ((!client.gmbProfiles || client.gmbProfiles.length === 0) && client.gmb && Object.keys(client.gmb.toObject ? client.gmb.toObject() : client.gmb).some(k => client.gmb[k])) {
+    const legacyData = client.gmb.toObject ? client.gmb.toObject() : { ...client.gmb };
+    delete legacyData._id;
+    const migratedProfile = { profileName: 'Main Location', ...legacyData, history: [] };
+    await Client.findByIdAndUpdate(req.params.id, { gmbProfiles: [migratedProfile] });
+    return res.json({ success: true, gmbProfiles: [migratedProfile], gmb: client.gmb });
+  }
+
+  res.json({ success: true, gmbProfiles: client.gmbProfiles || [], gmb: client.gmb || {} });
 }));
 
 // @route PUT /api/clients/:id/gmb
+// Body: { profiles: [...] }  — full array of profiles to save.
+// Before overwriting, saves a history snapshot for any profile that has changed.
 router.put('/:id/gmb', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
-  const client = await Client.findByIdAndUpdate(
-    req.params.id,
-    { gmb: req.body },
-    { new: true, runValidators: true }
-  ).select('gmb');
+  const client = await Client.findById(req.params.id).select('gmb gmbProfiles');
   if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
-  res.json({ success: true, gmb: client.gmb || {} });
+
+  const incomingProfiles = req.body.profiles || [];
+  const existingProfiles = client.gmbProfiles || [];
+
+  const SNAPSHOT_FIELDS = ['businessName','category','phone','website','address','profileUrl',
+    'totalReviews','avgRating','totalViews','totalClicks','newReviews','calls','directions','messages','notes'];
+
+  const updatedProfiles = incomingProfiles.map((incoming) => {
+    // Try to find existing profile by _id (for updates) or treat as new
+    const existing = incoming._id
+      ? existingProfiles.find(p => String(p._id) === String(incoming._id))
+      : null;
+
+    // Build the new profile, preserving existing history
+    const newHistory = existing ? [...(existing.history || [])] : [];
+
+    if (existing) {
+      // Check if any data field changed — if so, push a snapshot of the OLD data
+      const hasChanges = SNAPSHOT_FIELDS.some(k => String(existing[k] || '') !== String(incoming[k] || ''));
+      if (hasChanges) {
+        const snapshot = {};
+        SNAPSHOT_FIELDS.forEach(k => { snapshot[k] = existing[k]; });
+        newHistory.push({
+          savedAt: new Date(),
+          savedBy: req.user._id,
+          snapshot,
+        });
+      }
+    }
+
+    return {
+      ...(incoming._id ? { _id: incoming._id } : {}),
+      profileName: incoming.profileName || 'Location',
+      ...Object.fromEntries(SNAPSHOT_FIELDS.map(k => [k, incoming[k] || ''])),
+      history: newHistory,
+    };
+  });
+
+  await Client.findByIdAndUpdate(req.params.id, { gmbProfiles: updatedProfiles }, { new: true });
+  const updated = await Client.findById(req.params.id).select('gmbProfiles');
+  res.json({ success: true, gmbProfiles: updated.gmbProfiles || [] });
 }));
 
 module.exports = router;

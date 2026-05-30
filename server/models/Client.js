@@ -109,6 +109,7 @@ const clientSchema = new mongoose.Schema({
     linkedin: String,
     google: String
   },
+  // Legacy single GMB (kept for backward-compat migration — new code uses gmbProfiles)
   gmb: {
     businessName:  String,
     category:      String,
@@ -125,7 +126,48 @@ const clientSchema = new mongoose.Schema({
     directions:    String,
     messages:      String,
     notes:         String,
-  }
+  },
+  // Multi-location GMB profiles — each entry is one GBP location
+  gmbProfiles: [{
+    profileName:   { type: String, default: 'Location 1' }, // display label
+    businessName:  String,
+    category:      String,
+    phone:         String,
+    website:       String,
+    address:       String,
+    profileUrl:    String,
+    totalReviews:  String,
+    avgRating:     String,
+    totalViews:    String,
+    totalClicks:   String,
+    newReviews:    String,
+    calls:         String,
+    directions:    String,
+    messages:      String,
+    notes:         String,
+    // History: every time data is saved, previous values are appended here
+    history: [{
+      savedAt:      { type: Date, default: Date.now },
+      savedBy:      { type: require('mongoose').Schema.Types.ObjectId, ref: 'User' },
+      snapshot: {   // full copy of the profile data at time of save
+        businessName:  String,
+        category:      String,
+        phone:         String,
+        website:       String,
+        address:       String,
+        profileUrl:    String,
+        totalReviews:  String,
+        avgRating:     String,
+        totalViews:    String,
+        totalClicks:   String,
+        newReviews:    String,
+        calls:         String,
+        directions:    String,
+        messages:      String,
+        notes:         String,
+      }
+    }]
+  }]
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

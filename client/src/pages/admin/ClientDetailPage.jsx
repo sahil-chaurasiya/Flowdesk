@@ -511,132 +511,310 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
 }
 
 // ─── GMB Panel Tab ────────────────────────────────────────────────────────────
+const GMB_FIELDS = [
+  { label: 'Business Name',       key: 'businessName'  },
+  { label: 'Category',            key: 'category'      },
+  { label: 'Phone',               key: 'phone'         },
+  { label: 'Website',             key: 'website'       },
+  { label: 'Address',             key: 'address'       },
+  { label: 'GMB Profile URL',     key: 'profileUrl'    },
+  { label: 'New Reviews (Month)', key: 'newReviews'    },
+  { label: 'Calls (Month)',       key: 'calls'         },
+  { label: 'Direction Requests',  key: 'directions'    },
+  { label: 'Messages (Month)',    key: 'messages'      },
+];
+const GMB_KPI_FIELDS = [
+  { label: 'Total Reviews', key: 'totalReviews', icon: Star,      color: '#f59e0b', bg: '#fffbeb' },
+  { label: 'Avg Rating',    key: 'avgRating',    icon: ThumbsUp,  color: '#22c55e', bg: '#f0fdf4' },
+  { label: 'Total Views',   key: 'totalViews',   icon: Eye,       color: '#4f6ef0', bg: '#eff0fe' },
+  { label: 'Total Clicks',  key: 'totalClicks',  icon: TrendingUp,color: '#a855f7', bg: '#faf5ff' },
+];
+const EMPTY_GMB_PROFILE = () => ({
+  profileName: '', businessName: '', category: '', phone: '', website: '',
+  address: '', profileUrl: '', totalReviews: '', avgRating: '',
+  totalViews: '', totalClicks: '', newReviews: '', calls: '',
+  directions: '', messages: '', notes: '', history: [],
+});
+
 function GmbPanelTab({ clientId, client }) {
-  const [data, setData]       = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm]       = useState({});
-  const [saving, setSaving]   = useState(false);
+  const [profiles, setProfiles]       = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [activeIdx, setActiveIdx]     = useState(0);
+  const [editing, setEditing]         = useState(false);
+  const [formProfiles, setFormProfiles] = useState([]);
+  const [saving, setSaving]           = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const toast = useToast ? useToast() : null;
 
   useEffect(() => {
     setLoading(true);
     api.get(`/clients/${clientId}/gmb`)
-      .then(r => { setData(r.data.gmb || {}); setForm(r.data.gmb || {}); })
-      .catch(() => { setData({}); setForm({}); })
+      .then(r => {
+        const profs = r.data.gmbProfiles || [];
+        setProfiles(profs);
+        setFormProfiles(profs.map(p => ({ ...p })));
+      })
+      .catch(() => { setProfiles([]); setFormProfiles([]); })
       .finally(() => setLoading(false));
   }, [clientId]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.put(`/clients/${clientId}/gmb`, form);
-      setData(form);
+      const { data } = await api.put(`/clients/${clientId}/gmb`, { profiles: formProfiles });
+      const updated = data.gmbProfiles || [];
+      setProfiles(updated);
+      setFormProfiles(updated.map(p => ({ ...p })));
       setEditing(false);
+      setShowHistory(false);
       if (toast) toast({ type: 'success', title: 'GMB data saved' });
     } catch {
       if (toast) toast({ type: 'error', title: 'Save failed' });
     } finally { setSaving(false); }
   };
 
-  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const handleCancel = () => {
+    setFormProfiles(profiles.map(p => ({ ...p })));
+    setEditing(false);
+    setShowHistory(false);
+  };
+
+  const addProfile = () => {
+    const newProf = { ...EMPTY_GMB_PROFILE(), profileName: `Location ${formProfiles.length + 1}` };
+    const nextIdx = formProfiles.length;
+    setFormProfiles(prev => [...prev, newProf]);
+    setActiveIdx(nextIdx);
+    setEditing(true);
+  };
+
+  const removeProfile = (idx) => {
+    setFormProfiles(prev => prev.filter((_, i) => i !== idx));
+    setActiveIdx(prev => Math.max(0, prev >= idx ? prev - 1 : prev));
+  };
+
+  const setField = (idx, k, v) => {
+    setFormProfiles(prev => prev.map((p, i) => i === idx ? { ...p, [k]: v } : p));
+  };
 
   if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
 
+  const displayProfiles = editing ? formProfiles : profiles;
+  const currentProfile  = displayProfiles[activeIdx] || null;
+  const historyEntries  = profiles[activeIdx] ? [...(profiles[activeIdx].history || [])].reverse() : [];
+
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 className="font-semibold text-[15px]" style={{ color: 'var(--fd-ink-1)' }}>Google Business Profile</h3>
-          <p className="text-[12px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>Track GMB metrics and listing details for {client?.company}</p>
+          <h3 className="font-semibold text-[15px]" style={{ color: 'var(--fd-ink-1)' }}>Google Business Profiles</h3>
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+            {profiles.length === 0 ? 'No profiles yet' : `${profiles.length} location${profiles.length !== 1 ? 's' : ''}`} for {client?.company}
+          </p>
         </div>
-        {!editing
-          ? <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Edit3 size={13} /> Edit</Button>
-          : (
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => { setEditing(false); setForm(data); }}>Cancel</Button>
-              <Button size="sm" loading={saving} onClick={handleSave}>Save</Button>
-            </div>
-          )
-        }
+        <div className="flex gap-2 flex-wrap">
+          {!editing ? (
+            <>
+              <Button size="sm" variant="outline" onClick={addProfile}><Plus size={13} /> Add Location</Button>
+              {profiles.length > 0 && (
+                <Button size="sm" variant="outline" onClick={() => setEditing(true)}><Edit3 size={13} /> Edit</Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button size="sm" variant="outline" onClick={addProfile}><Plus size={13} /> Add Location</Button>
+              <Button size="sm" variant="outline" onClick={handleCancel}>Cancel</Button>
+              <Button size="sm" loading={saving} onClick={handleSave}>Save All</Button>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: 'Total Reviews', key: 'totalReviews',   icon: Star,      color: '#f59e0b', bg: '#fffbeb' },
-          { label: 'Avg Rating',    key: 'avgRating',      icon: ThumbsUp,  color: '#22c55e', bg: '#f0fdf4' },
-          { label: 'Total Views',   key: 'totalViews',     icon: Eye,       color: '#4f6ef0', bg: '#eff0fe' },
-          { label: 'Total Clicks',  key: 'totalClicks',    icon: TrendingUp,color: '#a855f7', bg: '#faf5ff' },
-        ].map(({ label, key, icon: Icon, color, bg }) => (
-          <div key={key} className="rounded-xl p-4 space-y-2" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: bg }}>
-              <Icon size={15} color={color} />
-            </div>
-            {editing ? (
-              <input type="number" className="fd-input text-[13px] w-full" value={form[key] || ''}
-                onChange={e => set(key, e.target.value)} placeholder="0" />
-            ) : (
-              <div className="text-[22px] font-bold tabular-nums" style={{ color: 'var(--fd-ink-1)' }}>
-                {data[key] ?? '—'}
-              </div>
-            )}
-            <div className="text-[11px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>{label}</div>
-          </div>
-        ))}
-      </div>
+      {/* Empty state */}
+      {displayProfiles.length === 0 && (
+        <div className="text-center py-16 rounded-2xl" style={{ background: 'var(--fd-surface)', border: '1px dashed var(--fd-border-strong)' }}>
+          <MapPin size={36} className="mx-auto mb-3" style={{ color: 'var(--fd-border)' }} />
+          <p className="font-semibold text-[14px]" style={{ color: 'var(--fd-ink-3)' }}>No GMB profiles yet</p>
+          <p className="text-[12px] mt-1 mb-4" style={{ color: 'var(--fd-ink-5)' }}>Click "Add Location" to add the first Google Business Profile.</p>
+          <Button size="sm" onClick={addProfile}><Plus size={13} /> Add Location</Button>
+        </div>
+      )}
 
-      {/* Details */}
-      <Card>
-        <CardHeader><h3 className="font-semibold text-sm text-[var(--fd-ink-1)]">Listing Details</h3></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              { label: 'Business Name',    key: 'businessName'  },
-              { label: 'Category',         key: 'category'      },
-              { label: 'Phone',            key: 'phone'         },
-              { label: 'Website',          key: 'website'       },
-              { label: 'Address',          key: 'address'       },
-              { label: 'GMB Profile URL',  key: 'profileUrl'    },
-              { label: 'New Reviews (Month)', key: 'newReviews' },
-              { label: 'Calls (Month)',    key: 'calls'         },
-              { label: 'Direction Requests', key: 'directions'  },
-              { label: 'Messages (Month)', key: 'messages'      },
-            ].map(({ label, key }) => (
-              <div key={key}>
-                <div className="text-[11px] font-medium mb-1" style={{ color: 'var(--fd-ink-4)' }}>{label}</div>
-                {editing ? (
-                  <input className="fd-input w-full text-[13px]" value={form[key] || ''}
-                    onChange={e => set(key, e.target.value)} placeholder={label} />
-                ) : (
-                  <div className="text-[13px]" style={{ color: data[key] ? 'var(--fd-ink-1)' : 'var(--fd-ink-5)' }}>
-                    {data[key] || '—'}
-                  </div>
+      {displayProfiles.length > 0 && (
+        <>
+          {/* Profile tabs */}
+          <div className="flex gap-1.5 flex-wrap items-center">
+            {displayProfiles.map((p, i) => (
+              <div key={i} className="relative group flex items-center gap-0.5">
+                <button
+                  onClick={() => { setActiveIdx(i); setShowHistory(false); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold transition-all"
+                  style={activeIdx === i
+                    ? { background: '#4f6ef0', color: '#fff' }
+                    : { background: 'var(--fd-surface)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-2)' }
+                  }
+                >
+                  <MapPin size={11} />
+                  {editing
+                    ? <input
+                        value={p.profileName || ''}
+                        onClick={e => { e.stopPropagation(); setActiveIdx(i); }}
+                        onChange={e => setField(i, 'profileName', e.target.value)}
+                        className="bg-transparent outline-none border-none w-[90px] font-semibold text-[12px]"
+                        style={{ color: activeIdx === i ? '#fff' : 'var(--fd-ink-2)' }}
+                        placeholder="Location name"
+                      />
+                    : (p.profileName || `Location ${i + 1}`)
+                  }
+                </button>
+                {editing && displayProfiles.length > 1 && (
+                  <button
+                    onClick={() => removeProfile(i)}
+                    className="p-1 rounded-lg"
+                    style={{ background: '#fee2e2', color: '#ef4444' }}
+                    title="Remove this location"
+                  >
+                    <X size={10} />
+                  </button>
                 )}
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Notes */}
-      <Card>
-        <CardHeader><h3 className="font-semibold text-sm text-[var(--fd-ink-1)]">Notes &amp; Observations</h3></CardHeader>
-        <CardContent>
-          {editing ? (
-            <textarea className="fd-input resize-none w-full" rows={4} value={form.notes || ''}
-              onChange={e => set('notes', e.target.value)} placeholder="Any notes about GMB performance, issues, actions taken..." />
-          ) : (
-            <p className="text-[13px]" style={{ color: data.notes ? 'var(--fd-ink-2)' : 'var(--fd-ink-5)' }}>
-              {data.notes || 'No notes added yet.'}
-            </p>
+          {/* Active profile content */}
+          {currentProfile && (
+            <div className="space-y-5">
+              {/* KPI Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {GMB_KPI_FIELDS.map(({ label, key, icon: Icon, color, bg }) => (
+                  <div key={key} className="rounded-xl p-4 space-y-2" style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: bg }}>
+                      <Icon size={15} color={color} />
+                    </div>
+                    {editing ? (
+                      <input type="number" className="fd-input text-[13px] w-full" value={formProfiles[activeIdx]?.[key] || ''}
+                        onChange={e => setField(activeIdx, key, e.target.value)} placeholder="0" />
+                    ) : (
+                      <div className="text-[22px] font-bold tabular-nums" style={{ color: 'var(--fd-ink-1)' }}>
+                        {currentProfile[key] ?? '—'}
+                      </div>
+                    )}
+                    <div className="text-[11px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Listing Details */}
+              <Card>
+                <CardHeader><h3 className="font-semibold text-sm text-[var(--fd-ink-1)]">Listing Details</h3></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {GMB_FIELDS.map(({ label, key }) => (
+                      <div key={key}>
+                        <div className="text-[11px] font-medium mb-1" style={{ color: 'var(--fd-ink-4)' }}>{label}</div>
+                        {editing ? (
+                          <input className="fd-input w-full text-[13px]" value={formProfiles[activeIdx]?.[key] || ''}
+                            onChange={e => setField(activeIdx, key, e.target.value)} placeholder={label} />
+                        ) : (
+                          <div className="text-[13px]" style={{ color: currentProfile[key] ? 'var(--fd-ink-1)' : 'var(--fd-ink-5)' }}>
+                            {currentProfile[key] || '—'}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notes */}
+              <Card>
+                <CardHeader><h3 className="font-semibold text-sm text-[var(--fd-ink-1)]">Notes &amp; Observations</h3></CardHeader>
+                <CardContent>
+                  {editing ? (
+                    <textarea className="fd-input resize-none w-full" rows={4} value={formProfiles[activeIdx]?.notes || ''}
+                      onChange={e => setField(activeIdx, 'notes', e.target.value)}
+                      placeholder="Any notes about GMB performance, issues, actions taken..." />
+                  ) : (
+                    <p className="text-[13px]" style={{ color: currentProfile.notes ? 'var(--fd-ink-2)' : 'var(--fd-ink-5)' }}>
+                      {currentProfile.notes || 'No notes added yet.'}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* History — only shown in view mode */}
+              {!editing && historyEntries.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm text-[var(--fd-ink-1)]">
+                        📋 Update History ({historyEntries.length})
+                      </h3>
+                      <button
+                        onClick={() => setShowHistory(v => !v)}
+                        className="text-[12px] font-medium px-3 py-1 rounded-lg transition-colors"
+                        style={{ background: showHistory ? '#4f6ef0' : 'var(--fd-surface-sunken)', color: showHistory ? '#fff' : 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}
+                      >
+                        {showHistory ? 'Hide' : 'Show'} History
+                      </button>
+                    </div>
+                  </CardHeader>
+                  {showHistory && (
+                    <CardContent>
+                      <div className="space-y-4">
+                        {historyEntries.map((entry, hi) => (
+                          <div key={hi} className="rounded-xl p-4 space-y-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <span className="text-[12px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>
+                                Snapshot #{historyEntries.length - hi}
+                              </span>
+                              <span className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>
+                                {entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                              {GMB_KPI_FIELDS.map(({ label, key, color }) => (
+                                <div key={key} className="rounded-lg p-2 text-center" style={{ background: 'var(--fd-surface)' }}>
+                                  <div className="text-[10px] font-medium mb-0.5" style={{ color: 'var(--fd-ink-4)' }}>{label}</div>
+                                  <div className="text-[16px] font-bold tabular-nums" style={{ color: entry.snapshot?.[key] ? color : 'var(--fd-ink-5)' }}>
+                                    {entry.snapshot?.[key] || '—'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {GMB_FIELDS.filter(f => entry.snapshot?.[f.key]).map(({ label, key }) => (
+                                <div key={key} className="flex items-start gap-2">
+                                  <span className="text-[11px] font-medium flex-shrink-0" style={{ color: 'var(--fd-ink-4)', minWidth: 110 }}>{label}:</span>
+                                  <span className="text-[12px]" style={{ color: 'var(--fd-ink-2)' }}>{entry.snapshot[key]}</span>
+                                </div>
+                              ))}
+                            </div>
+                            {entry.snapshot?.notes && (
+                              <div className="text-[12px] italic" style={{ color: 'var(--fd-ink-3)' }}>
+                                Notes: {entry.snapshot.notes}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  )}
+                </Card>
+              )}
+
+              {!editing && historyEntries.length === 0 && profiles[activeIdx] && (
+                <p className="text-[12px] text-center" style={{ color: 'var(--fd-ink-5)' }}>
+                  No history yet — history snapshots are saved automatically each time you update the data.
+                </p>
+              )}
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   );
 }
-
 // ── TARGETS FIELD SCHEMA ─────────────────────────────────────────────────────
 const TARGET_SECTIONS = [
   {

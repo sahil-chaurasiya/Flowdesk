@@ -2446,6 +2446,10 @@ export default function ClientDetailPage() {
   const [deleteFileId, setDeleteFileId] = useState(null);
   const [deletingFile, setDeletingFile] = useState(false);
   const [reports, setReports] = useState([]);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportForm, setReportForm] = useState({ title: '', period: 'monthly', startDate: '', endDate: '', notes: '', metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' } });
+  const [savingReport, setSavingReport] = useState(false);
+  const setReportMetric = (key, val) => setReportForm(p => ({ ...p, metrics: { ...p.metrics, [key]: val } }));
   const [credentials, setCredentials] = useState([]);
   const [credLoading, setCredLoading] = useState(false);
   const [showCredModal, setShowCredModal] = useState(false);
@@ -2575,6 +2579,29 @@ export default function ClientDetailPage() {
       setSocialPosts(socialPostRes.data.posts || []);
       setCredentials(credRes.data.credentials || []);
     } finally { setLoading(false); }
+  };
+
+  const handleCreateReport = async () => {
+    if (!reportForm.title.trim() || !reportForm.startDate || !reportForm.endDate) return;
+    setSavingReport(true);
+    try {
+      const payload = {
+        ...reportForm,
+        client: id,
+        metrics: {
+          adSpend: reportForm.metrics.adSpend !== '' ? Number(reportForm.metrics.adSpend) : undefined,
+          revenue: reportForm.metrics.revenue !== '' ? Number(reportForm.metrics.revenue) : undefined,
+          leads: reportForm.metrics.leads !== '' ? Number(reportForm.metrics.leads) : undefined,
+          conversions: reportForm.metrics.conversions !== '' ? Number(reportForm.metrics.conversions) : undefined,
+          impressions: reportForm.metrics.impressions !== '' ? Number(reportForm.metrics.impressions) : undefined,
+          clicks: reportForm.metrics.clicks !== '' ? Number(reportForm.metrics.clicks) : undefined,
+        },
+      };
+      const { data } = await api.post('/reports', payload);
+      setReports(prev => [data.report, ...prev]);
+      setShowReportModal(false);
+      setReportForm({ title: '', period: 'monthly', startDate: '', endDate: '', notes: '', metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' } });
+    } finally { setSavingReport(false); }
   };
 
   const handleAddUpdate = async () => {
@@ -2863,6 +2890,10 @@ export default function ClientDetailPage() {
               }}><Edit3 size={14} />Edit</Button>
             )}
             <Button size="sm" onClick={() => setShowUpdateModal(true)}><Plus size={14} />Update</Button>
+            <Button size="sm" variant="outline" onClick={() => {
+              setReportForm({ title: '', period: 'monthly', startDate: '', endDate: '', notes: '', metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' } });
+              setShowReportModal(true);
+            }}><Plus size={14} />Report</Button>
           </div>
         </div>
       </div>
@@ -3756,7 +3787,15 @@ export default function ClientDetailPage() {
       {/* REPORTS */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          {reports.length === 0 ? <EmptyState icon={AlertCircle} title="No reports yet" description="Create the first performance report." /> : (
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => {
+              setReportForm({ title: '', period: 'monthly', startDate: '', endDate: '', notes: '', metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' } });
+              setShowReportModal(true);
+            }}>
+              <Plus size={14} /> New Report
+            </Button>
+          </div>
+          {reports.length === 0 ? <EmptyState icon={AlertCircle} title="No reports yet" description="Create the first performance report." action={<Button onClick={() => setShowReportModal(true)}><Plus size={14} />New Report</Button>} /> : (
             <div className="grid gap-4">
               {reports.map(r => (
                 <Card key={r._id}>
@@ -4122,6 +4161,40 @@ export default function ClientDetailPage() {
           loading={savingCred}
         />
       )}
+
+      {/* Create Report Modal */}
+      <Modal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        title="Create Report"
+        size="lg"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowReportModal(false)}>Cancel</Button>
+            <Button loading={savingReport} onClick={handleCreateReport}>Create</Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Input label="Report Title *" value={reportForm.title} onChange={e => setReportForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. October 2024 Performance Report" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Select label="Period" value={reportForm.period} onChange={e => setReportForm(p => ({ ...p, period: e.target.value }))}>
+              {['weekly','monthly','quarterly','yearly','custom'].map(v => <option key={v} value={v}>{v.charAt(0).toUpperCase() + v.slice(1)}</option>)}
+            </Select>
+            <Input label="Start Date *" type="date" value={reportForm.startDate} onChange={e => setReportForm(p => ({ ...p, startDate: e.target.value }))} />
+            <Input label="End Date *" type="date" value={reportForm.endDate} onChange={e => setReportForm(p => ({ ...p, endDate: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Input label="Ad Spend (₹)" type="number" value={reportForm.metrics.adSpend} onChange={e => setReportMetric('adSpend', e.target.value)} placeholder="0" />
+            <Input label="Revenue (₹)" type="number" value={reportForm.metrics.revenue} onChange={e => setReportMetric('revenue', e.target.value)} placeholder="0" />
+            <Input label="Leads" type="number" value={reportForm.metrics.leads} onChange={e => setReportMetric('leads', e.target.value)} placeholder="0" />
+            <Input label="Conversions" type="number" value={reportForm.metrics.conversions} onChange={e => setReportMetric('conversions', e.target.value)} placeholder="0" />
+            <Input label="Impressions" type="number" value={reportForm.metrics.impressions} onChange={e => setReportMetric('impressions', e.target.value)} placeholder="0" />
+            <Input label="Clicks" type="number" value={reportForm.metrics.clicks} onChange={e => setReportMetric('clicks', e.target.value)} placeholder="0" />
+          </div>
+          <Textarea label="Notes" value={reportForm.notes} onChange={e => setReportForm(p => ({ ...p, notes: e.target.value }))} rows={3} placeholder="Summary, insights, or observations..." />
+        </div>
+      </Modal>
 
       {/* Credential Delete Modal */}
       <Modal isOpen={!!deleteCredId} onClose={() => setDeleteCredId(null)} title="Delete Credential" size="sm">

@@ -108,6 +108,23 @@ const clientSchema = new mongoose.Schema({
     twitter: String,
     linkedin: String,
     google: String
+  },
+  gmb: {
+    businessName:  String,
+    category:      String,
+    phone:         String,
+    website:       String,
+    address:       String,
+    profileUrl:    String,
+    totalReviews:  String,
+    avgRating:     String,
+    totalViews:    String,
+    totalClicks:   String,
+    newReviews:    String,
+    calls:         String,
+    directions:    String,
+    messages:      String,
+    notes:         String,
   }
 }, {
   timestamps: true,

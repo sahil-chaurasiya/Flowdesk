@@ -16,7 +16,7 @@ const getUploader = () => {
       cloudinary,
       params: {
         folder: 'toflymedia',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'zip', 'doc', 'docx', 'xls', 'xlsx', 'mp4', 'mov'],
+        allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'pdf', 'zip', 'rar', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'mp4', 'mov', 'avi', 'mkv', 'mp3', 'wav', 'txt', 'csv', 'json'],
         resource_type: 'auto',
       },
     });
@@ -38,7 +38,7 @@ const getUploader = () => {
       storage,
       limits: { fileSize: 50 * 1024 * 1024 },
       fileFilter: (req, file, cb) => {
-        const allowed = /jpeg|jpg|png|gif|pdf|zip|doc|docx|xls|xlsx|mp4|mov/;
+        const allowed = /jpeg|jpg|png|gif|webp|svg|pdf|zip|rar|doc|docx|xls|xlsx|ppt|pptx|mp4|mov|avi|mkv|mp3|wav|txt|csv|json/;
         const ext = allowed.test(path.extname(file.originalname).toLowerCase());
         const mime = allowed.test(file.mimetype);
         if (ext || mime) return cb(null, true);

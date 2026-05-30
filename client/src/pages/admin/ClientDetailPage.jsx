@@ -7,7 +7,7 @@ import {
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye, EyeOff,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
   ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
-  Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink,
+  Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink, Upload,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -21,7 +21,7 @@ import { Button, Modal, Input, Textarea, Select, useToast } from '../../componen
 import { Avatar, Badge, Card, CardHeader, CardContent, Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 import {
   formatDate, getStatusColor, PLAN_LABELS, PLAN_COLORS,
-  formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo
+  formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo, formatFileSize
 } from '../../lib/utils';
 
 const updateTypes = ['general', 'milestone', 'report', 'alert', 'campaign_launch', 'optimization', 'meeting_notes'];
@@ -2438,6 +2438,13 @@ export default function ClientDetailPage() {
   const [tasks, setTasks] = useState([]);
   const [updates, setUpdates] = useState([]);
   const [files, setFiles] = useState([]);
+  const [showFileUploadModal, setShowFileUploadModal] = useState(false);
+  const [fileUploadForm, setFileUploadForm] = useState({ name: '', category: 'other', description: '', isPublic: true });
+  const [selectedUploadFile, setSelectedUploadFile] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [fileUploadError, setFileUploadError] = useState(null);
+  const [deleteFileId, setDeleteFileId] = useState(null);
+  const [deletingFile, setDeletingFile] = useState(false);
   const [reports, setReports] = useState([]);
   const [credentials, setCredentials] = useState([]);
   const [credLoading, setCredLoading] = useState(false);
@@ -3583,6 +3590,11 @@ export default function ClientDetailPage() {
       {/* FILES */}
       {activeTab === 'files' && (
         <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => { setShowFileUploadModal(true); setFileUploadError(null); setSelectedUploadFile(null); setFileUploadForm({ name: '', category: 'other', description: '', isPublic: true }); }}>
+              <Upload size={14} /> Upload File
+            </Button>
+          </div>
           {files.length === 0 ? <EmptyState icon={AlertCircle} title="No files yet" description="Upload files for this client." /> : (
             <Card>
               <div className="divide-y divide-[var(--fd-border)]">
@@ -3591,14 +3603,153 @@ export default function ClientDetailPage() {
                     <div className="text-2xl flex-shrink-0">{f.mimeType?.includes('pdf') ? '📄' : f.mimeType?.includes('image') ? '🖼️' : f.mimeType?.includes('zip') ? '📦' : '📎'}</div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{f.name}</div>
-                      <div className="text-xs text-[var(--fd-ink-3)]">{f.uploadedBy?.name} · {timeAgo(f.createdAt)}</div>
+                      <div className="text-xs text-[var(--fd-ink-3)]">{f.uploadedBy?.name} · {timeAgo(f.createdAt)} {f.size ? `· ${formatFileSize(f.size)}` : ''}</div>
                     </div>
-                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline flex-shrink-0">Download</a>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
+                      {isManager && (
+                        <button onClick={() => setDeleteFileId(f._id)} className="p-1 rounded hover:bg-red-50 text-[var(--fd-ink-4)] hover:text-red-500 transition-colors" title="Delete file">
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </Card>
           )}
+
+          {/* File Delete Confirm Modal */}
+          <Modal
+            isOpen={!!deleteFileId}
+            onClose={() => setDeleteFileId(null)}
+            title="Delete File"
+            size="sm"
+            footer={
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setDeleteFileId(null)}>Cancel</Button>
+                <Button
+                  loading={deletingFile}
+                  onClick={async () => {
+                    setDeletingFile(true);
+                    try {
+                      await api.delete(`/files/${deleteFileId}`);
+                      setFiles(prev => prev.filter(f => f._id !== deleteFileId));
+                      setDeleteFileId(null);
+                    } catch {
+                      // silently fail
+                    } finally { setDeletingFile(false); }
+                  }}
+                  style={{ background: '#b91c1c', color: '#fff', borderColor: '#b91c1c' }}
+                >
+                  <Trash2 size={13} /> Delete
+                </Button>
+              </div>
+            }
+          >
+            <p className="text-sm" style={{ color: 'var(--fd-ink-2)' }}>
+              Are you sure you want to delete this file? This cannot be undone.
+            </p>
+          </Modal>
+
+          {/* File Upload Modal */}
+          <Modal
+            isOpen={showFileUploadModal}
+            onClose={() => { setShowFileUploadModal(false); setFileUploadError(null); }}
+            title="Upload File"
+            size="md"
+            footer={
+              <div className="w-full space-y-2">
+                {fileUploadError && <p className="text-xs text-red-500 text-center">{fileUploadError}</p>}
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => { setShowFileUploadModal(false); setFileUploadError(null); }}>Cancel</Button>
+                  <Button loading={uploadingFile} onClick={async () => {
+                    if (!selectedUploadFile) return;
+                    setUploadingFile(true);
+                    setFileUploadError(null);
+                    try {
+                      const fd = new FormData();
+                      fd.append('file', selectedUploadFile);
+                      fd.append('clientId', id);
+                      fd.append('name', fileUploadForm.name || selectedUploadFile.name);
+                      fd.append('category', fileUploadForm.category);
+                      fd.append('description', fileUploadForm.description);
+                      fd.append('isPublic', fileUploadForm.isPublic);
+                      await api.post('/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                      setShowFileUploadModal(false);
+                      setSelectedUploadFile(null);
+                      // Refresh files list
+                      const res = await api.get(`/files?clientId=${id}&limit=20`);
+                      setFiles(res.data.files || []);
+                    } catch (err) {
+                      setFileUploadError(err?.response?.data?.message || 'Upload failed. Check the file type and try again.');
+                    } finally { setUploadingFile(false); }
+                  }} disabled={!selectedUploadFile}>Upload</Button>
+                </div>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              {/* Drop zone */}
+              <div
+                className="border-2 border-dashed border-[var(--fd-border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-brand-400 transition-colors"
+                onClick={() => document.getElementById('clientFileInput').click()}
+              >
+                <input
+                  id="clientFileInput"
+                  type="file"
+                  className="hidden"
+                  accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.zip,.rar,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.mov,.avi,.mkv,.mp3,.wav,.txt,.csv,.json"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) { setSelectedUploadFile(f); setFileUploadForm(p => ({ ...p, name: f.name })); }
+                  }}
+                />
+                {selectedUploadFile ? (
+                  <div className="text-sm font-medium text-[var(--fd-ink-2)]">{selectedUploadFile.name} ({formatFileSize(selectedUploadFile.size)})</div>
+                ) : (
+                  <div>
+                    <Upload size={24} className="mx-auto mb-2" style={{ color: 'var(--fd-ink-4)' }} />
+                    <p className="text-sm text-[var(--fd-ink-3)]">Click to choose a file</p>
+                    <p className="text-xs text-[var(--fd-ink-5)] mt-1">PDF, images, docs, zip, video, audio and more</p>
+                  </div>
+                )}
+              </div>
+              <Input
+                label="File Name"
+                value={fileUploadForm.name}
+                onChange={e => setFileUploadForm(p => ({ ...p, name: e.target.value }))}
+                placeholder="Display name for the file"
+              />
+              <Select
+                label="Category"
+                value={fileUploadForm.category}
+                onChange={e => setFileUploadForm(p => ({ ...p, category: e.target.value }))}
+              >
+                <option value="other">Other</option>
+                <option value="report">Report</option>
+                <option value="creative">Creative</option>
+                <option value="contract">Contract</option>
+                <option value="invoice">Invoice</option>
+                <option value="media">Media</option>
+              </Select>
+              <Input
+                label="Description (optional)"
+                value={fileUploadForm.description}
+                onChange={e => setFileUploadForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="Brief description"
+              />
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={fileUploadForm.isPublic}
+                  onChange={e => setFileUploadForm(p => ({ ...p, isPublic: e.target.checked }))}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm text-[var(--fd-ink-2)]">Visible to client portal</span>
+              </label>
+            </div>
+          </Modal>
         </div>
       )}
 

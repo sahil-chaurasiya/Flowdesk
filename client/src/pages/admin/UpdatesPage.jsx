@@ -407,10 +407,13 @@ export function FilesAdminPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
   const [filterClient, setFilterClient] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [uploadForm, setUploadForm] = useState({ clientId: '', category: 'other', description: '', isPublic: true });
   const [selectedFile, setSelectedFile] = useState(null);
+  const [deleteFileId, setDeleteFileId] = useState(null);
+  const [deletingFile, setDeletingFile] = useState(false);
 
   const CATEGORIES = ['report', 'creative', 'contract', 'invoice', 'presentation', 'media', 'other'];
 
@@ -431,6 +434,7 @@ export function FilesAdminPage() {
   const handleUpload = async () => {
     if (!selectedFile || !uploadForm.clientId) return;
     setUploading(true);
+    setUploadError(null);
     try {
       const fd = new FormData();
       fd.append('file', selectedFile);
@@ -438,13 +442,27 @@ export function FilesAdminPage() {
       await api.post('/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
       setShowModal(false);
       setSelectedFile(null);
+      setUploadError(null);
       load();
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Upload failed. Check the file type and try again.';
+      setUploadError(msg);
     } finally { setUploading(false); }
   };
 
-  const handleDelete = async (id) => {
-    await api.delete(`/files/${id}`);
-    setFiles(prev => prev.filter(f => f._id !== id));
+  const handleDelete = (id) => {
+    setDeleteFileId(id);
+  };
+
+  const confirmDelete = async () => {
+    setDeletingFile(true);
+    try {
+      await api.delete(`/files/${deleteFileId}`);
+      setFiles(prev => prev.filter(f => f._id !== deleteFileId));
+      setDeleteFileId(null);
+    } catch {
+      // silently fail
+    } finally { setDeletingFile(false); }
   };
 
   const hasFilters = filterClient || filterCategory;
@@ -579,12 +597,41 @@ export function FilesAdminPage() {
         </>
       )}
 
+      {/* Delete File Confirm Modal */}
+      <Modal
+        isOpen={!!deleteFileId}
+        onClose={() => setDeleteFileId(null)}
+        title="Delete File"
+        size="sm"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setDeleteFileId(null)}>Cancel</Button>
+            <Button
+              loading={deletingFile}
+              onClick={confirmDelete}
+              style={{ background: '#b91c1c', color: '#fff', borderColor: '#b91c1c' }}
+            >
+              <Trash2 size={13} /> Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm" style={{ color: 'var(--fd-ink-2)' }}>
+          Are you sure you want to delete this file? This cannot be undone.
+        </p>
+      </Modal>
+
       <Modal
         isOpen={showModal} onClose={() => setShowModal(false)} title="Upload File" size="md"
         footer={
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button loading={uploading} onClick={handleUpload} disabled={!selectedFile || !uploadForm.clientId}>Upload</Button>
+          <div className="w-full space-y-2">
+            {uploadError && (
+              <p className="text-xs text-red-500 text-center">{uploadError}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => { setShowModal(false); setUploadError(null); }}>Cancel</Button>
+              <Button loading={uploading} onClick={handleUpload} disabled={!selectedFile || !uploadForm.clientId}>Upload</Button>
+            </div>
           </div>
         }
       >
@@ -593,7 +640,7 @@ export function FilesAdminPage() {
             className="border-2 border-dashed border-[var(--fd-border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-brand-400 transition-colors"
             onClick={() => document.getElementById('fileInput').click()}
           >
-            <input id="fileInput" type="file" className="hidden" onChange={e => setSelectedFile(e.target.files[0])} />
+            <input id="fileInput" type="file" className="hidden" accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.zip,.rar,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.mp4,.mov,.avi,.mkv,.mp3,.wav,.txt,.csv,.json" onChange={e => setSelectedFile(e.target.files[0])} />
             {selectedFile ? (
               <div className="text-sm font-medium text-[var(--fd-ink-2)]">{selectedFile.name} ({formatFileSize(selectedFile.size)})</div>
             ) : (

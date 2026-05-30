@@ -320,4 +320,25 @@ router.post('/:id/logo', protect, authorize('admin', 'manager'), asyncHandler(as
   });
 }));
 
+// @route GET /api/clients/:id/gmb
+router.get('/:id/gmb', protect, asyncHandler(async (req, res) => {
+  if (req.user.role === 'client' && String(req.user.clientId) !== req.params.id) {
+    return res.status(403).json({ success: false, message: 'Not authorized' });
+  }
+  const client = await Client.findById(req.params.id).select('gmb');
+  if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
+  res.json({ success: true, gmb: client.gmb || {} });
+}));
+
+// @route PUT /api/clients/:id/gmb
+router.put('/:id/gmb', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const client = await Client.findByIdAndUpdate(
+    req.params.id,
+    { gmb: req.body },
+    { new: true, runValidators: true }
+  ).select('gmb');
+  if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
+  res.json({ success: true, gmb: client.gmb || {} });
+}));
+
 module.exports = router;

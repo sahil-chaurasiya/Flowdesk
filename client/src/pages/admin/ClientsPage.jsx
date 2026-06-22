@@ -273,6 +273,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [managerFilter, setManagerFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const { serviceLabels } = useServices();
@@ -288,31 +289,49 @@ export default function ClientsPage() {
   const [page, setPage] = useState(1);
   const LIMIT = 50;
 
-  const loadClients = useCallback(async (p) => {
+  const fetchClients = async (p, search, statusFilter, managerFilter) => {
     setLoading(true);
-    const currentPage = p !== undefined ? p : page;
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
+      if (isAdmin && managerFilter) params.set('accountManager', managerFilter);
       params.set('limit', LIMIT);
-      params.set('page', currentPage);
+      params.set('page', p);
+      params.set('_t', Date.now()); // cache bust
       const { data } = await api.get(`/clients?${params}`);
       setClients(data.clients);
       setTotal(data.total);
     } finally { setLoading(false); }
-  }, [search, statusFilter, page]);
+  };
 
-  // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [search, statusFilter]);
-
-  useEffect(() => { loadClients(); }, [loadClients]);
+  // When filters change, reset to page 1 and reload
+  const isFirstRender = React.useRef(true);
+  const prevFiltersRef = React.useRef({ search, statusFilter, managerFilter });
   useEffect(() => {
-    Promise.all([
-      api.get('/users?role=manager'),
-      api.get('/users?role=admin'),
-    ]).then(([mr, ar]) => {
-      setManagers([...(mr.data.users || []), ...(ar.data.users || [])]);
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      fetchClients(1, search, statusFilter, managerFilter);
+      return;
+    }
+    const prev = prevFiltersRef.current;
+    const filtersChanged =
+      prev.search !== search ||
+      prev.statusFilter !== statusFilter ||
+      prev.managerFilter !== managerFilter;
+    prevFiltersRef.current = { search, statusFilter, managerFilter };
+    if (filtersChanged) {
+      setPage(1);
+      fetchClients(1, search, statusFilter, managerFilter);
+    } else {
+      fetchClients(page, search, statusFilter, managerFilter);
+    }
+  }, [search, statusFilter, managerFilter, page]);
+
+  const loadClients = () => fetchClients(page, search, statusFilter, managerFilter);
+  useEffect(() => {
+    api.get('/users?role=manager').then(res => {
+      setManagers(res.data.users || []);
     });
   }, []);
 
@@ -396,6 +415,21 @@ export default function ClientsPage() {
             </button>
           ))}
         </div>
+        {isAdmin && managers.length > 0 && (
+          <div className="flex-shrink-0">
+            <select
+              value={managerFilter}
+              onChange={e => setManagerFilter(e.target.value)}
+              className="fd-input text-[12px]"
+              style={{ minWidth: '160px' }}
+            >
+              <option value="">All Managers</option>
+              {managers.map(m => (
+                <option key={m._id} value={m._id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Table card */}
@@ -581,7 +615,7 @@ export default function ClientsPage() {
           <div className="flex items-center gap-1">
             <button
               disabled={page <= 1}
-              onClick={() => { const p = page - 1; setPage(p); loadClients(p); }}
+              onClick={() => { const p = page - 1; setPage(p); }}
               className="px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all disabled:opacity-40"
               style={{ background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }}
             >
@@ -590,7 +624,7 @@ export default function ClientsPage() {
             {Array.from({ length: Math.ceil(total / LIMIT) }, (_, i) => i + 1).map(p => (
               <button
                 key={p}
-                onClick={() => { setPage(p); loadClients(p); }}
+                onClick={() => { setPage(p); }}
                 className="w-8 h-8 rounded-lg text-[12px] font-medium border transition-all"
                 style={page === p
                   ? { background: '#4f6ef0', color: '#fff', borderColor: '#4060e0' }
@@ -602,7 +636,7 @@ export default function ClientsPage() {
             ))}
             <button
               disabled={page >= Math.ceil(total / LIMIT)}
-              onClick={() => { const p = page + 1; setPage(p); loadClients(p); }}
+              onClick={() => { const p = page + 1; setPage(p); }}
               className="px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all disabled:opacity-40"
               style={{ background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }}
             >

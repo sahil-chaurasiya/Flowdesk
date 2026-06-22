@@ -52,16 +52,19 @@ const PLAN_TO_DURATION = {
 
 // @route GET /api/clients
 router.get('/', protect, asyncHandler(async (req, res) => {
-  const { status, search, page = 1, limit = 20, managerId } = req.query;
+  const { status, search, page = 1, limit = 20, accountManager } = req.query;
   const query = {};
 
   if (req.user.role === 'client') {
     query._id = req.user.clientId;
+  } else if (req.user.role === 'admin') {
+    // Admin sees all clients, but can filter by a specific manager
+    if (accountManager) query.accountManager = accountManager;
   } else if (!['admin', 'manager', 'client'].includes(req.user.role)) {
     query.$or = [{ accountManager: req.user._id }, { teamMembers: req.user._id }];
   } else if (req.user.role === 'manager') {
-    if (managerId) query.accountManager = managerId;
-    else query.$or = [{ accountManager: req.user._id }, { teamMembers: req.user._id }];
+    // Managers always see only their own clients — ignore any accountManager param
+    query.$or = [{ accountManager: req.user._id }, { teamMembers: req.user._id }];
   }
 
   if (status) query.status = status;

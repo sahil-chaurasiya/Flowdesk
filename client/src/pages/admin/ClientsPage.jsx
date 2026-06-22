@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Building2, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, Search, Building2, ChevronRight, Trash2, LayoutGrid, Table2, GripVertical } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, CardHeader, CardContent, Spinner } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Select } from '../../components/ui/index';
@@ -64,6 +64,18 @@ const STATUS_TABS = [
   { label: 'Paused',      value: 'paused' },
   { label: 'Inactive',    value: 'inactive' },
 ];
+
+// ── Table view: default column order + persistence key ───────────────────────
+const DEFAULT_TABLE_COLUMNS = [
+  { id: 'client',   label: 'Client' },
+  { id: 'services', label: 'Services' },
+  { id: 'manager',  label: 'Manager' },
+  { id: 'plan',     label: 'Plan' },
+  { id: 'status',   label: 'Status' },
+  { id: 'since',    label: 'Since' },
+];
+const CLIENT_ORDER_KEY = 'fd_clients_priority_order_v1';
+const VIEW_MODE_KEY = 'fd_clients_view_mode_v1';
 
 function ClientForm({ initial, onSubmit, loading, managers }) {
   const { services: servicesList } = useServices();
@@ -265,6 +277,167 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
   );
 }
 
+// ── Box view: draggable client card ───────────────────────────────────────────
+function ClientCard({ client, serviceLabels, onDragStart, onDragEnd, onDragOver, onDrop, onOpen, canDelete, onDelete, isDragging, isDragOver }) {
+  return (
+    <div
+      draggable
+      onDragStart={e => { e.stopPropagation(); onDragStart(e, client); }}
+      onDragEnd={onDragEnd}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); onDragOver(client); }}
+      onDrop={e => { e.preventDefault(); e.stopPropagation(); onDrop(client); }}
+      onClick={() => onOpen(client._id)}
+      className="group rounded-xl p-3.5 cursor-pointer transition-all hover:-translate-y-0.5"
+      style={{
+        background: 'var(--fd-surface)',
+        border: isDragOver ? '1px solid #4f6ef0' : '1px solid var(--fd-border)',
+        boxShadow: isDragOver ? '0 0 0 3px rgba(79,110,240,0.15)' : '0 1px 2px rgba(0,0,0,0.04)',
+        opacity: isDragging ? 0.4 : 1,
+      }}
+    >
+      <div className="flex items-start gap-2.5">
+        <Avatar name={client.company} src={client.logo} size="sm" />
+        <div className="flex-1 min-w-0">
+          <div className="font-semibold text-[12.5px] truncate" style={{ color: 'var(--fd-ink-1)' }}>
+            {client.company}
+          </div>
+          <div className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>
+            {client.name}
+          </div>
+        </div>
+        <div
+          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 cursor-grab active:cursor-grabbing"
+          style={{ color: 'var(--fd-ink-5)' }}
+          title="Drag to reorder"
+        >
+          <GripVertical size={13} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 mt-2.5">
+        <span
+          className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize"
+          style={getStatusStyle(client.status)}
+        >
+          {client.status}
+        </span>
+      </div>
+
+      {client.services?.length > 0 && (
+        <div className="flex gap-1 flex-wrap mt-2">
+          {client.services.slice(0, 2).map(s => (
+            <span
+              key={s}
+              className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
+            >
+              {serviceLabels[s] || s}
+            </span>
+          ))}
+          {client.services.length > 2 && (
+            <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)' }}>
+              +{client.services.length - 2}
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between mt-2.5 pt-2.5" style={{ borderTop: '1px solid var(--fd-border-subtle)' }}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {client.accountManager ? (
+            <>
+              <Avatar name={client.accountManager.name} size="xs" />
+              <span className="text-[10.5px] truncate" style={{ color: 'var(--fd-ink-4)' }}>
+                {client.accountManager.name}
+              </span>
+            </>
+          ) : (
+            <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-5)' }}>No manager</span>
+          )}
+        </div>
+        {canDelete && (
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(client); }}
+            className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+            style={{ background: '#fef2f2', color: '#b91c1c' }}
+            title="Delete client"
+          >
+            <Trash2 size={10} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Box view: a single free-flowing grid of client cards ─────────────────────
+// No grouping by status — just cards you can drag into whatever priority
+// order you want. Purely visual & saved in this browser; never touches the
+// client's real status or any server data. The order itself lives in the
+// parent component and is shared with the Table view, so reordering in
+// either view stays in sync.
+function ClientsBoardView({ orderedClients, serviceLabels, navigate, canDeleteClient, onDeleteRequest, onReorder }) {
+  const dragClient = useRef(null);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+
+  const handleDragStart = (e, client) => {
+    dragClient.current = client;
+    setDraggingId(client._id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleDragEnd = () => {
+    dragClient.current = null;
+    setDraggingId(null);
+    setDragOverId(null);
+  };
+  const handleDragOverCard = (client) => {
+    if (dragClient.current && dragClient.current._id !== client._id) {
+      setDragOverId(client._id);
+    }
+  };
+  // Drop on a card: move dragged card to that card's position
+  const handleDropOnCard = (targetClient) => {
+    const dragged = dragClient.current;
+    if (!dragged || dragged._id === targetClient._id) { handleDragEnd(); return; }
+    onReorder(dragged._id, targetClient._id);
+    handleDragEnd();
+  };
+  // Drop on empty grid background: send dragged card to the end
+  const handleDropOnGrid = () => {
+    const dragged = dragClient.current;
+    if (!dragged) return;
+    onReorder(dragged._id, null); // null target = move to end
+    handleDragEnd();
+  };
+
+  return (
+    <div
+      onDragOver={e => e.preventDefault()}
+      onDrop={handleDropOnGrid}
+      className="grid gap-3"
+      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}
+    >
+      {orderedClients.map(client => (
+        <ClientCard
+          key={client._id}
+          client={client}
+          serviceLabels={serviceLabels}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragOver={handleDragOverCard}
+          onDrop={handleDropOnCard}
+          onOpen={id => navigate(`/admin/clients/${id}`)}
+          canDelete={canDeleteClient(client)}
+          onDelete={onDeleteRequest}
+          isDragging={draggingId === client._id}
+          isDragOver={dragOverId === client._id}
+        />
+      ))}
+    </div>
+  );
+}
+
 export default function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
@@ -284,6 +457,72 @@ export default function ClientsPage() {
   // Delete state
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // ── View mode: table (default) or box, remembered per-browser ──────────────
+  const [viewMode, setViewMode] = useState(() => {
+    try { return localStorage.getItem(VIEW_MODE_KEY) || 'table'; } catch { return 'table'; }
+  });
+  const switchView = (mode) => {
+    setViewMode(mode);
+    try { localStorage.setItem(VIEW_MODE_KEY, mode); } catch {}
+  };
+
+  // ── Table columns: fixed order (only rows are draggable now) ────────────────
+  const tableColumns = DEFAULT_TABLE_COLUMNS;
+
+  // ── Shared client priority order — used by BOTH Table and Box views ────────
+  // Dragging a row in Table view or a card in Box view updates this single
+  // order, so the two views always stay in sync. Purely visual: saved
+  // per-browser, never sent to the server or affects any real client data.
+  const [clientOrder, setClientOrder] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CLIENT_ORDER_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
+  const persistClientOrder = (ids) => {
+    setClientOrder(ids);
+    try { localStorage.setItem(CLIENT_ORDER_KEY, JSON.stringify(ids)); } catch {}
+  };
+  // Apply saved order to the current client list; newcomers appended at the end
+  const orderedClients = useMemo(() => {
+    const byId = Object.fromEntries(clients.map(c => [c._id, c]));
+    const ordered = clientOrder.filter(id => byId[id]).map(id => byId[id]);
+    const seen = new Set(ordered.map(c => c._id));
+    const remaining = clients.filter(c => !seen.has(c._id));
+    return [...ordered, ...remaining];
+  }, [clients, clientOrder]);
+  // Move `draggedId` to just before `targetId`. targetId === null moves it to the end.
+  const reorderClients = (draggedId, targetId) => {
+    if (!draggedId || draggedId === targetId) return;
+    const ids = orderedClients.map(c => c._id).filter(id => id !== draggedId);
+    if (targetId === null) {
+      ids.push(draggedId);
+    } else {
+      const targetIdx = ids.indexOf(targetId);
+      ids.splice(targetIdx === -1 ? ids.length : targetIdx, 0, draggedId);
+    }
+    persistClientOrder(ids);
+  };
+
+  // Table row drag state (drag handle in the leftmost cell of each row)
+  const dragRowRef = useRef(null);
+  const [dragOverRowId, setDragOverRowId] = useState(null);
+  const [draggingRowId, setDraggingRowId] = useState(null);
+  const handleRowDragStart = (e, clientId) => {
+    dragRowRef.current = clientId;
+    setDraggingRowId(clientId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleRowDragEnd = () => {
+    dragRowRef.current = null;
+    setDraggingRowId(null);
+    setDragOverRowId(null);
+  };
+  const handleRowDrop = (targetId) => {
+    reorderClients(dragRowRef.current, targetId);
+    handleRowDragEnd();
+  };
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -430,9 +669,63 @@ export default function ClientsPage() {
             </select>
           </div>
         )}
+        {/* View toggle: Table / Box */}
+        <div
+          className="flex items-center gap-0.5 p-0.5 rounded-lg flex-shrink-0 sm:ml-auto"
+          style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
+        >
+          <button
+            onClick={() => switchView('table')}
+            title="Table view"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all"
+            style={viewMode === 'table'
+              ? { background: 'var(--fd-surface)', color: 'var(--fd-ink-1)', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }
+              : { background: 'transparent', color: 'var(--fd-ink-4)' }
+            }
+          >
+            <Table2 size={13} /><span className="hidden sm:inline">Table</span>
+          </button>
+          <button
+            onClick={() => switchView('box')}
+            title="Box view"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[12px] font-medium transition-all"
+            style={viewMode === 'box'
+              ? { background: 'var(--fd-surface)', color: 'var(--fd-ink-1)', boxShadow: '0 1px 2px rgba(0,0,0,0.08)' }
+              : { background: 'transparent', color: 'var(--fd-ink-4)' }
+            }
+          >
+            <LayoutGrid size={13} /><span className="hidden sm:inline">Box</span>
+          </button>
+        </div>
       </div>
 
+      {/* Box view */}
+      {viewMode === 'box' && (
+        loading ? (
+          <Card><div className="flex justify-center py-16"><Spinner /></div></Card>
+        ) : clients.length === 0 ? (
+          <Card>
+            <EmptyState
+              icon={Building2}
+              title="No clients found"
+              description="Add your first client or adjust the filters."
+              action={<Button onClick={() => setShowModal(true)}><Plus size={14} />Add Client</Button>}
+            />
+          </Card>
+        ) : (
+          <ClientsBoardView
+            orderedClients={orderedClients}
+            serviceLabels={serviceLabels}
+            navigate={navigate}
+            canDeleteClient={canDeleteClient}
+            onDeleteRequest={setDeleteTarget}
+            onReorder={reorderClients}
+          />
+        )
+      )}
+
       {/* Table card */}
+      {viewMode === 'table' && (
       <Card>
         {loading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
@@ -450,81 +743,115 @@ export default function ClientsPage() {
               <table className="fd-table">
                 <thead>
                   <tr>
-                    {['Client', 'Services', 'Manager', 'Plan', 'Status', 'Since', ''].map(h => (
-                      <th key={h}>{h}</th>
+                    <th style={{ width: '28px' }}></th>
+                    {tableColumns.map(col => (
+                      <th key={col.id}>{col.label}</th>
                     ))}
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {clients.map(client => (
+                  {orderedClients.map(client => {
+                    const cellFor = (colId) => {
+                      switch (colId) {
+                        case 'client':
+                          return (
+                            <div className="flex items-center gap-3">
+                              <Avatar name={client.company} src={client.logo} size="sm" />
+                              <div>
+                                <div className="font-semibold text-[13px] text-[var(--fd-ink-1)]">
+                                  {client.company}
+                                </div>
+                                <div className="text-[11px] mt-0.5 text-[var(--fd-ink-4)]">
+                                  {client.name} · {client.email}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        case 'services':
+                          return (
+                            <div className="flex gap-1 flex-wrap">
+                              {client.services?.slice(0, 2).map(s => (
+                                <span
+                                  key={s}
+                                  className="px-2 py-0.5 rounded text-[10.5px] font-medium"
+                                  style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
+                                >
+                                  {serviceLabels[s] || s}
+                                </span>
+                              ))}
+                              {client.services?.length > 2 && (
+                                <span
+                                  className="px-2 py-0.5 rounded text-[10.5px]"
+                                  style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)' }}
+                                >
+                                  +{client.services.length - 2}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        case 'manager':
+                          return client.accountManager ? (
+                            <div className="flex items-center gap-2">
+                              <Avatar name={client.accountManager.name} size="xs" />
+                              <span className="text-[12.5px] text-[var(--fd-ink-2)]">
+                                {client.accountManager.name}
+                              </span>
+                            </div>
+                          ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>;
+                        case 'plan':
+                          return (
+                            <span
+                              className="text-[11px] font-medium px-2 py-0.5 rounded-full capitalize"
+                              style={getPlanStyle(client.plan)}
+                            >
+                              {(PLAN_LABELS || {})[client.plan] || client.plan}
+                            </span>
+                          );
+                        case 'status':
+                          return (
+                            <span
+                              className="text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize"
+                              style={getStatusStyle(client.status)}
+                            >
+                              {client.status}
+                            </span>
+                          );
+                        case 'since':
+                          return formatDate(client.startDate);
+                        default:
+                          return null;
+                      }
+                    };
+                    const isRowDragOver = dragOverRowId === client._id;
+                    const isRowDragging = draggingRowId === client._id;
+                    return (
                     <tr
                       key={client._id}
                       onClick={() => navigate(`/admin/clients/${client._id}`)}
+                      onDragOver={e => { e.preventDefault(); setDragOverRowId(client._id); }}
+                      onDrop={e => { e.preventDefault(); handleRowDrop(client._id); }}
                       className="cursor-pointer hover:bg-[var(--fd-table-row-hover)] transition-colors"
+                      style={{
+                        opacity: isRowDragging ? 0.4 : 1,
+                        boxShadow: isRowDragOver ? 'inset 0 2px 0 #4f6ef0' : 'none',
+                      }}
                     >
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <Avatar name={client.company} src={client.logo} size="sm" />
-                          <div>
-                            <div className="font-semibold text-[13px] text-[var(--fd-ink-1)]">
-                              {client.company}
-                            </div>
-                            <div className="text-[11px] mt-0.5 text-[var(--fd-ink-4)]">
-                              {client.name} · {client.email}
-                            </div>
-                          </div>
-                        </div>
+                      <td
+                        draggable
+                        onDragStart={e => { e.stopPropagation(); handleRowDragStart(e, client._id); }}
+                        onDragEnd={e => { e.stopPropagation(); handleRowDragEnd(); }}
+                        onClick={e => e.stopPropagation()}
+                        className="cursor-grab active:cursor-grabbing"
+                        title="Drag to reorder"
+                      >
+                        <GripVertical size={14} style={{ color: 'var(--fd-ink-5)' }} />
                       </td>
-                      <td>
-                        <div className="flex gap-1 flex-wrap">
-                          {client.services?.slice(0, 2).map(s => (
-                            <span
-                              key={s}
-                              className="px-2 py-0.5 rounded text-[10.5px] font-medium"
-                              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
-                            >
-                              {serviceLabels[s] || s}
-                            </span>
-                          ))}
-                          {client.services?.length > 2 && (
-                            <span
-                              className="px-2 py-0.5 rounded text-[10.5px]"
-                              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)' }}
-                            >
-                              +{client.services.length - 2}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        {client.accountManager ? (
-                          <div className="flex items-center gap-2">
-                            <Avatar name={client.accountManager.name} size="xs" />
-                            <span className="text-[12.5px] text-[var(--fd-ink-2)]">
-                              {client.accountManager.name}
-                            </span>
-                          </div>
-                        ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>}
-                      </td>
-                      <td>
-                        <span
-                          className="text-[11px] font-medium px-2 py-0.5 rounded-full capitalize"
-                          style={getPlanStyle(client.plan)}
-                        >
-                          {(PLAN_LABELS || {})[client.plan] || client.plan}
-                        </span>
-                      </td>
-                      <td>
-                        <span
-                          className="text-[11px] font-medium px-2.5 py-0.5 rounded-full capitalize"
-                          style={getStatusStyle(client.status)}
-                        >
-                          {client.status}
-                        </span>
-                      </td>
-                      <td className="text-[12px] font-mono text-[var(--fd-ink-4)]">
-                        {formatDate(client.startDate)}
-                      </td>
+                      {tableColumns.map(col => (
+                        <td key={col.id} className={col.id === 'since' ? 'text-[12px] font-mono text-[var(--fd-ink-4)]' : undefined}>
+                          {cellFor(col.id)}
+                        </td>
+                      ))}
                       <td>
                         <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                           {(client.whatsappGroup || client.whatsappPhone) && (
@@ -555,14 +882,14 @@ export default function ClientsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile cards */}
             <div className="md:hidden divide-y" style={{ borderColor: 'var(--fd-border-subtle)' }}>
-              {clients.map(client => (
+              {orderedClients.map(client => (
                 <div
                   key={client._id}
                   className="flex items-center gap-3.5 px-4 py-4 transition-colors hover:bg-[var(--fd-table-row-hover)]"
@@ -605,6 +932,7 @@ export default function ClientsPage() {
           </>
         )}
       </Card>
+      )}
 
       {/* Pagination */}
       {total > LIMIT && (

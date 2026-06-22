@@ -121,6 +121,7 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     .populate('client', 'name company')
     .populate('assignedTo', 'name avatar role jobTitle')
     .populate('createdBy', 'name')
+    .populate('revisions.requestedBy', 'name avatar role')
     .sort({ priority: -1, deadline: 1, createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(Number(limit));
@@ -285,14 +286,75 @@ router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async 
     match = { client: { $in: scopedClientIds } };
   }
 
-  const [byStatus, byPriority, byCategory, overdue] = await Promise.all([
+  const [byStatus, byPriority, byCategory, overdue, revisionAgg] = await Promise.all([
     Task.aggregate([{ $match: match }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
     Task.aggregate([{ $match: match }, { $group: { _id: '$priority', count: { $sum: 1 } } }]),
     Task.aggregate([{ $match: match }, { $group: { _id: '$category', count: { $sum: 1 } } }]),
     Task.countDocuments({ ...match, deadline: { $lt: new Date() }, status: { $nin: ['completed', 'cancelled'] } }),
+    // Revisions KPI: total revision count across tasks, and how many tasks had at least one revision
+    Task.aggregate([
+      { $match: match },
+      { $group: { _id: null, totalRevisions: { $sum: '$revisionCount' }, tasksWithRevisions: { $sum: { $cond: [{ $gt: ['$revisionCount', 0] }, 1, 0] } } } },
+    ]),
   ]);
 
-  res.json({ success: true, byStatus, byPriority, byCategory, overdue });
+  const revisions = revisionAgg[0] || { totalRevisions: 0, tasksWithRevisions: 0 };
+
+  res.json({ success: true, byStatus, byPriority, byCategory, overdue, revisions });
+}));
+
+// @route POST /api/tasks/:id/revisions
+// Team member presses this when the PM asks them to make changes to a task.
+// Increments the task's revision counter and stores an optional note.
+router.post('/:id/revisions', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
+  const { note } = req.body;
+
+  const existing = await Task.findById(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, message: 'Task not found' });
+
+  const isManager = MANAGER_ROLES.includes(req.user.role);
+  if (!isManager && String(existing.assignedTo) !== String(req.user._id)) {
+    return res.status(403).json({ success: false, message: 'You can only log revisions on tasks assigned to you' });
+  }
+
+  const task = await Task.findByIdAndUpdate(
+    req.params.id,
+    {
+      $inc: { revisionCount: 1 },
+      $push: {
+        revisions: {
+          note: note?.trim() || '',
+          requestedBy: req.user._id,
+          statusAtTime: existing.status,
+        },
+      },
+    },
+    { new: true, runValidators: true }
+  )
+    .populate('client', 'name company')
+    .populate('assignedTo', 'name avatar role jobTitle')
+    .populate('createdBy', 'name')
+    .populate('revisions.requestedBy', 'name avatar role');
+
+  logActivity({
+    req,
+    action: 'task.revision_logged',
+    entity: { type: 'task', id: task._id, name: task.title },
+    meta: { note: note?.trim() || '', revisionCount: task.revisionCount },
+  });
+
+  // Notify managers that a change request was logged
+  const managers = await User.find({ role: { $in: MANAGER_ROLES } }).select('_id');
+  for (const mgr of managers) {
+    await createNotification(mgr._id, {
+      type: 'task',
+      title: '🔄 Revision Logged',
+      body: `${req.user.name} logged a change request on "${task.title}" (revision #${task.revisionCount})`,
+      link: '/admin/tasks'
+    });
+  }
+
+  res.json({ success: true, task });
 }));
 
 // @route POST /api/tasks/:id/comments

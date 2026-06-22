@@ -114,8 +114,16 @@ export default function App() {
                 <Route path="tasks"      element={<TasksPage />} />
                 <Route path="my-tasks"   element={<MyTasksPage />} />
                 <Route path="leads"      element={<LeadsAdminPage />} />
-                <Route path="team"       element={<TeamPage />} />
-                <Route path="team/:id"   element={<TeamMemberDetailPage />} />
+                <Route path="team"       element={
+                  <ProtectedRoute roles={['admin']}>
+                    <TeamPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="team/:id"   element={
+                  <ProtectedRoute roles={['admin']}>
+                    <TeamMemberDetailPage />
+                  </ProtectedRoute>
+                } />
 
                 <Route path="updates"    element={<UpdatesPage />} />
                 <Route path="reports"    element={

@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import {
   ListChecks, Clock, CheckCircle, AlertCircle, Play,
   X, Calendar, User, Tag, Flag, Building2, FileText, ChevronRight,
-  ArrowRight, ChevronDown, UserCheck, Send, Zap,
+  ArrowRight, ChevronDown, UserCheck, Send, Zap, RotateCcw, MessageSquarePlus,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -188,8 +188,131 @@ function AssignedByBadge({ createdBy, isClientRequest, style }) {
   );
 }
 
-// ── Task Detail Modal ─────────────────────────────────────────────────────────
-function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
+// ── Revision Badge ────────────────────────────────────────────────────────────
+// Shows the "changes requested" counter wherever a task is rendered.
+function RevisionBadge({ count, size = 'sm', onClick }) {
+  if (!count) return null;
+  const isLg = size === 'lg';
+  return (
+    <span
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 font-semibold rounded-full ${isLg ? 'text-[12px] px-2.5 py-1' : 'text-[11px] px-2 py-0.5'} ${onClick ? 'cursor-pointer hover:scale-[1.04]' : ''} transition-transform`}
+      style={{
+        background: 'rgba(245,158,11,0.12)',
+        color: '#b45309',
+        border: '1px solid rgba(245,158,11,0.3)',
+      }}
+      title={`This task has been sent back for changes ${count} time${count > 1 ? 's' : ''}`}
+    >
+      <RotateCcw size={isLg ? 11 : 9} />
+      {count} revision{count > 1 ? 's' : ''}
+    </span>
+  );
+}
+
+// ── Log Revision Button ───────────────────────────────────────────────────────
+// Lets the team member self-report that the PM asked for changes. This is a
+// manual, deliberate action (not automated) — they add a short note about
+// what needs to change, and the task's revision counter goes up by one.
+function LogRevisionButton({ task, onLogged, size = 'md' }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const { data } = await api.post(`/tasks/${task._id}/revisions`, { note });
+      onLogged(data.task);
+      setNote('');
+      setOpen(false);
+    } finally { setSaving(false); }
+  };
+
+  const px = size === 'lg' ? 'px-4 py-3' : 'px-3 py-1.5';
+  const textSize = size === 'lg' ? 'text-[13.5px]' : 'text-[12px]';
+
+  return (
+    <div ref={ref} className="relative" style={{ display: 'inline-block' }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        className={`flex items-center gap-1.5 ${px} rounded-xl ${textSize} font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] select-none`}
+        style={{
+          background: 'rgba(245,158,11,0.1)',
+          color: '#b45309',
+          border: '1px solid rgba(245,158,11,0.3)',
+        }}
+      >
+        <MessageSquarePlus size={size === 'lg' ? 14 : 11} />
+        PM Asked for Changes
+      </button>
+
+      {open && (
+        <div
+          className="absolute z-50 animate-fade-in"
+          style={{
+            bottom: 'calc(100% + 8px)',
+            left: 0,
+            minWidth: 260,
+            background: 'var(--fd-surface)',
+            border: '1.5px solid rgba(245,158,11,0.3)',
+            borderRadius: 14,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(245,158,11,0.2)',
+            overflow: 'hidden',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="px-4 py-3" style={{ background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.2)' }}>
+            <div className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>
+              <RotateCcw size={13} style={{ color: '#b45309' }} />
+              Log a change request
+            </div>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>
+              This bumps the revision counter so it's clear changes were requested.
+            </p>
+          </div>
+          <div className="p-3 space-y-2">
+            <textarea
+              autoFocus
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="What did the PM ask you to change? (optional)"
+              rows={3}
+              className="w-full rounded-lg p-2 text-[12.5px] resize-none outline-none"
+              style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-1)' }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={submit}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12.5px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', opacity: saving ? 0.7 : 1 }}
+              >
+                {saving ? <Spinner size="xs" /> : <><RotateCcw size={12} /> Confirm</>}
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center px-3 py-2.5 rounded-xl text-[12.5px] font-semibold transition-all hover:scale-[1.02]"
+                style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLogged }) {
   if (!task) return null;
   const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
   const sm = STATUS_META[task.status] || STATUS_META.pending;
@@ -234,8 +357,9 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
                 {task.title}
               </h2>
               {/* Assigned by — prominent in modal */}
-              <div className="mt-1.5">
+              <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <AssignedByBadge createdBy={task.createdBy} isClientRequest={task.isClientRequest} />
+                <RevisionBadge count={task.revisionCount} />
               </div>
             </div>
             <button
@@ -312,6 +436,50 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
                 </span>
               </div>
               <StatusActionButton task={task} onStatusUpdate={onStatusUpdate} updating={updating} size="lg" />
+            </div>
+          )}
+
+          {/* Revision logging — only once work has actually started (in_progress),
+              is sitting in review, or has already been marked completed.
+              Not shown on today/pending (nothing's been worked on yet) or cancelled. */}
+          {(task.status === 'in_progress' || task.status === 'review' || task.status === 'completed') && (
+            <div className="flex">
+              <LogRevisionButton task={task} onLogged={onRevisionLogged} size="md" />
+            </div>
+          )}
+
+          {/* Revision history */}
+          {task.revisions?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <RotateCcw size={13} style={{ color: 'var(--fd-ink-4)' }} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>
+                  Change History ({task.revisions.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {[...task.revisions].reverse().map((rev, i) => (
+                  <div
+                    key={rev._id || i}
+                    className="rounded-lg p-2.5"
+                    style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-[11.5px] font-semibold" style={{ color: '#b45309' }}>
+                        {rev.requestedBy?.name || 'Team member'}
+                      </span>
+                      <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-5)' }}>
+                        {timeAgo(rev.createdAt)}
+                      </span>
+                    </div>
+                    {rev.note ? (
+                      <p className="text-[12px]" style={{ color: 'var(--fd-ink-2)' }}>{rev.note}</p>
+                    ) : (
+                      <p className="text-[12px] italic" style={{ color: 'var(--fd-ink-5)' }}>No note added.</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -397,6 +565,13 @@ export default function MyTasksPage() {
     } finally { setUpdating(null); }
   };
 
+  // Called after a team member logs a "PM asked for changes" revision.
+  // The API returns the fully updated task (with new revisionCount/revisions).
+  const handleRevisionLogged = (updatedTask) => {
+    setTasks(prev => prev.map(t => t._id === updatedTask._id ? updatedTask : t));
+    setSelectedTask(prev => prev?._id === updatedTask._id ? updatedTask : prev);
+  };
+
   const openTaskDetail = (task) => {
     const fresh = tasks.find(t => t._id === task._id) || task;
     setSelectedTask(fresh);
@@ -417,6 +592,8 @@ export default function MyTasksPage() {
   const inProgress = tasks.filter(t => t.status === 'in_progress').length;
   const review = tasks.filter(t => t.status === 'review').length;
   const completed = tasks.filter(t => t.status === 'completed').length;
+  // KPI: how many times tasks have been sent back for changes in total
+  const totalRevisions = tasks.reduce((sum, t) => sum + (t.revisionCount || 0), 0);
 
   const statuses = ['today', 'pending', 'in_progress', 'review', 'completed', 'cancelled'];
 
@@ -430,11 +607,12 @@ export default function MyTasksPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <StatCard title="Today"       value={today}      icon={AlertCircle} color="orange" subtitle="Due today" />
         <StatCard title="In Progress" value={inProgress} icon={Play}        color="blue"   subtitle="Active" />
         <StatCard title="In Review"   value={review}     icon={Clock}       color="purple" subtitle="Awaiting approval" />
         <StatCard title="Completed"   value={completed}  icon={CheckCircle} color="green"  subtitle="Done" />
+        <StatCard title="Revisions"   value={totalRevisions} icon={RotateCcw} color="orange" subtitle="Changes requested" />
       </div>
 
       {/* Filter */}
@@ -484,6 +662,7 @@ export default function MyTasksPage() {
                       {isOverdue && (
                         <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>
                       )}
+                      <RevisionBadge count={task.revisionCount} />
                     </div>
                     {/* Assigned by — visible on card */}
                     <AssignedByBadge createdBy={task.createdBy} isClientRequest={task.isClientRequest} />
@@ -523,6 +702,10 @@ export default function MyTasksPage() {
                 <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
                   <StatusActionButton task={task} onStatusUpdate={updateStatus} updating={updating} size="sm" />
 
+                  {(task.status === 'in_progress' || task.status === 'review' || task.status === 'completed') && (
+                    <LogRevisionButton task={task} onLogged={handleRevisionLogged} size="sm" />
+                  )}
+
                   {task.status === 'review' && (
                     <span className="text-xs italic flex items-center gap-1" style={{ color: '#a855f7' }}>
                       <Clock size={11} /> Awaiting PM review
@@ -550,6 +733,7 @@ export default function MyTasksPage() {
           onClose={() => setSelectedTask(null)}
           onStatusUpdate={updateStatus}
           updating={updating}
+          onRevisionLogged={handleRevisionLogged}
         />
       )}
     </div>

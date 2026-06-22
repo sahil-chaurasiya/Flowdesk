@@ -65,6 +65,18 @@ const taskSchema = new mongoose.Schema({
     text: String,
     createdAt: { type: Date, default: Date.now }
   }],
+  // Revision tracking — incremented when a team member logs that the PM
+  // asked for changes on this task (e.g. after a review rejection).
+  revisionCount: {
+    type: Number,
+    default: 0
+  },
+  revisions: [{
+    note: { type: String, trim: true },
+    requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // who logged it (the team member)
+    statusAtTime: String, // status the task was in when the revision was logged
+    createdAt: { type: Date, default: Date.now }
+  }],
   isClientVisible: {
     type: Boolean,
     default: false

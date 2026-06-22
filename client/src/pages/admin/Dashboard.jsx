@@ -273,6 +273,8 @@ function AnalyticsPanel() {
 
 // ── Productivity panel ────────────────────────────────────────────────────────
 function ProductivityPanel() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -289,7 +291,7 @@ function ProductivityPanel() {
   return (
     <Card>
       <CardHeader>
-        <SectionHeading title="Team Productivity (30 days)" linkTo="/admin/team" />
+        <SectionHeading title="Team Productivity (30 days)" linkTo={isAdmin ? '/admin/team' : undefined} />
       </CardHeader>
       <CardContent className="p-0">
         {data.map(({ member, completed, overdue, inReview, completionRate }) => (
@@ -354,6 +356,9 @@ function ProductivityPanel() {
 
 // ── Manager KPI Stats ─────────────────────────────────────────────────────────
 function ManagerKPIs({ stats, loading }) {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
+
   if (loading) return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       {[...Array(4)].map((_, i) => (
@@ -366,7 +371,8 @@ function ManagerKPIs({ stats, loading }) {
       <StatCard title="Active Clients" value={stats?.activeClients ?? 0} icon={Building2}    color="blue"   linkTo="/admin/clients?status=active" />
       <StatCard title="Open Tasks"     value={stats?.openTasks    ?? 0} icon={CheckSquare}   color="orange" subtitle="Pending + In Progress" linkTo="/admin/tasks?status=pending" />
       <StatCard title="In Review"      value={stats?.reviewTasks  ?? 0} icon={Clock}         color="purple" subtitle="Awaiting approval"     linkTo="/admin/tasks?status=in_review" />
-      <StatCard title="Team Members"   value={stats?.teamCount    ?? 0} icon={Users}         color="green"  linkTo="/admin/team" />
+      {/* Team page is admin-only — managers shouldn't get a clickable card pointing there */}
+      <StatCard title="Team Members"   value={stats?.teamCount    ?? 0} icon={Users}         color="green"  linkTo={isAdmin ? '/admin/team' : undefined} />
     </div>
   );
 }
@@ -462,7 +468,14 @@ function TeamMemberDashboard({ user }) {
   const inProgress = tasks.filter(t => t.status === 'in_progress');
   const review    = tasks.filter(t => t.status === 'review');
   const completed = tasks.filter(t => t.status === 'completed');
-  const active    = [...inProgress, ...pending];
+  // "Today" feed: anything that has to do with today — due today, completed
+  // today, marked as today's task, or currently being worked on / in review.
+  const todayTasks = tasks.filter(t => {
+    const dueToday       = t.deadline && isToday(new Date(t.deadline));
+    const completedToday = t.completedAt && isToday(new Date(t.completedAt));
+    const inFlight        = t.status === 'today' || t.status === 'in_progress' || t.status === 'review';
+    return dueToday || completedToday || inFlight;
+  });
 
   if (loading) return <div className="flex items-center justify-center h-60"><Spinner size="lg" /></div>;
 
@@ -491,13 +504,13 @@ function TeamMemberDashboard({ user }) {
       {/* Active tasks */}
       <Card>
         <CardHeader>
-          <SectionHeading title="Your Active Tasks" count={active.length} linkTo="/admin/my-tasks" />
+          <SectionHeading title="Your Active Tasks" count={todayTasks.length} linkTo="/admin/my-tasks" />
         </CardHeader>
         <CardContent className="p-0">
-          {active.length === 0 ? (
+          {todayTasks.length === 0 ? (
             <EmptyState icon={CheckSquare} title="All caught up" description="No active tasks assigned to you right now." />
           ) : (
-            active.slice(0, 8).map(t => (
+            todayTasks.slice(0, 8).map(t => (
               <TaskRow key={t._id} task={t} onStatusChange={updateStatus} updating={updating} />
             ))
           )}

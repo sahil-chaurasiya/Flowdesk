@@ -262,6 +262,15 @@ export default function TasksPage() {
                         <div className="text-[10.5px] mt-0.5 font-mono" style={{ color: 'var(--fd-ink-4)' }}>
                           {timeAgo(task.createdAt)}
                         </div>
+                        {task.revisionCount > 0 && (
+                          <span
+                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 inline-block"
+                            style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}
+                            title="Times this task was sent back for changes"
+                          >
+                            🔄 {task.revisionCount} revision{task.revisionCount > 1 ? 's' : ''}
+                          </span>
+                        )}
                         {task.isClientRequest && (
                           <span
                             className="text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1 inline-block"
@@ -385,6 +394,14 @@ export default function TasksPage() {
                     >
                       {task.priority}
                     </span>
+                    {task.revisionCount > 0 && (
+                      <span
+                        className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full"
+                        style={{ background: 'rgba(245,158,11,0.12)', color: '#b45309' }}
+                      >
+                        🔄 {task.revisionCount} revision{task.revisionCount > 1 ? 's' : ''}
+                      </span>
+                    )}
                     {isManager ? (
                       <select
                         value={task.status}

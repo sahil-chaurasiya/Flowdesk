@@ -339,6 +339,49 @@
     box-shadow: 0 0 0 3px rgba(79,110,240,0.15), inset 0 1px 2px rgba(0,0,0,0.02);
   }
 
+  /* ── Date / datetime inputs — theme-aware picker icon ── */
+  /*  color-scheme tells the browser which native chrome to use  */
+  [data-theme="light"] input[type="date"],
+  [data-theme="light"] input[type="datetime-local"] {
+    color-scheme: light;
+  }
+  [data-theme="dark"] input[type="date"],
+  [data-theme="dark"] input[type="datetime-local"] {
+    color-scheme: dark;
+  }
+
+  /*  Replace the native Chromium calendar icon (which ignores CSS filters on
+      Windows) with an inline SVG that uses the theme's text colour.         */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0;   /* hide the native icon */
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 2.5rem;
+    height: 100%;
+  }
+
+  /* Wrap with a relative container so the custom icon can be positioned */
+  input[type="date"],
+  input[type="datetime-local"] {
+    position: relative;
+    /* room for the icon on the right */
+    padding-right: 2.5rem;
+    /* SVG calendar icon — light theme (dark strokes on light bg) */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 15px 15px;
+  }
+
+  /* Dark theme — swap to a light-coloured icon */
+  [data-theme="dark"] input[type="date"],
+  [data-theme="dark"] input[type="datetime-local"] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+  }
+
   /* ── Buttons ──────────────────────────────────────────────────────────── */
   .btn-primary {
     display: inline-flex;

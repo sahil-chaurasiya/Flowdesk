@@ -29,6 +29,7 @@ const { router: eventsRouter, emitEvent } = require('./routes/events');
 // ── Existing new routes ───────────────────────────────────────────────────────
 const activityRouter  = require('./routes/activity');
 const calendarRouter  = require('./routes/calendar');
+const importantDaysRouter = require('./routes/importantDays');
 const searchRouter    = require('./routes/search');
 
 // ── AI Assistant route ────────────────────────────────────────────────────────
@@ -113,7 +114,8 @@ app.use('/api/events',        eventsRouter);
 
 // New (pre-existing)
 app.use('/api/activity',  activityRouter);
-app.use('/api/calendar',  calendarRouter);
+app.use('/api/calendar',       calendarRouter);
+app.use('/api/important-days', importantDaysRouter);
 app.use('/api/search',    searchRouter);
 
 // ── AI Assistant ──────────────────────────────────────────────────────────────

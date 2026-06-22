@@ -186,6 +186,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
   const [modal, setModal]   = useState(null); // { mode: 'new'|'view'|'edit', event?, date? }
   const [saving, setSaving] = useState(false);
   const [form, setForm]     = useState({});
+  const [importantDays, setImportantDays] = useState([]);
 
   const canActOnEvent = (ev) =>
     user?.role === 'admin' ||
@@ -197,6 +198,15 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
     ...ev,
     isOverdue: ev.status !== 'done' && ev.status !== 'cancelled' && new Date(ev.endDate) < now,
   });
+
+  // Fetch important days for the visible month range
+  useEffect(() => {
+    const from = startOfWeek(startOfMonth(month), { weekStartsOn: 1 }).toISOString();
+    const to   = endOfWeek(endOfMonth(month),     { weekStartsOn: 1 }).toISOString();
+    api.get(`/important-days?from=${from}&to=${to}`)
+      .then(({ data }) => setImportantDays(data.days || []))
+      .catch(() => {});
+  }, [month]);
 
   const monthStart = startOfMonth(month);
   const monthEnd   = endOfMonth(month);
@@ -212,6 +222,9 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
       return s <= de && e >= ds;
     });
   };
+
+  const importantDaysOnDay = (day) =>
+    importantDays.filter(d => isSameDay(parseISO(d.date), day));
 
   const openNew = (day) => {
     const base = new Date(day);
@@ -303,24 +316,45 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
         </div>
         <div className="grid grid-cols-7">
           {days.map((day, i) => {
-            const dayEvts = eventsOnDay(day);
-            const inMonth = isSameMonth(day, month);
-            const today   = isToday(day);
+            const dayEvts    = eventsOnDay(day);
+            const dayImpDays = importantDaysOnDay(day);
+            const inMonth    = isSameMonth(day, month);
+            const today      = isToday(day);
             return (
               <div key={i} onClick={() => openNew(day)}
                 className="cursor-pointer hover:bg-[var(--fd-surface-sunken)] transition-colors group"
                 style={{
                   minHeight: 80, borderRight: i % 7 < 6 ? '1px solid var(--fd-border-subtle)' : 'none',
                   borderBottom: '1px solid var(--fd-border-subtle)',
-                  background: !inMonth ? 'var(--fd-surface-sunken)' : 'transparent',
+                  background: dayImpDays.length > 0 && inMonth
+                    ? 'linear-gradient(180deg, #fffbeb 0%, transparent 24px)'
+                    : !inMonth ? 'var(--fd-surface-sunken)' : 'transparent',
                 }}
               >
-                <div className="p-1.5">
+                <div className="p-1.5 flex items-center justify-between">
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[11px] font-semibold"
                     style={{ background: today ? '#4f6ef0' : 'transparent', color: today ? '#fff' : !inMonth ? 'var(--fd-ink-5)' : 'var(--fd-ink-2)' }}>
                     {format(day, 'd')}
                   </span>
+                  {dayImpDays.length > 0 && (
+                    <span className="text-[11px]" title={dayImpDays.map(d => d.name).join(', ')}>
+                      {dayImpDays[0].emoji}
+                    </span>
+                  )}
                 </div>
+                {dayImpDays.length > 0 && (
+                  <div className="px-1 mb-0.5 space-y-[1px]">
+                    {dayImpDays.map(d => (
+                      <div key={d._id}
+                        className="w-full text-[9px] font-bold px-1 py-[1px] rounded truncate"
+                        style={{ background: '#fef9c3', color: '#713f12', border: '1px solid #fde68a' }}
+                        title={d.name}
+                      >
+                        {d.name}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="px-1 pb-1 space-y-[2px]">
                   {dayEvts.slice(0, 2).map(ev => {
                     const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;

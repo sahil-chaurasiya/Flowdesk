@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Plus, Check, Edit2, Trash2,
   Clock, AlignLeft, List, Filter, X, AlertTriangle, User,
-  CheckCircle2, Circle, Loader, XCircle, Building2,
+  CheckCircle2, Circle, Loader, XCircle, Building2, Star, Sparkles,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -596,6 +596,195 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
   );
 }
 
+// ─── Quick emoji picker options ───────────────────────────────────────────────
+const QUICK_EMOJIS = ['🎉','🪔','🌙','🌸','💐','🎊','🎁','🏖️','❤️','🙏','⭐','🎂','🥳','🎆','🌟','🕌','⛪','🛕'];
+
+// ─── Manage Important Days Modal ──────────────────────────────────────────────
+function ManageImportantDaysModal({ onClose, onDaysChanged }) {
+  const toast = useToast();
+  const [days, setDays]       = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm]       = useState(null); // null = list view, object = add/edit form
+  const [saving, setSaving]   = useState(false);
+  const [deleting, setDeleting] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/important-days');
+      setDays(data.days || []);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const openAdd = () => setForm({ name: '', date: format(new Date(), 'yyyy-MM-dd'), emoji: '🎉', notes: '' });
+  const openEdit = (d) => setForm({ _id: d._id, name: d.name, date: format(parseISO(d.date), 'yyyy-MM-dd'), emoji: d.emoji || '🎉', notes: d.notes || '' });
+
+  const save = async () => {
+    if (!form.name?.trim() || !form.date) return;
+    setSaving(true);
+    try {
+      if (form._id) {
+        await api.put(`/important-days/${form._id}`, form);
+        toast({ type: 'success', title: 'Day updated' });
+      } else {
+        await api.post('/important-days', form);
+        toast({ type: 'success', title: 'Important day added' });
+      }
+      await load();
+      onDaysChanged();
+      setForm(null);
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to save', message: err?.response?.data?.message });
+    } finally { setSaving(false); }
+  };
+
+  const del = async (id) => {
+    setDeleting(id);
+    try {
+      await api.delete(`/important-days/${id}`);
+      toast({ type: 'success', title: 'Removed' });
+      await load();
+      onDaysChanged();
+    } catch {
+      toast({ type: 'error', title: 'Failed to delete' });
+    } finally { setDeleting(null); }
+  };
+
+  // Group days by month for display
+  const grouped = days.reduce((acc, d) => {
+    const key = format(parseISO(d.date), 'MMMM yyyy');
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(d);
+    return acc;
+  }, {});
+
+  return (
+    <Modal
+      isOpen onClose={onClose}
+      title={form ? (form._id ? 'Edit Important Day' : 'Add Important Day') : 'Important Days'}
+      size="sm"
+      footer={
+        form ? (
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" size="sm" onClick={() => setForm(null)}>Back</Button>
+            <Button size="sm" onClick={save} loading={saving}
+              disabled={!form.name?.trim() || !form.date}>
+              <Check size={12} /> {form._id ? 'Save' : 'Add'}
+            </Button>
+          </div>
+        ) : (
+          <div className="flex justify-end">
+            <Button size="sm" onClick={openAdd}><Plus size={12} /> Add Day</Button>
+          </div>
+        )
+      }
+    >
+      {form ? (
+        /* ── Add / Edit form ── */
+        <div className="space-y-4">
+          {/* Emoji picker */}
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Emoji</label>
+            <div className="flex flex-wrap gap-1.5">
+              {QUICK_EMOJIS.map(e => (
+                <button key={e}
+                  onClick={() => setForm(f => ({ ...f, emoji: e }))}
+                  className="w-8 h-8 rounded-lg text-lg flex items-center justify-center transition-all"
+                  style={{
+                    background: form.emoji === e ? 'var(--fd-accent-light, #eff0fe)' : 'var(--fd-surface-sunken)',
+                    border: `1.5px solid ${form.emoji === e ? 'var(--fd-accent, #4f6ef0)' : 'transparent'}`,
+                    transform: form.emoji === e ? 'scale(1.15)' : 'scale(1)',
+                  }}
+                >
+                  {e}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Input
+            label="Name"
+            value={form.name}
+            autoFocus
+            onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Diwali, Eid, Father's Day"
+          />
+
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Date</label>
+            <input
+              type="date"
+              className="fd-input"
+              value={form.date}
+              onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
+              Notes <span className="text-[11px] font-normal" style={{ color: 'var(--fd-ink-4)' }}>(optional)</span>
+            </label>
+            <textarea
+              className="fd-input resize-none" rows={2}
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              placeholder="Any notes about this day…"
+            />
+          </div>
+        </div>
+      ) : (
+        /* ── List view ── */
+        loading ? (
+          <div className="flex items-center justify-center py-10"><Spinner /></div>
+        ) : days.length === 0 ? (
+          <div className="text-center py-10">
+            <p className="text-[28px] mb-2">🗓️</p>
+            <p className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>No important days yet</p>
+            <p className="text-[12px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>Add festivals, holidays &amp; special dates so the whole team sees them on the calendar.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(grouped).map(([month, mDays]) => (
+              <div key={month}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--fd-ink-4)' }}>{month}</p>
+                <div className="space-y-1">
+                  {mDays.map(d => (
+                    <div key={d._id}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl group"
+                      style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
+                    >
+                      <span className="text-[20px] flex-shrink-0">{d.emoji || '🎉'}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>{d.name}</p>
+                        <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{format(parseISO(d.date), 'EEE, MMM d yyyy')}</p>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEdit(d)}
+                          className="p-1.5 rounded-lg hover:opacity-70 transition-opacity"
+                          style={{ color: 'var(--fd-ink-4)', background: 'var(--fd-surface)' }}>
+                          <Edit2 size={11} />
+                        </button>
+                        <button onClick={() => del(d._id)} disabled={deleting === d._id}
+                          className="p-1.5 rounded-lg hover:opacity-70 transition-opacity"
+                          style={{ color: '#ef4444', background: '#fef2f2' }}>
+                          {deleting === d._id ? <Loader size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )
+      )}
+    </Modal>
+  );
+}
+
 // ─── Filter Bar ───────────────────────────────────────────────────────────────
 function FilterBar({ clients, filters, onChange, overdueCount }) {
   const hasActive = filters.client || filters.type || filters.status;
@@ -795,6 +984,22 @@ export default function CalendarPage() {
   const [showSidebar, setShowSidebar] = useState(true);
   const [clients, setClients]   = useState([]);
   const [filters, setFilters]   = useState({ client: '', type: '', status: '', overdueOnly: false });
+  const [importantDays, setImportantDays] = useState([]);
+  const [showManageDays, setShowManageDays] = useState(false);
+
+  const canManageDays = user?.role === 'admin' || user?.role === 'manager';
+
+  // Fetch important days whenever month changes
+  const fetchImportantDays = useCallback(async () => {
+    const from = startOfWeek(startOfMonth(current), { weekStartsOn: 1 }).toISOString();
+    const to   = endOfWeek(endOfMonth(current),   { weekStartsOn: 1 }).toISOString();
+    try {
+      const { data } = await api.get(`/important-days?from=${from}&to=${to}`);
+      setImportantDays(data.days || []);
+    } catch { /* silent */ }
+  }, [current]);
+
+  useEffect(() => { fetchImportantDays(); }, [fetchImportantDays]);
 
   // Fetch clients scoped to current user's role
   useEffect(() => {
@@ -883,6 +1088,9 @@ export default function CalendarPage() {
     });
   };
 
+  const importantDaysOnDay = (day) =>
+    importantDays.filter(d => isSameDay(parseISO(d.date), day));
+
   const todayEvents = displayedEvents
     .filter(ev => isSameDay(parseISO(ev.startDate), new Date()))
     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
@@ -952,6 +1160,18 @@ export default function CalendarPage() {
             <span className="hidden sm:inline ml-1">Add Event</span>
           </Button>
 
+          {canManageDays && (
+            <button
+              onClick={() => setShowManageDays(true)}
+              className="hidden sm:flex items-center gap-1.5 text-[12px] font-semibold px-2.5 py-1.5 rounded-lg transition-all"
+              style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e' }}
+              title="Manage Important Days"
+            >
+              <Star size={12} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
+              <span className="hidden lg:inline">Important Days</span>
+            </button>
+          )}
+
           <button
             onClick={() => setShowSidebar(v => !v)}
             className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg transition-colors"
@@ -1008,6 +1228,7 @@ export default function CalendarPage() {
               <div className="grid grid-cols-7">
                 {days.map((day, i) => {
                   const dayEvts   = eventsOnDay(day);
+                  const dayImpDays = importantDaysOnDay(day);
                   const inMonth   = isSameMonth(day, current);
                   const today     = isToday(day);
                   const isWeekend = i % 7 >= 5;
@@ -1020,7 +1241,9 @@ export default function CalendarPage() {
                       style={{
                         borderRight:  i % 7 < 6 ? '1px solid var(--fd-border-subtle)' : 'none',
                         borderBottom: '1px solid var(--fd-border-subtle)',
-                        background:   !inMonth ? 'var(--fd-surface-sunken)' : isWeekend ? 'rgba(0,0,0,0.005)' : 'transparent',
+                        background:   dayImpDays.length > 0 && inMonth
+                          ? 'linear-gradient(180deg, #fffbeb 0%, transparent 28px)'
+                          : !inMonth ? 'var(--fd-surface-sunken)' : isWeekend ? 'rgba(0,0,0,0.005)' : 'transparent',
                         minHeight: 'clamp(48px, 12vw, 108px)',
                       }}
                       onClick={() => {
@@ -1060,6 +1283,34 @@ export default function CalendarPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Important day banners — shown when this day has festival/holiday markers */}
+                      {dayImpDays.length > 0 && (
+                        <div className="hidden sm:block px-1 mb-0.5 space-y-[2px]">
+                          {dayImpDays.map(d => (
+                            <div key={d._id}
+                              className="w-full text-[9px] font-bold px-1 py-[1px] rounded flex items-center gap-0.5 truncate"
+                              style={{ background: '#fef9c3', color: '#713f12', border: '1px solid #fde68a' }}
+                              title={d.name}
+                            >
+                              <span className="flex-shrink-0" style={{ fontSize: 9 }}>{d.emoji}</span>
+                              <span className="truncate">{d.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Mobile: star dot for important days */}
+                      {dayImpDays.length > 0 && (
+                        <div className="sm:hidden px-1 pb-0.5 flex items-center gap-0.5">
+                          {dayImpDays.slice(0, 1).map(d => (
+                            <span key={d._id} className="text-[8px]" title={d.name}>{d.emoji}</span>
+                          ))}
+                          {dayImpDays.length > 1 && (
+                            <span className="text-[7px]" style={{ color: '#b45309' }}>+{dayImpDays.length - 1}</span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Mobile: colored dots only */}
                       <div className="sm:hidden px-1 pb-1 flex flex-wrap gap-[3px]">
@@ -1128,6 +1379,46 @@ export default function CalendarPage() {
         {/* Sidebar — desktop only, toggleable */}
         {showSidebar && (
           <div className="hidden lg:flex flex-col gap-4 w-[220px] flex-shrink-0">
+            {/* Important Days this month */}
+            {importantDays.length > 0 && (
+              <div className="rounded-2xl p-4" style={{ background: '#fffbeb', border: '1px solid #fde68a' }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-1.5">
+                    <Star size={12} style={{ color: '#f59e0b', fill: '#f59e0b' }} />
+                    <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: '#92400e' }}>Important Days</span>
+                  </div>
+                  {canManageDays && (
+                    <button onClick={() => setShowManageDays(true)}
+                      className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md hover:opacity-70 transition-opacity"
+                      style={{ color: '#92400e', background: '#fef9c3', border: '1px solid #fde68a' }}>
+                      Manage
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {importantDays.map(d => (
+                    <div key={d._id} className="flex items-start gap-2">
+                      <span className="text-[16px] flex-shrink-0 leading-tight">{d.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-semibold truncate" style={{ color: '#78350f' }}>{d.name}</p>
+                        <p className="text-[11px]" style={{ color: '#92400e' }}>{format(parseISO(d.date), 'EEE, MMM d')}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* If no important days yet and user can manage — show a compact prompt */}
+            {importantDays.length === 0 && canManageDays && (
+              <button onClick={() => setShowManageDays(true)}
+                className="rounded-2xl p-3 text-left flex items-center gap-2 hover:opacity-80 transition-opacity"
+                style={{ background: '#fffbeb', border: '1px dashed #fde68a' }}>
+                <Star size={12} style={{ color: '#f59e0b', fill: '#f59e0b', flexShrink: 0 }} />
+                <span className="text-[11px] font-medium" style={{ color: '#92400e' }}>Add festivals &amp; holidays</span>
+              </button>
+            )}
+
             {/* Overdue — only shown when there are overdue events */}
             {overdueEvents.length > 0 && (
               <div className="rounded-2xl p-4" style={{ background: '#fef2f2', border: '1px solid #fecaca' }}>
@@ -1300,6 +1591,13 @@ export default function CalendarPage() {
           clients={clients}
           prefillClientId={null} // null = show client selector
           canAct={user?.role === 'admin' || String(modal.event?.createdBy?._id || modal.event?.createdBy) === String(user?._id)}
+        />
+      )}
+
+      {showManageDays && (
+        <ManageImportantDaysModal
+          onClose={() => setShowManageDays(false)}
+          onDaysChanged={fetchImportantDays}
         />
       )}
     </div>

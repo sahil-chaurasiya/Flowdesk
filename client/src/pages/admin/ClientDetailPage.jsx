@@ -236,6 +236,8 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
 
   const openView = (ev) => { setForm({ ...ev }); setModal({ mode: 'view', event: ev }); };
 
+  const openDayList = (day) => setModal({ mode: 'daylist', date: day });
+
   const handleSave = async () => {
     if (!form.title?.trim()) return;
     setSaving(true);
@@ -321,7 +323,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
             const inMonth    = isSameMonth(day, month);
             const today      = isToday(day);
             return (
-              <div key={i} onClick={() => openNew(day)}
+              <div key={i} onClick={() => openDayList(day)}
                 className="cursor-pointer hover:bg-[var(--fd-surface-sunken)] transition-colors group"
                 style={{
                   minHeight: 80, borderRight: i % 7 < 6 ? '1px solid var(--fd-border-subtle)' : 'none',
@@ -336,11 +338,21 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                     style={{ background: today ? '#4f6ef0' : 'transparent', color: today ? '#fff' : !inMonth ? 'var(--fd-ink-5)' : 'var(--fd-ink-2)' }}>
                     {format(day, 'd')}
                   </span>
-                  {dayImpDays.length > 0 && (
-                    <span className="text-[11px]" title={dayImpDays.map(d => d.name).join(', ')}>
-                      {dayImpDays[0].emoji}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    {dayImpDays.length > 0 && (
+                      <span className="text-[11px]" title={dayImpDays.map(d => d.name).join(', ')}>
+                        {dayImpDays[0].emoji}
+                      </span>
+                    )}
+                    <button
+                      onClick={e => { e.stopPropagation(); openNew(day); }}
+                      className="flex items-center justify-center w-5 h-5 rounded-full transition-transform hover:scale-110 shadow-sm"
+                      style={{ color: '#fff', background: '#4f6ef0' }}
+                      title="Add event"
+                    >
+                      <Plus size={11} strokeWidth={2.5} />
+                    </button>
+                  </div>
                 </div>
                 {dayImpDays.length > 0 && (
                   <div className="px-1 mb-0.5 space-y-[1px]">
@@ -380,7 +392,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
       </div>
 
       {/* Modal */}
-      {modal && (
+      {modal && modal.mode !== 'daylist' && (
         <Modal
           isOpen onClose={() => setModal(null)}
           title={modal.mode === 'view' ? form.title : modal.mode === 'new' ? 'New Event' : 'Edit Event'}
@@ -538,6 +550,63 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
               </div>
             </div>
           )}
+        </Modal>
+      )}
+
+      {/* Day events list popup */}
+      {modal?.mode === 'daylist' && (
+        <Modal
+          isOpen onClose={() => setModal(null)}
+          title={format(modal.date, 'EEEE, MMMM d')}
+          size="md"
+          footer={
+            <div className="flex justify-end">
+              <Button variant="secondary" size="sm" onClick={() => setModal(null)}>Close</Button>
+            </div>
+          }
+        >
+          <div className="space-y-3">
+            <Button size="sm" onClick={() => openNew(modal.date)} className="w-full justify-center">
+              <Plus size={13} /> Add Event
+            </Button>
+            {eventsOnDay(modal.date).length === 0 ? (
+              <p className="text-[13px] text-center py-6" style={{ color: 'var(--fd-ink-4)' }}>No events this day</p>
+            ) : (
+              <div className="space-y-2">
+                {eventsOnDay(modal.date).map(ev => {
+                  const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
+                  const overdue = ev.isOverdue;
+                  return (
+                    <button
+                      key={ev._id}
+                      onClick={() => openView(ev)}
+                      className="w-full text-left flex items-start gap-3 p-3 rounded-xl transition-colors hover:opacity-80"
+                      style={{ background: overdue ? '#fef2f2' : 'var(--fd-surface-sunken)' }}
+                    >
+                      <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ background: overdue ? '#ef4444' : c.bg, minHeight: 36 }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[13px] font-semibold truncate" style={{ color: 'var(--fd-ink-1)' }}>{ev.title}</p>
+                          {overdue && <AlertTriangle size={11} style={{ color: '#ef4444', flexShrink: 0 }} />}
+                        </div>
+                        <p className="text-[12px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+                          {format(parseISO(ev.startDate), 'h:mm a')}
+                          {ev.endDate && ev.endDate !== ev.startDate &&
+                            ` – ${format(parseISO(ev.endDate), 'h:mm a')}`}
+                        </p>
+                      </div>
+                      <span
+                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 self-center"
+                        style={{ background: c.light, color: c.text }}
+                      >
+                        {TYPE_LABELS[ev.type] || ev.type}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </Modal>
       )}
     </div>

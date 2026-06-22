@@ -1246,13 +1246,7 @@ export default function CalendarPage() {
                           : !inMonth ? 'var(--fd-surface-sunken)' : isWeekend ? 'rgba(0,0,0,0.005)' : 'transparent',
                         minHeight: 'clamp(48px, 12vw, 108px)',
                       }}
-                      onClick={() => {
-                        if (window.innerWidth < 640) {
-                          setSheetDay(day);
-                        } else {
-                          setModal({ mode: 'new', defaultDate: day });
-                        }
-                      }}
+                      onClick={() => setSheetDay(day)}
                     >
                       {/* Date number */}
                       <div className="flex items-start justify-between p-1 sm:p-2 mb-0.5">
@@ -1276,10 +1270,11 @@ export default function CalendarPage() {
                           )}
                           <button
                             onClick={e => { e.stopPropagation(); setModal({ mode: 'new', defaultDate: day }); }}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity hidden sm:flex items-center justify-center w-5 h-5 rounded"
-                            style={{ color: 'var(--fd-ink-4)', background: 'var(--fd-surface-sunken)' }}
+                            className="hidden sm:flex items-center justify-center w-5 h-5 rounded-full transition-transform hover:scale-110 shadow-sm"
+                            style={{ color: '#fff', background: '#4f6ef0' }}
+                            title="Add event"
                           >
-                            <Plus size={10} />
+                            <Plus size={11} strokeWidth={2.5} />
                           </button>
                         </div>
                       </div>

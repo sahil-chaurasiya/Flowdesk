@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Users, Mail, Phone, Shield, ChevronRight, Trash2 } from 'lucide-react';
+import { Plus, Users, Mail, Phone, Shield, ChevronRight, Trash2, GripVertical } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, Spinner } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Select } from '../../components/ui/index';
 import { formatDate } from '../../lib/utils';
 import useAuthStore from '../../context/authStore';
+
+const TEAM_ORDER_KEY = 'flowdesk_team_order';
 
 const ROLE_LABELS = {
   admin: 'Admin', manager: 'Project Manager',
@@ -66,22 +68,31 @@ function AttPill({ status }) {
   );
 }
 
+// Apply saved order to the team array
+function applySavedOrder(team, savedOrder) {
+  if (!savedOrder || savedOrder.length === 0) return team;
+  const orderMap = new Map(savedOrder.map((id, i) => [id, i]));
+  const sorted = [...team].sort((a, b) => {
+    const ai = orderMap.has(a._id) ? orderMap.get(a._id) : Infinity;
+    const bi = orderMap.has(b._id) ? orderMap.get(b._id) : Infinity;
+    return ai - bi;
+  });
+  return sorted;
+}
+
 export default function TeamPage() {
   const { user: currentUser } = useAuthStore();
   const isAdminOrManager = ['admin', 'manager'].includes(currentUser?.role);
-
   const isAdmin = currentUser?.role === 'admin';
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  // email → { status, checkInTime, ... }
   const [todayAtt, setTodayAtt] = useState({});
   const [attLoading, setAttLoading] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Delete state (admin only)
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState({
@@ -89,10 +100,25 @@ export default function TeamPage() {
     jobTitle: '', department: '', phone: '',
   });
 
+  // Drag state
+  const dragItem = useRef(null);
+  const dragOverItem = useRef(null);
+  const [dragActiveId, setDragActiveId] = useState(null);
+  const [dragOverId, setDragOverId] = useState(null);
+
   const load = () => {
     setLoading(true);
     api.get('/users?limit=200').then(r => {
-      setUsers(r.data.users || []);
+      const rawUsers = r.data.users || [];
+      const rawTeam = rawUsers.filter(u => u.role !== 'client');
+      // Apply saved order from localStorage
+      try {
+        const saved = JSON.parse(localStorage.getItem(TEAM_ORDER_KEY) || '[]');
+        const ordered = applySavedOrder(rawTeam, saved);
+        setUsers(rawUsers.filter(u => u.role === 'client').concat(ordered));
+      } catch {
+        setUsers(rawUsers);
+      }
       setLoading(false);
     }).catch(() => setLoading(false));
   };
@@ -102,7 +128,7 @@ export default function TeamPage() {
     setAttLoading(true);
     api.get('/users/attendance-today')
       .then(r => setTodayAtt(r.data.byEmail || {}))
-      .catch(() => {}) // non-fatal — cards just show no badge
+      .catch(() => {})
       .finally(() => setAttLoading(false));
   };
 
@@ -141,9 +167,58 @@ export default function TeamPage() {
     }
   };
 
+  // Drag handlers — only for admin
+  const handleDragStart = (e, id) => {
+    dragItem.current = id;
+    setDragActiveId(id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnter = (e, id) => {
+    dragOverItem.current = id;
+    setDragOverId(id);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, id) => {
+    e.preventDefault();
+    if (!dragItem.current || dragItem.current === id) return;
+
+    setUsers(prev => {
+      const team = prev.filter(u => u.role !== 'client');
+      const clients = prev.filter(u => u.role === 'client');
+      const fromIdx = team.findIndex(u => u._id === dragItem.current);
+      const toIdx = team.findIndex(u => u._id === id);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      const reordered = [...team];
+      const [moved] = reordered.splice(fromIdx, 1);
+      reordered.splice(toIdx, 0, moved);
+      // Persist the new order
+      try {
+        localStorage.setItem(TEAM_ORDER_KEY, JSON.stringify(reordered.map(u => u._id)));
+      } catch {}
+      return [...clients, ...reordered];
+    });
+
+    dragItem.current = null;
+    dragOverItem.current = null;
+    setDragActiveId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragActiveId(null);
+    setDragOverId(null);
+    dragItem.current = null;
+    dragOverItem.current = null;
+  };
+
   const team = users.filter(u => u.role !== 'client');
 
-  // Tally for the subtitle
   const presentCount = isAdminOrManager
     ? team.filter(u => {
         const att = todayAtt[u.email?.toLowerCase()];
@@ -177,110 +252,149 @@ export default function TeamPage() {
           action={<Button onClick={() => setShowModal(true)}><Plus size={14} />Add Member</Button>}
         />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {team.map(u => {
-            const att = todayAtt[u.email?.toLowerCase()];
-            return (
-              <Link key={u._id} to={`/admin/team/${u._id}`} className="block group">
+        <>
+          {isAdmin && (
+            <p className="text-[11.5px]" style={{ color: 'var(--fd-ink-5)' }}>
+              Drag cards to reorder · order is saved automatically
+            </p>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {team.map(u => {
+              const att = todayAtt[u.email?.toLowerCase()];
+              const isDragging = dragActiveId === u._id;
+              const isDragOver = dragOverId === u._id && dragActiveId !== u._id;
+
+              return (
                 <div
-                  className="fd-card-hover p-5 cursor-pointer transition-all"
-                  style={{ opacity: u.isActive ? 1 : 0.55 }}
+                  key={u._id}
+                  draggable={isAdmin}
+                  onDragStart={isAdmin ? (e) => handleDragStart(e, u._id) : undefined}
+                  onDragEnter={isAdmin ? (e) => handleDragEnter(e, u._id) : undefined}
+                  onDragOver={isAdmin ? handleDragOver : undefined}
+                  onDrop={isAdmin ? (e) => handleDrop(e, u._id) : undefined}
+                  onDragEnd={isAdmin ? handleDragEnd : undefined}
+                  style={{
+                    opacity: isDragging ? 0.4 : 1,
+                    transition: 'opacity 0.15s, transform 0.15s',
+                    transform: isDragOver ? 'scale(1.02)' : 'scale(1)',
+                    outline: isDragOver ? '2px dashed var(--fd-sidebar-link-active)' : 'none',
+                    outlineOffset: '2px',
+                    borderRadius: '12px',
+                    cursor: isAdmin ? 'grab' : 'default',
+                  }}
                 >
-                  {/* Header */}
-                  <div className="flex items-start gap-3 mb-4">
-                    {/* Avatar with online-style ring for present */}
-                    <div className="relative shrink-0">
-                      <Avatar name={u.name} src={u.avatar} size="md" />
-                      {isAdminOrManager && att && (att.status === 'present' || att.status === 'late') && (
-                        <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[var(--fd-surface)] ${att.status === 'late' ? 'bg-amber-400' : 'bg-emerald-500'}`} />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className="font-semibold text-[13.5px] truncate group-hover:text-[var(--fd-sidebar-link-active)] transition-colors"
-                        style={{ color: 'var(--fd-ink-1)' }}
-                      >
-                        {u.name}
+                  <Link to={`/admin/team/${u._id}`} className="block group"
+                    onClick={e => { if (dragItem.current) e.preventDefault(); }}
+                    draggable={false}
+                  >
+                    <div
+                      className="fd-card-hover p-5 cursor-pointer transition-all"
+                      style={{ opacity: u.isActive ? 1 : 0.55 }}
+                    >
+                      {/* Header */}
+                      <div className="flex items-start gap-3 mb-4">
+                        {isAdmin && (
+                          <div
+                            className="flex-shrink-0 flex items-center self-center"
+                            style={{ color: 'var(--fd-ink-5)', marginLeft: '-4px' }}
+                            title="Drag to reorder"
+                          >
+                            <GripVertical size={14} strokeWidth={1.8} />
+                          </div>
+                        )}
+                        {/* Avatar with online-style ring for present */}
+                        <div className="relative shrink-0">
+                          <Avatar name={u.name} src={u.avatar} size="md" />
+                          {isAdminOrManager && att && (att.status === 'present' || att.status === 'late') && (
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[var(--fd-surface)] ${att.status === 'late' ? 'bg-amber-400' : 'bg-emerald-500'}`} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div
+                            className="font-semibold text-[13.5px] truncate group-hover:text-[var(--fd-sidebar-link-active)] transition-colors"
+                            style={{ color: 'var(--fd-ink-1)' }}
+                          >
+                            {u.name}
+                          </div>
+                          <div className="text-[11.5px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>
+                            {u.jobTitle || ROLE_LABELS[u.role] || u.role}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                            <span
+                              className="inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold"
+                              style={getRoleStyle(u.role)}
+                            >
+                              {ROLE_LABELS[u.role] || u.role}
+                            </span>
+                            {isAdminOrManager && !attLoading && (
+                              <AttPill status={att?.status} />
+                            )}
+                          </div>
+                        </div>
+                        <ChevronRight size={14} style={{ color: 'var(--fd-ink-5)' }} className="mt-0.5 flex-shrink-0 group-hover:text-[var(--fd-sidebar-link-active)] transition-colors" />
                       </div>
-                      <div className="text-[11.5px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>
-                        {u.jobTitle || ROLE_LABELS[u.role] || u.role}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <span
-                          className="inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold"
-                          style={getRoleStyle(u.role)}
-                        >
-                          {ROLE_LABELS[u.role] || u.role}
-                        </span>
-                        {/* Attendance badge — only for admin/manager */}
-                        {isAdminOrManager && !attLoading && (
-                          <AttPill status={att?.status} />
+
+                      {/* Details */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                          <Mail size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
+                          <span className="truncate">{u.email}</span>
+                        </div>
+                        {u.phone && (
+                          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                            <Phone size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
+                            <span>{u.phone}</span>
+                          </div>
+                        )}
+                        {u.department && (
+                          <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                            <Shield size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
+                            <span>{u.department}</span>
+                          </div>
+                        )}
+                        {isAdminOrManager && att?.checkInTime && (
+                          <div className="text-[11px] font-mono pt-0.5" style={{ color: 'var(--fd-ink-5)' }}>
+                            In: {new Date(att.checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                            {att.workHours > 0 && ` · ${att.workHours}h worked`}
+                          </div>
                         )}
                       </div>
-                    </div>
-                    <ChevronRight size={14} style={{ color: 'var(--fd-ink-5)' }} className="mt-0.5 flex-shrink-0 group-hover:text-[var(--fd-sidebar-link-active)] transition-colors" />
-                  </div>
 
-                  {/* Details */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
-                      <Mail size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
-                      <span className="truncate">{u.email}</span>
-                    </div>
-                    {u.phone && (
-                      <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
-                        <Phone size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
-                        <span>{u.phone}</span>
-                      </div>
-                    )}
-                    {u.department && (
-                      <div className="flex items-center gap-2 text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
-                        <Shield size={11} style={{ color: 'var(--fd-ink-5)' }} strokeWidth={1.7} className="flex-shrink-0" />
-                        <span>{u.department}</span>
-                      </div>
-                    )}
-                    {/* Check-in time if present today */}
-                    {isAdminOrManager && att?.checkInTime && (
-                      <div className="text-[11px] font-mono pt-0.5" style={{ color: 'var(--fd-ink-5)' }}>
-                        In: {new Date(att.checkInTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                        {att.workHours > 0 && ` · ${att.workHours}h worked`}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div
-                    className="flex items-center justify-between mt-4 pt-3 border-t"
-                    style={{ borderColor: 'var(--fd-border-subtle)' }}
-                  >
-                    <span className="text-[11px] font-mono" style={{ color: 'var(--fd-ink-5)' }}>
-                      Since {formatDate(u.createdAt)}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {isAdmin && u.role !== 'admin' && (
-                        <button
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(u); }}
-                          className="text-[11px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
-                          style={{ color: '#b91c1c', background: '#fef2f2' }}
-                          title="Delete member"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      )}
-                      <button
-                        onClick={(e) => toggleActive(e, u._id, u.isActive)}
-                        className="text-[11.5px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
-                        style={u.isActive ? { color: '#b91c1c' } : { color: '#2a7d4f' }}
+                      {/* Footer */}
+                      <div
+                        className="flex items-center justify-between mt-4 pt-3 border-t"
+                        style={{ borderColor: 'var(--fd-border-subtle)' }}
                       >
-                        {u.isActive ? 'Deactivate' : 'Activate'}
-                      </button>
+                        <span className="text-[11px] font-mono" style={{ color: 'var(--fd-ink-5)' }}>
+                          Since {formatDate(u.createdAt)}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {isAdmin && u.role !== 'admin' && (
+                            <button
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(u); }}
+                              className="text-[11px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
+                              style={{ color: '#b91c1c', background: '#fef2f2' }}
+                              title="Delete member"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => toggleActive(e, u._id, u.isActive)}
+                            className="text-[11.5px] font-medium px-2 py-0.5 rounded-md transition-all hover:opacity-80"
+                            style={u.isActive ? { color: '#b91c1c' } : { color: '#2a7d4f' }}
+                          >
+                            {u.isActive ? 'Deactivate' : 'Activate'}
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  </Link>
                 </div>
-              </Link>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <Modal

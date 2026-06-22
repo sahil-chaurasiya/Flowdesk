@@ -30,7 +30,18 @@ export default function LoginPage() {
       const user = await login(form.email, form.password);
       navigate(user?.role === 'client' ? '/portal/dashboard' : '/admin/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid credentials. Please try again.');
+      if (err.response) {
+        // Server responded — this is a real auth/validation error from the backend
+        setError(err.response.data?.message || 'Invalid email or password.');
+      } else if (err.request || err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+        // Request never got a response — server unreachable, CORS block, DNS issue, etc.
+        // This is NOT a credentials problem, so don't say it is.
+        setError('Could not reach the server. Please check your connection and try again in a moment.');
+      } else if (err.code === 'ECONNABORTED') {
+        setError('The request timed out. Please try again.');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

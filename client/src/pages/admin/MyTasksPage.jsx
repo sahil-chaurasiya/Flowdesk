@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom';
 import {
   ListChecks, Clock, CheckCircle, AlertCircle, Play,
   X, Calendar, User, Tag, Flag, Building2, FileText, ChevronRight,
@@ -193,7 +194,7 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
   const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
   const sm = STATUS_META[task.status] || STATUS_META.pending;
 
-  return (
+  return ReactDOM.createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       {/* Backdrop */}
       <div
@@ -341,7 +342,8 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

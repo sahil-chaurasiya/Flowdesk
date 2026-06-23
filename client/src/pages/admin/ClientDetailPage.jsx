@@ -306,6 +306,33 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
         </div>
       </div>
 
+
+      {/* ── Content KPIs ── */}
+      {(() => {
+        const contentTypes = ['reel', 'static_post', 'carousel', 'story', 'other'];
+        const contentEvents = events.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done');
+        const kpis = [
+          { label: 'Total Content', count: contentEvents.length,                                                                            color: '#4f6ef0', bg: '#eef2ff', icon: '📦' },
+          { label: 'Posts',         count: contentEvents.filter(ev => ev.type === 'static_post' || ev.type === 'carousel').length,          color: '#8b5cf6', bg: '#f5f3ff', icon: '🖼️' },
+          { label: 'Reels',         count: contentEvents.filter(ev => ev.type === 'reel').length,                                           color: '#06b6d4', bg: '#ecfeff', icon: '🎬' },
+          { label: 'Stories',       count: contentEvents.filter(ev => ev.type === 'story').length,                                          color: '#e11d48', bg: '#fff1f2', icon: '📖' },
+          { label: 'Extra Designs', count: contentEvents.filter(ev => ev.type === 'other').length,                                          color: '#94a3b8', bg: '#f8fafc', icon: '✨' },
+        ];
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {kpis.map(k => (
+              <div key={k.label} className="rounded-xl px-3 py-2.5 flex items-center gap-2" style={{ background: k.bg, border: `1px solid ${k.color}22` }}>
+                <span className="text-sm leading-none flex-shrink-0">{k.icon}</span>
+                <div className="min-w-0">
+                  <p className="text-[18px] font-bold leading-none tracking-tight" style={{ color: k.color }}>{k.count}</p>
+                  <p className="text-[10px] font-medium mt-0.5 truncate" style={{ color: k.color + 'aa' }}>{k.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Grid */}
       <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--fd-border)' }}>
         <div className="grid grid-cols-7" style={{ borderBottom: '1px solid var(--fd-border)' }}>
@@ -377,7 +404,11 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                         style={{ background: overdue ? '#fef2f2' : c.light, color: overdue ? '#b91c1c' : c.text }}>
                         {overdue && <AlertTriangle size={7} style={{ flexShrink: 0 }} />}
                         <span className="truncate">{ev.title}</span>
-                        {ev.status === 'done' && <CheckCircle2 size={8} style={{ color: '#22c55e', flexShrink: 0, marginLeft: 'auto' }} />}
+                        {ev.status === 'done' && (
+                          <span className="flex-shrink-0 ml-auto w-3 h-3 rounded-full flex items-center justify-center" style={{ background: '#22c55e' }}>
+                            <Check size={7} style={{ color: '#fff', strokeWidth: 3 }} />
+                          </span>
+                        )}
                       </button>
                     );
                   })}

@@ -148,7 +148,11 @@ function EventChip({ event, isStart, isEnd, onClick }) {
             : <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color.bg }} />
           }
           <span className="truncate">{event.title}</span>
-          {event.status === 'done' && <Check size={8} className="flex-shrink-0 ml-auto" style={{ color: '#22c55e' }} />}
+          {event.status === 'done' && (
+            <span className="flex-shrink-0 ml-auto w-3 h-3 rounded-full flex items-center justify-center" style={{ background: '#22c55e' }}>
+              <Check size={7} style={{ color: '#fff', strokeWidth: 3 }} />
+            </span>
+          )}
         </>
       )}
     </button>
@@ -1196,6 +1200,33 @@ export default function CalendarPage() {
         onChange={setFilters}
         overdueCount={overdueCount}
       />
+
+
+      {/* ── Content KPIs ── */}
+      {(() => {
+        const contentTypes = ['reel', 'static_post', 'carousel', 'story', 'other'];
+        const contentEvents = displayedEvents.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done');
+        const kpis = [
+          { label: 'Total Content', count: contentEvents.length, color: '#4f6ef0', bg: '#eef2ff', icon: '📦' },
+          { label: 'Posts',         count: contentEvents.filter(ev => ev.type === 'static_post' || ev.type === 'carousel').length, color: '#8b5cf6', bg: '#f5f3ff', icon: '🖼️' },
+          { label: 'Reels',         count: contentEvents.filter(ev => ev.type === 'reel').length,        color: '#06b6d4', bg: '#ecfeff', icon: '🎬' },
+          { label: 'Stories',       count: contentEvents.filter(ev => ev.type === 'story').length,       color: '#e11d48', bg: '#fff1f2', icon: '📖' },
+          { label: 'Extra Designs', count: contentEvents.filter(ev => ev.type === 'other').length,       color: '#94a3b8', bg: '#f8fafc', icon: '✨' },
+        ];
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-3 sm:mb-5">
+            {kpis.map(k => (
+              <div key={k.label} className="rounded-xl px-3 py-2.5 flex items-center gap-2.5" style={{ background: k.bg, border: `1px solid ${k.color}22` }}>
+                <span className="text-base leading-none flex-shrink-0">{k.icon}</span>
+                <div className="min-w-0">
+                  <p className="text-[18px] sm:text-[22px] font-bold leading-none tracking-tight" style={{ color: k.color }}>{k.count}</p>
+                  <p className="text-[10px] sm:text-[11px] font-medium mt-0.5 truncate" style={{ color: k.color + 'aa' }}>{k.label}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* ── Body ── */}
       <div className="flex gap-5">

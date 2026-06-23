@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   ChevronLeft, ChevronRight, AlertTriangle, CheckCircle2,
   Clock, X, ClipboardList, Building2,
-  CalendarDays, ExternalLink, ArrowLeft, TrendingUp, Users, Flame,
+  CalendarDays, ExternalLink, ArrowLeft, TrendingUp, Users, Flame, StickyNote,
 } from 'lucide-react';
 import api from '../../lib/api';
 import { getInitials } from '../../lib/utils';
@@ -34,7 +34,7 @@ function fullDate(str) {
 const STATUS_META = {
   completed:    { label:'Done',         color:'#10b981', bg:'rgba(16,185,129,.12)' },
   in_progress:  { label:'In Progress',  color:'#6366f1', bg:'rgba(99,102,241,.12)' },
-  carried_over: { label:'Carried Over', color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
+  carried_over: { label:'Pending',      color:'#f59e0b', bg:'rgba(245,158,11,.12)' },
 };
 const CATEGORY_LABELS = {
   paid_ads:'📊 Paid Ads', social_media:'📱 Social', video_editing:'🎬 Video',
@@ -343,6 +343,11 @@ function MemberHistoryView({ member, onBack }) {
                           </span>
                         )}
                       </div>
+                      {entry.notes && (
+                        <div style={{ display:'flex', alignItems:'flex-start', gap:4, marginTop:6, fontSize:11, color:'var(--fd-ink-4)', fontStyle:'italic' }}>
+                          <StickyNote size={10} style={{ flexShrink:0, marginTop:2 }} /> {entry.notes}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -419,6 +424,11 @@ function DayLogModal({ item, date, onClose, onViewHistory }) {
                           </span>
                         )}
                       </div>
+                      {entry.notes && (
+                        <div style={{ display:'flex', alignItems:'flex-start', gap:4, marginTop:6, fontSize:11, color:'var(--fd-ink-4)', fontStyle:'italic' }}>
+                          <StickyNote size={10} style={{ flexShrink:0, marginTop:2 }} /> {entry.notes}
+                        </div>
+                      )}
                     </div>
                   ))
               }

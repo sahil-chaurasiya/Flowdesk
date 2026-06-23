@@ -28,6 +28,12 @@ const logEntrySchema = new mongoose.Schema({
     enum: ['completed', 'in_progress', 'carried_over'],
     default: 'completed',
   },
+  notes: {
+    type: String,
+    trim: true,
+    maxlength: [1000, 'Notes cannot exceed 1000 characters'],
+    default: '',
+  },
 }, { _id: true });
 
 const dailyLogSchema = new mongoose.Schema({

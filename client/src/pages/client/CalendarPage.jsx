@@ -167,9 +167,9 @@ function EventDetailModal({ event, onClose }) {
 
             {/* Description */}
             {event.description && (
-              <div className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'var(--fd-surface-sunken)' }}>
-                <AlignLeft size={13} style={{ color: 'var(--fd-ink-4)', marginTop: 1 }} />
-                <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>
+              <div className="flex items-start gap-2.5 p-3 rounded-xl min-w-0" style={{ background: 'var(--fd-surface-sunken)' }}>
+                <AlignLeft size={13} style={{ color: 'var(--fd-ink-4)', marginTop: 1, flexShrink: 0 }} />
+                <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap break-words min-w-0" style={{ color: 'var(--fd-ink-2)' }}>
                   {event.description}
                 </p>
               </div>

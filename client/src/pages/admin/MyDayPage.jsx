@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Plus, Send, CheckCircle2, AlertTriangle,
-  RotateCcw, Save, History, X, Sparkles, Zap, Target, Coffee,
+  RotateCcw, Save, History, X, Sparkles, Zap, Target, Coffee, StickyNote,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -23,13 +23,13 @@ const CATEGORY_OPTIONS = [
 const STATUS_OPTIONS = [
   { value: 'completed',    label: '✅ Done' },
   { value: 'in_progress',  label: '🔄 In Progress' },
-  { value: 'carried_over', label: '⏩ Carried Over' },
+  { value: 'carried_over', label: '⏳ Pending' },
 ];
 
 const STATUS_META = {
   completed:    { label: 'Done',         color: '#10b981', bg: 'rgba(16,185,129,0.12)' },
   in_progress:  { label: 'In Progress',  color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
-  carried_over: { label: 'Carried Over', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+  carried_over: { label: 'Pending',      color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
 
 const MOTIVATIONAL = [
@@ -44,7 +44,7 @@ function todayLabel() {
 }
 
 function blankEntry() {
-  return { description: '', client: '', category: 'other', status: 'completed' };
+  return { description: '', client: '', category: 'other', status: 'completed', notes: '' };
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
@@ -245,15 +245,43 @@ const css = `
   border: 2px solid #6366f1; border-top-color: transparent;
   animation: myd-spin .8s linear infinite;
 }
+
+/* ── Task notes ── */
+.myd .note-toggle {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 10px; padding: 2px 0;
+  border: none; background: transparent; cursor: pointer;
+  font-size: 11px; font-weight: 600; color: var(--fd-ink-4);
+  font-family: inherit; transition: color .15s;
+}
+.myd .note-toggle:hover { color: #6366f1; }
+.myd .note-box {
+  margin-top: 10px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(99,102,241,.04); border: 1px solid rgba(99,102,241,.12);
+}
+.myd .note-box-label {
+  display: flex; align-items: center; gap: 5px; margin-bottom: 5px;
+  font-size: 10px; font-weight: 700; color: var(--fd-ink-4);
+  text-transform: uppercase; letter-spacing: .03em;
+}
+.myd .note-box textarea {
+  width: 100%; border: none !important; outline: none !important; resize: none;
+  background: transparent; color: var(--fd-ink-2);
+  font-family: inherit; font-size: 12.5px; font-weight: 500; line-height: 1.55;
+  box-shadow: none !important;
+}
+.myd .note-box textarea::placeholder { color: var(--fd-ink-4); font-weight: 400; }
 `;
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
-function EntryRow({ entry, index, clients, onChange, onRemove, readOnly }) {
+function EntryRow({ entry, index, clients, onChange, onRemove, readOnly, removing }) {
+  const [showNotes, setShowNotes] = useState(!!entry.notes);
+
   return (
     <div className="ec">
       {!readOnly && (
-        <button className="rb" onClick={() => onRemove(index)}><X size={12} /></button>
+        <button className="rb" onClick={() => onRemove(index)} disabled={removing} style={removing ? { cursor: 'not-allowed' } : undefined}><X size={12} /></button>
       )}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div className="nb" style={{ marginTop: 2 }}>{index + 1}</div>
@@ -264,7 +292,7 @@ function EntryRow({ entry, index, clients, onChange, onRemove, readOnly }) {
               fontWeight: 700, padding: '3px 8px', borderRadius: 20, marginBottom: 8,
               background: 'rgba(245,158,11,.12)', color: '#f59e0b',
             }}>
-              <RotateCcw size={9} /> Carried from yesterday
+              <RotateCcw size={9} /> Pending
             </div>
           )}
 
@@ -326,6 +354,26 @@ function EntryRow({ entry, index, clients, onChange, onRemove, readOnly }) {
               </div>
             )}
           </div>
+
+          {/* Notes */}
+          {showNotes || entry.notes ? (
+            <div className="note-box">
+              <div className="note-box-label"><StickyNote size={10} /> Note</div>
+              <textarea
+                value={entry.notes || ''}
+                onChange={e => onChange(index, 'notes', e.target.value)}
+                readOnly={readOnly}
+                placeholder="Add a note for this task… e.g. 'Waiting on client approval before publishing'"
+                rows={2}
+              />
+            </div>
+          ) : (
+            !readOnly && (
+              <button type="button" className="note-toggle" onClick={() => setShowNotes(true)}>
+                <StickyNote size={11} /> Add note
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>
@@ -419,6 +467,11 @@ function HistoryModal({ onClose }) {
                                 <span style={{ fontSize:10, color:'var(--fd-ink-4)' }}>{e.client.company || e.client.name}</span>
                               )}
                             </div>
+                            {e.notes && (
+                              <div style={{ display:'flex', alignItems:'flex-start', gap:4, marginTop:4, fontSize:11, color:'var(--fd-ink-4)', fontStyle:'italic' }}>
+                                <StickyNote size={10} style={{ flexShrink:0, marginTop:2 }} /> {e.notes}
+                              </div>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -487,14 +540,31 @@ export default function MyDayPage() {
   };
 
   const addEntry = () => { setEntries(prev => [...prev, blankEntry()]); setSaved(false); };
-  const removeEntry = (idx) => { setEntries(prev => prev.filter((_, i) => i !== idx)); setSaved(false); };
 
-  const buildPayload = () => ({
-    entries: entries.filter(e => e.description.trim()).map(e => ({
+  const removeEntry = async (idx) => {
+    const updated = entries.filter((_, i) => i !== idx);
+    setEntries(updated);
+    setSaved(false);
+    // Persist the removal right away — otherwise it only lives in local state
+    // and a refresh (or loading the page on another device) brings the task back.
+    setError(''); setSaving(true);
+    try {
+      const res = await api.put('/daily-logs/my/today', buildPayload(updated));
+      setLog(res.data.log); setSaved(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Could not remove task — please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const buildPayload = (entriesOverride = entries) => ({
+    entries: entriesOverride.filter(e => e.description.trim()).map(e => ({
       description: e.description.trim(),
       client: e.client || null,
       category: e.category,
       status: e.status,
+      notes: (e.notes || '').trim(),
     })),
     blockers: blockers.trim(),
   });
@@ -614,7 +684,7 @@ export default function MyDayPage() {
         {/* Entries */}
         <div style={{ marginBottom:12 }}>
           {entries.map((entry, i) => (
-            <EntryRow key={i} entry={entry} index={i} clients={clients} onChange={handleEntryChange} onRemove={removeEntry} readOnly={isSubmitted} />
+            <EntryRow key={i} entry={entry} index={i} clients={clients} onChange={handleEntryChange} onRemove={removeEntry} readOnly={isSubmitted} removing={saving} />
           ))}
           {!isSubmitted && (
             <button className="add-btn" onClick={addEntry}>

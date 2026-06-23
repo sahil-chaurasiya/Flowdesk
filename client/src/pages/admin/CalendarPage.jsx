@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import {
   ChevronLeft, ChevronRight, Plus, Check, Edit2, Trash2,
   Clock, AlignLeft, List, Filter, X, AlertTriangle, User,
@@ -247,9 +248,9 @@ function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange, canA
         )}
 
         {event.description && (
-          <div className="flex items-start gap-2.5 p-3 rounded-xl" style={{ background: 'var(--fd-surface-sunken)' }}>
-            <AlignLeft size={13} style={{ color: 'var(--fd-ink-4)', marginTop: 1 }} />
-            <p className="text-[12.5px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>
+          <div className="flex items-start gap-2.5 p-3 rounded-xl min-w-0" style={{ background: 'var(--fd-surface-sunken)' }}>
+            <AlignLeft size={13} style={{ color: 'var(--fd-ink-4)', marginTop: 1, flexShrink: 0 }} />
+            <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap break-words min-w-0" style={{ color: 'var(--fd-ink-2)' }}>
               {event.description}
             </p>
           </div>
@@ -889,12 +890,12 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
     return evStart <= endOfDay(day) && evEnd >= startOfDay(day);
   });
 
-  return (
-    <div className="fixed inset-0 z-40 flex flex-col justify-end" onClick={onClose}>
+  const sheet = (
+    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative rounded-t-3xl pt-3 pb-8 px-5 overflow-y-auto"
-        style={{ background: 'var(--fd-surface)', boxShadow: '0 -8px 40px rgba(0,0,0,0.15)', maxHeight: '75vh' }}
+        className="relative w-full sm:w-[420px] sm:max-w-[90vw] rounded-t-3xl sm:rounded-3xl pt-3 pb-6 px-5 overflow-y-auto"
+        style={{ background: 'var(--fd-surface)', boxShadow: '0 -8px 40px rgba(0,0,0,0.15)', maxHeight: '70vh' }}
         onClick={e => e.stopPropagation()}
       >
         <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: 'var(--fd-border-strong)' }} />
@@ -970,6 +971,8 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
       </div>
     </div>
   );
+
+  return ReactDOM.createPortal(sheet, document.body);
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────

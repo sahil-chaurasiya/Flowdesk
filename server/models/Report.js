@@ -56,6 +56,20 @@ const reportSchema = new mongoose.Schema({
   highlights: [String],
   recommendations: [String],
   attachedFile: String,
+
+  // ── Spreadsheet upload support ──────────────────────────────────────────
+  // Lets a report be created by uploading an Excel/CSV export (e.g. Meta Ads
+  // ad-set report) instead of (or in addition to) manually entered metrics.
+  // Columns vary upload to upload — not every column is guaranteed to be
+  // present — so we store whatever headers were actually found plus the raw
+  // row data, and render both a "sheet" table and summary cards from it.
+  sourceFile: {
+    name: String,        // original uploaded filename
+    uploadedAt: Date,
+  },
+  columns: [String],     // ordered column headers as found in the uploaded file
+  sheetData: [mongoose.Schema.Types.Mixed], // one object per row, keyed by column header
+
   isPublished: {
     type: Boolean,
     default: true

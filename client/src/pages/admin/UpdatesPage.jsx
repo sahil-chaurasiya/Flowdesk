@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Rss, Plus, BarChart3, Upload, Trash2, Building2, X, Filter } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, CardContent, Spinner } from '../../components/shared/LoadingScreen';
+import { ReportCard, ReportUploadModal } from '../../components/shared/ReportViews';
 import { Button, Modal, Input, Textarea, Select } from '../../components/ui/index';
 import { timeAgo, formatDate, formatCurrency, formatFileSize, getFileIcon } from '../../lib/utils';
 
@@ -225,6 +226,7 @@ export function ReportsAdminPage() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [filterClient, setFilterClient] = useState('');
   const [filterPeriod, setFilterPeriod] = useState('');
@@ -265,7 +267,12 @@ export function ReportsAdminPage() {
       <PageHeader
         title="Reports"
         subtitle="Performance reports across all clients"
-        actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />New Report</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" onClick={() => setShowUploadModal(true)}><Upload size={16} />Upload Report</Button>
+            <Button onClick={() => setShowModal(true)}><Plus size={16} />New Report</Button>
+          </div>
+        }
       />
 
       {/* Filter bar */}
@@ -318,42 +325,12 @@ export function ReportsAdminPage() {
       ) : (
         <div className="grid gap-4">
           {reports.map(r => (
-            <Card key={r._id}>
-              <CardContent>
-                <div className="flex items-start justify-between flex-wrap gap-2 mb-3">
-                  <div>
-                    <div className="font-semibold text-[var(--fd-ink-1)]">{r.title}</div>
-                    <div className="flex items-center gap-2 text-xs text-[var(--fd-ink-3)] mt-0.5 flex-wrap">
-                      {r.client && (
-                        <span className="flex items-center gap-1">
-                          <Building2 size={10} />{r.client.company || r.client.name}
-                        </span>
-                      )}
-                      <span>·</span>
-                      <span>{formatDate(r.startDate)} – {formatDate(r.endDate)}</span>
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">
-                    {r.period}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                  {[
-                    { l: 'Ad Spend', v: formatCurrency(r.metrics?.adSpend) },
-                    { l: 'Revenue',  v: formatCurrency(r.metrics?.revenue) },
-                    { l: 'ROAS',     v: `${r.metrics?.roas?.toFixed(1)}x` },
-                    { l: 'Leads',    v: r.metrics?.leads },
-                    { l: 'Conversions', v: r.metrics?.conversions },
-                    { l: 'Clicks',   v: r.metrics?.clicks?.toLocaleString() },
-                  ].map(m => (
-                    <div key={m.l} className="bg-[var(--fd-surface-raised)] rounded-lg p-2 text-center">
-                      <div className="text-xs text-[var(--fd-ink-4)]">{m.l}</div>
-                      <div className="font-bold text-[var(--fd-ink-1)] text-sm mt-0.5">{m.v || '—'}</div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <ReportCard
+              key={r._id}
+              report={r}
+              showClient
+              onDelete={(deletedId) => setReports(prev => prev.filter(rep => rep._id !== deletedId))}
+            />
           ))}
         </div>
       )}
@@ -396,6 +373,13 @@ export function ReportsAdminPage() {
           <Textarea label="Notes" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} rows={3} />
         </div>
       </Modal>
+
+      <ReportUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        onUploaded={() => load()}
+        clients={clients}
+      />
     </div>
   );
 }

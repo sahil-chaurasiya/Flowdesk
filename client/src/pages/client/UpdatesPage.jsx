@@ -3,6 +3,7 @@ import { Rss, FolderOpen, BarChart3, ClipboardList, Plus, Download } from 'lucid
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { PageHeader, EmptyState, Avatar, Card, CardContent, Spinner } from '../../components/shared/LoadingScreen';
+import { ReportCard } from '../../components/shared/ReportViews';
 import { Button, Modal, Input, Textarea, Select } from '../../components/ui/index';
 import { timeAgo, formatDate, formatCurrency, formatFileSize, getFileIcon } from '../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -176,51 +177,7 @@ export function ClientReportsPage() {
       )}
 
       <div className="space-y-4">
-        {reports.map(r => (
-          <Card key={r._id}>
-            <CardContent>
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="font-semibold text-[var(--fd-ink-1)]">{r.title}</h3>
-                  <p className="text-xs text-[var(--fd-ink-4)] mt-0.5">{formatDate(r.startDate)} — {formatDate(r.endDate)}</p>
-                </div>
-                <span className="px-2.5 py-1 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{r.period}</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {[
-                  { label: 'Ad Spend', value: formatCurrency(r.metrics?.adSpend) },
-                  { label: 'Revenue', value: formatCurrency(r.metrics?.revenue) },
-                  { label: 'ROAS', value: `${r.metrics?.roas?.toFixed(1) || '—'}x` },
-                  { label: 'Leads', value: r.metrics?.leads },
-                  { label: 'Conversions', value: r.metrics?.conversions },
-                  { label: 'Impressions', value: r.metrics?.impressions?.toLocaleString() },
-                ].map(m => (
-                  <div key={m.label} className="bg-[var(--fd-surface-raised)] rounded-lg p-2.5 text-center">
-                    <div className="text-xs text-[var(--fd-ink-4)]">{m.label}</div>
-                    <div className="font-bold text-[var(--fd-ink-1)] text-sm mt-0.5">{m.value || '—'}</div>
-                  </div>
-                ))}
-              </div>
-              {(r.highlights?.length > 0 || r.recommendations?.length > 0) && (
-                <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {r.highlights?.length > 0 && (
-                    <div>
-                      <div className="text-xs font-semibold text-[var(--fd-ink-2)] uppercase tracking-wide mb-2">Highlights</div>
-                      <ul className="space-y-1">{r.highlights.map((h, i) => <li key={i} className="text-xs text-[var(--fd-ink-2)] flex items-start gap-1.5"><span className="text-emerald-500 mt-0.5">✓</span>{h}</li>)}</ul>
-                    </div>
-                  )}
-                  {r.recommendations?.length > 0 && (
-                    <div>
-                      <div className="text-xs font-semibold text-[var(--fd-ink-2)] uppercase tracking-wide mb-2">Recommendations</div>
-                      <ul className="space-y-1">{r.recommendations.map((rec, i) => <li key={i} className="text-xs text-[var(--fd-ink-2)] flex items-start gap-1.5"><span className="text-brand-500 mt-0.5">→</span>{rec}</li>)}</ul>
-                    </div>
-                  )}
-                </div>
-              )}
-              {r.notes && <p className="mt-3 text-xs text-[var(--fd-ink-3)] bg-[var(--fd-surface-raised)] rounded-lg p-3">{r.notes}</p>}
-            </CardContent>
-          </Card>
-        ))}
+        {reports.map(r => <ReportCard key={r._id} report={r} />)}
       </div>
 
       {reports.length === 0 && <EmptyState icon={BarChart3} title="No reports yet" description="Performance reports will be published here by your account manager." />}

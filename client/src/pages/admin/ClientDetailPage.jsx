@@ -19,6 +19,7 @@ import useAuthStore from '../../context/authStore';
 import { useServices } from '../../hooks/useServices';
 import { Button, Modal, Input, Textarea, Select, useToast } from '../../components/ui/index';
 import { Avatar, Badge, Card, CardHeader, CardContent, Spinner, EmptyState } from '../../components/shared/LoadingScreen';
+import { ReportCard, ReportUploadModal } from '../../components/shared/ReportViews';
 import {
   formatDate, getStatusColor, PLAN_LABELS, PLAN_COLORS,
   formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo, formatFileSize, linkifyText
@@ -356,15 +357,17 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
       {(() => {
         const contentTypes = ['reel', 'static_post', 'carousel', 'story', 'other'];
         const contentEvents = events.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done');
+        const overdueCount = events.filter(ev => ev.isOverdue).length;
         const kpis = [
           { label: 'Total Content', count: contentEvents.length,                                                                            color: '#4f6ef0', bg: '#eef2ff', icon: '📦' },
           { label: 'Posts',         count: contentEvents.filter(ev => ev.type === 'static_post' || ev.type === 'carousel').length,          color: '#8b5cf6', bg: '#f5f3ff', icon: '🖼️' },
           { label: 'Reels',         count: contentEvents.filter(ev => ev.type === 'reel').length,                                           color: '#06b6d4', bg: '#ecfeff', icon: '🎬' },
           { label: 'Stories',       count: contentEvents.filter(ev => ev.type === 'story').length,                                          color: '#e11d48', bg: '#fff1f2', icon: '📖' },
           { label: 'Extra Designs', count: contentEvents.filter(ev => ev.type === 'other').length,                                          color: '#94a3b8', bg: '#f8fafc', icon: '✨' },
+          { label: 'Overdue',       count: overdueCount,                                                                                    color: '#ef4444', bg: '#fef2f2', icon: '⚠️' },
         ];
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
             {kpis.map(k => (
               <div key={k.label} className="rounded-xl px-3 py-2.5 flex items-center gap-2" style={{ background: k.bg, border: `1px solid ${k.color}22` }}>
                 <span className="text-sm leading-none flex-shrink-0">{k.icon}</span>
@@ -2848,6 +2851,7 @@ export default function ClientDetailPage() {
   const [deletingFile, setDeletingFile] = useState(false);
   const [reports, setReports] = useState([]);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showUploadReportModal, setShowUploadReportModal] = useState(false);
   const [reportForm, setReportForm] = useState({ title: '', period: 'monthly', startDate: '', endDate: '', notes: '', metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' } });
   const [savingReport, setSavingReport] = useState(false);
   const setReportMetric = (key, val) => setReportForm(p => ({ ...p, metrics: { ...p.metrics, [key]: val } }));
@@ -2935,14 +2939,15 @@ export default function ClientDetailPage() {
   }, [socialDays, activeTab, id]);
 
   useEffect(() => {
-    if (activeTab === 'calendar' && id) {
-      const from = startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 }).toISOString();
-      const to   = endOfWeek(endOfMonth(calendarMonth),   { weekStartsOn: 1 }).toISOString();
-      api.get(`/calendar?from=${from}&to=${to}&client=${id}`)
-        .then(r => setCalendarEvents(r.data.events || []))
-        .catch(() => {});
-    }
-  }, [activeTab, calendarMonth, id]);
+  if (!id) return;
+
+  const from = startOfWeek(startOfMonth(calendarMonth), { weekStartsOn: 1 }).toISOString();
+  const to   = endOfWeek(endOfMonth(calendarMonth), { weekStartsOn: 1 }).toISOString();
+
+  api.get(`/calendar?from=${from}&to=${to}&client=${id}`)
+    .then(r => setCalendarEvents(r.data.events || []))
+    .catch(() => {});
+}, [calendarMonth, id]);
 
   const loadData = async () => {
     // Reset all client-scoped state immediately so stale data from a previous
@@ -3207,7 +3212,7 @@ export default function ClientDetailPage() {
     { id: 'tasks',     label: `Tasks (${tasks.length})` },
     ...(isManager ? [{ id: 'team', label: `Team (${teamCount})` }] : []),
     { id: 'updates',   label: `Updates (${updates.length})` },
-    { id: 'reports',   label: `Reports (${reports.length})` },
+    { id: 'reports',   label: `Ad Reports (${reports.length})` },
     { id: 'files',     label: `Files (${files.length})` },
     { id: 'gmb',       label: 'GMB Panel' },
     { id: 'documents', label: 'Documents' },
@@ -3318,9 +3323,106 @@ export default function ClientDetailPage() {
       </div>
 
       {/* OVERVIEW */}
-      {activeTab === 'overview' && (
-        <>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+{activeTab === 'overview' && (
+  <>
+<div className="mb-5">
+  <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+    {[
+      {
+        label: 'Total Content',
+        count: calendarEvents.filter(
+          ev =>
+            ['reel', 'static_post', 'carousel', 'story', 'other'].includes(ev.type) &&
+            ev.status === 'done'
+        ).length,
+        color: '#4f6ef0',
+        bg: '#eef2ff',
+        icon: '📦'
+      },
+      {
+        label: 'Posts',
+        count: calendarEvents.filter(
+          ev =>
+            (ev.type === 'static_post' || ev.type === 'carousel') &&
+            ev.status === 'done'
+        ).length,
+        color: '#8b5cf6',
+        bg: '#f5f3ff',
+        icon: '🖼️'
+      },
+      {
+        label: 'Reels',
+        count: calendarEvents.filter(
+          ev => ev.type === 'reel' && ev.status === 'done'
+        ).length,
+        color: '#06b6d4',
+        bg: '#ecfeff',
+        icon: '🎬'
+      },
+      {
+        label: 'Stories',
+        count: calendarEvents.filter(
+          ev => ev.type === 'story' && ev.status === 'done'
+        ).length,
+        color: '#e11d48',
+        bg: '#fff1f2',
+        icon: '📖'
+      },
+      {
+        label: 'Extra Designs',
+        count: calendarEvents.filter(
+          ev => ev.type === 'other' && ev.status === 'done'
+        ).length,
+        color: '#94a3b8',
+        bg: '#f8fafc',
+        icon: '✨'
+      },
+      {
+        label: 'Overdue',
+        count: calendarEvents.filter(
+          ev =>
+            ev.status !== 'done' &&
+            ev.status !== 'cancelled' &&
+            new Date(ev.endDate) < new Date()
+        ).length,
+        color: '#ef4444',
+        bg: '#fef2f2',
+        icon: '⚠️'
+      }
+    ].map(k => (
+      <div
+        key={k.label}
+        className="rounded-xl px-3 py-2.5 flex items-center gap-2"
+        style={{
+          background: k.bg,
+          border: `1px solid ${k.color}22`
+        }}
+      >
+        <span className="text-sm leading-none flex-shrink-0">
+          {k.icon}
+        </span>
+
+        <div className="min-w-0">
+          <p
+            className="text-[18px] font-bold leading-none tracking-tight"
+            style={{ color: k.color }}
+          >
+            {k.count}
+          </p>
+
+          <p
+            className="text-[10px] font-medium mt-0.5 truncate"
+            style={{ color: k.color, opacity: 0.7 }}
+          >
+            {k.label}
+          </p>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             <div className="lg:col-span-2 space-y-5">
               <Card>
                 <CardHeader><h3 className="font-semibold text-[var(--fd-ink-1)] text-sm">Client Information</h3></CardHeader>
@@ -4196,7 +4298,10 @@ export default function ClientDetailPage() {
       {/* REPORTS */}
       {activeTab === 'reports' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setShowUploadReportModal(true)}>
+              <Upload size={14} /> Upload Report
+            </Button>
             <Button size="sm" onClick={() => {
               setReportForm({ title: '', period: 'monthly', startDate: '', endDate: '', notes: '', metrics: { adSpend: '', revenue: '', leads: '', conversions: '', impressions: '', clicks: '' } });
               setShowReportModal(true);
@@ -4204,33 +4309,26 @@ export default function ClientDetailPage() {
               <Plus size={14} /> New Report
             </Button>
           </div>
-          {reports.length === 0 ? <EmptyState icon={AlertCircle} title="No reports yet" description="Create the first performance report." action={<Button onClick={() => setShowReportModal(true)}><Plus size={14} />New Report</Button>} /> : (
+          {reports.length === 0 ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="No ad reports yet"
+              description="Upload a spreadsheet export or create the first performance report."
+              action={
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" onClick={() => setShowUploadReportModal(true)}><Upload size={14} />Upload Report</Button>
+                  <Button onClick={() => setShowReportModal(true)}><Plus size={14} />New Report</Button>
+                </div>
+              }
+            />
+          ) : (
             <div className="grid gap-4">
               {reports.map(r => (
-                <Card key={r._id}>
-                  <CardContent>
-                    <div className="flex items-start justify-between flex-wrap gap-2 mb-3">
-                      <div>
-                        <div className="font-semibold text-[var(--fd-ink-1)]">{r.title}</div>
-                        <div className="text-xs text-[var(--fd-ink-3)]">{formatDate(r.startDate)} — {formatDate(r.endDate)}</div>
-                      </div>
-                      <span className="px-2.5 py-0.5 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-2)] rounded-full text-xs capitalize">{r.period}</span>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {[
-                        { label: 'Ad Spend', value: formatCurrency(r.metrics?.adSpend), color: 'bg-[var(--fd-surface-raised)]' },
-                        { label: 'Revenue', value: formatCurrency(r.metrics?.revenue), color: 'bg-emerald-50 dark:bg-emerald-900/20' },
-                        { label: 'ROAS', value: `${r.metrics?.roas?.toFixed(1)}x`, color: 'bg-blue-50 dark:bg-blue-900/20' },
-                        { label: 'Leads', value: r.metrics?.leads, color: 'bg-purple-50 dark:bg-purple-900/20' },
-                      ].map(m => (
-                        <div key={m.label} className={`${m.color} rounded-lg p-3 text-center`}>
-                          <div className="text-xs text-[var(--fd-ink-3)]">{m.label}</div>
-                          <div className="font-bold text-[var(--fd-ink-1)] mt-0.5">{m.value}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                <ReportCard
+                  key={r._id}
+                  report={r}
+                  onDelete={(deletedId) => setReports(prev => prev.filter(rep => rep._id !== deletedId))}
+                />
               ))}
             </div>
           )}
@@ -4635,6 +4733,13 @@ export default function ClientDetailPage() {
           <Textarea label="Notes" value={reportForm.notes} onChange={e => setReportForm(p => ({ ...p, notes: e.target.value }))} rows={3} placeholder="Summary, insights, or observations..." />
         </div>
       </Modal>
+
+      <ReportUploadModal
+        isOpen={showUploadReportModal}
+        onClose={() => setShowUploadReportModal(false)}
+        onUploaded={(report) => setReports(prev => [report, ...prev])}
+        fixedClientId={id}
+      />
 
       {/* Credential Delete Modal */}
       <Modal isOpen={!!deleteCredId} onClose={() => setDeleteCredId(null)} title="Delete Credential" size="sm">

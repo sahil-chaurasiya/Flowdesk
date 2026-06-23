@@ -285,7 +285,6 @@ export default function ContactsPage() {
                         </td>
                         <td>
                           <div className="flex items-center gap-1 text-[12.5px]" style={{ color: 'var(--fd-ink-2)' }}>
-                            <DollarSign size={11} style={{ color: 'var(--fd-ink-4)' }} />
                             {formatRate(c)}
                           </div>
                         </td>
@@ -342,7 +341,7 @@ export default function ContactsPage() {
                       {c.phone && <div className="flex items-center gap-1.5"><Phone size={11} />{c.phone}</div>}
                       {c.email && <div className="flex items-center gap-1.5"><Mail size={11} />{c.email}</div>}
                       {c.location && <div className="flex items-center gap-1.5"><MapPin size={11} />{c.location}</div>}
-                      {c.rateAmount > 0 && <div className="flex items-center gap-1.5"><DollarSign size={11} />{formatRate(c)}</div>}
+                      {c.rateAmount > 0 && <div className="flex items-center gap-1.5">{formatRate(c)}</div>}
                     </div>
                     {c.notes && <p className="text-[11.5px] italic" style={{ color: 'var(--fd-ink-4)' }}>{c.notes}</p>}
                   </div>

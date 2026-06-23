@@ -3058,7 +3058,14 @@ export default function ClientDetailPage() {
   const handleSaveEdit = async () => {
     setSaving(true);
     try {
-      await api.put(`/clients/${id}`, editForm);
+      const payload = { ...editForm };
+      // Only send portal fields if user wants to create a login
+      if (!payload.createPortalUser) {
+        delete payload.createPortalUser;
+        delete payload.portalEmail;
+        delete payload.portalPassword;
+      }
+      await api.put(`/clients/${id}`, payload);
       setShowEditModal(false);
       loadData();
     } finally { setSaving(false); }
@@ -3286,6 +3293,7 @@ export default function ClientDetailPage() {
                   plan: client.plan, monthlyBudget: client.monthlyBudget, notes: client.notes || '',
                   whatsappGroup: client.whatsappGroup || '', whatsappPhone: client.whatsappPhone || '',
                   services: client.services || [],
+                  createPortalUser: false, portalEmail: '', portalPassword: '',
                 });
                 setShowEditModal(true);
               }}><Edit3 size={14} />Edit</Button>
@@ -4547,6 +4555,37 @@ export default function ClientDetailPage() {
               </div>
               <p className="text-[11px] text-[var(--fd-ink-4)] mt-1.5">Group link takes priority. Phone is used if no group link is set.</p>
             </div>
+
+            {!client?.linkedUserId && (
+              <div className="rounded-xl p-4 space-y-3 border border-[var(--fd-border)]" style={{ background: 'var(--fd-surface-raised)' }}>
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={editForm.createPortalUser || false}
+                    onChange={e => setEditForm(p => ({ ...p, createPortalUser: e.target.checked }))}
+                    className="rounded"
+                    style={{ accentColor: '#4f6ef0' }}
+                  />
+                  <span className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>
+                    Create client portal login
+                  </span>
+                </label>
+                {editForm.createPortalUser && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <Input label="Portal Email" type="email" value={editForm.portalEmail || ''} onChange={e => setEditForm(p => ({ ...p, portalEmail: e.target.value }))} />
+                    <Input label="Portal Password" value={editForm.portalPassword || ''} onChange={e => setEditForm(p => ({ ...p, portalPassword: e.target.value }))} placeholder="Min 8 characters" />
+                  </div>
+                )}
+              </div>
+            )}
+            {client?.linkedUserId && (
+              <div className="rounded-xl p-3 flex items-center gap-2.5" style={{ background: 'var(--fd-surface-raised)', border: '1px solid var(--fd-border)' }}>
+                <span style={{ color: '#2a7d4f', fontSize: 16 }}>✓</span>
+                <span className="text-[12.5px]" style={{ color: 'var(--fd-ink-2)' }}>
+                  Client portal login already created for this client.
+                </span>
+              </div>
+            )}
           </div>
         </Modal>
       )}

@@ -216,11 +216,38 @@ router.put('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (r
     }
   }
 
+  // Strip portal fields from body before saving client (handled separately below)
+  const { createPortalUser, portalEmail, portalPassword } = body;
+  delete body.createPortalUser;
+  delete body.portalEmail;
+  delete body.portalPassword;
+
   const client = await Client.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
     .populate('accountManager', 'name email avatar')
     .populate('teamMembers', 'name email avatar');
 
   if (!client) return res.status(404).json({ success: false, message: 'Client not found' });
+
+  // If createPortalUser is requested for an existing client (no linked user yet)
+  if (createPortalUser && portalEmail && !client.linkedUserId) {
+    const pwd = portalPassword || 'ClientPass123!';
+    const newUser = await User.create({
+      name: client.name,
+      email: portalEmail,
+      password: pwd,
+      role: 'client',
+      clientId: client._id,
+    });
+    client.linkedUserId = newUser._id;
+    await client.save();
+
+    try {
+      await sendClientWelcomeMessages({ client, portalEmail, portalPassword: pwd });
+    } catch (err) {
+      console.error('[Messaging] Failed to send welcome messages:', err.message || err);
+    }
+  }
+
   res.json({ success: true, client });
 }));
 

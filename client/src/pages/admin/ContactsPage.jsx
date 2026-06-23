@@ -58,14 +58,52 @@ function ContactForm({ initial, onSubmit, loading, onClose }) {
   const [form, setForm] = useState(initial || EMPTY_FORM);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
+  // If the contact's field is already saved but isn't one of the known options,
+  // treat the dropdown as "Other" and show the custom text input pre-filled.
+  const isKnownField = !form.field || FIELD_OPTIONS.includes(form.field);
+  const [useCustomField, setUseCustomField] = useState(!isKnownField);
+  const [customField, setCustomField] = useState(!isKnownField ? form.field : '');
+
+  const handleFieldSelect = (value) => {
+    if (value === 'other') {
+      setUseCustomField(true);
+      // Don't save the literal "other" — wait for the user's custom text.
+      set('field', customField);
+    } else {
+      setUseCustomField(false);
+      set('field', value);
+    }
+  };
+
+  const handleCustomFieldChange = (value) => {
+    setCustomField(value);
+    set('field', value);
+  };
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Full Name *" value={form.name} onChange={e => set('name', e.target.value)} required />
-        <Select label="Field / Specialisation" value={form.field} onChange={e => set('field', e.target.value)}>
-          <option value="">Select...</option>
-          {FIELD_OPTIONS.map(f => <option key={f} value={f}>{fieldLabel(f)}</option>)}
-        </Select>
+        <div>
+          <Select
+            label="Field / Specialisation"
+            value={useCustomField ? 'other' : (form.field || '')}
+            onChange={e => handleFieldSelect(e.target.value)}
+          >
+            <option value="">Select...</option>
+            {FIELD_OPTIONS.filter(f => f !== 'other').map(f => <option key={f} value={f}>{fieldLabel(f)}</option>)}
+            <option value="other">Other (custom)</option>
+          </Select>
+          {useCustomField && (
+            <input
+              className="fd-input mt-2"
+              value={customField}
+              onChange={e => handleCustomFieldChange(e.target.value)}
+              placeholder="Type a custom field..."
+              autoFocus
+            />
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Phone" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+91 98000 00000" />
@@ -113,7 +151,12 @@ function ContactForm({ initial, onSubmit, loading, onClose }) {
 
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-        <Button size="sm" loading={loading} onClick={() => onSubmit(form)}>
+        <Button
+          size="sm"
+          loading={loading}
+          disabled={useCustomField && !customField.trim()}
+          onClick={() => onSubmit(form)}
+        >
           <Save size={13} /> Save Contact
         </Button>
       </div>

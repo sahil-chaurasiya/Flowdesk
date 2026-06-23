@@ -189,9 +189,14 @@ function EventChip({ event, isStart, isEnd, onClick }) {
             : <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color.bg }} />
           }
           <span className="truncate">{event.title}</span>
-          {event.status === 'done' && (
+          {event.status === 'done' ? (
             <span className="flex-shrink-0 ml-auto w-3 h-3 rounded-full flex items-center justify-center" style={{ background: '#22c55e' }}>
               <Check size={7} style={{ color: '#fff', strokeWidth: 3 }} />
+            </span>
+          ) : event.isReady && (
+            <span className="flex-shrink-0 ml-auto text-[8px] font-bold px-1.5 py-[1px] rounded-full leading-[12px]"
+              style={{ background: '#22c55e', color: '#fff' }}>
+              Ready
             </span>
           )}
         </>
@@ -1302,9 +1307,10 @@ export default function CalendarPage() {
           { label: 'Reels',         count: contentEvents.filter(ev => ev.type === 'reel').length,        color: '#06b6d4', bg: '#ecfeff', icon: '🎬' },
           { label: 'Stories',       count: contentEvents.filter(ev => ev.type === 'story').length,       color: '#e11d48', bg: '#fff1f2', icon: '📖' },
           { label: 'Extra Designs', count: contentEvents.filter(ev => ev.type === 'other').length,       color: '#94a3b8', bg: '#f8fafc', icon: '✨' },
+          { label: 'Overdue',       count: overdueCount,                                                  color: '#ef4444', bg: '#fef2f2', icon: '⚠️' },
         ];
         return (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-3 sm:mb-5">
+          <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-3 mb-3 sm:mb-5">
             {kpis.map(k => (
               <div key={k.label} className="rounded-xl px-3 py-2.5 flex items-center gap-2.5" style={{ background: k.bg, border: `1px solid ${k.color}22` }}>
                 <span className="text-base leading-none flex-shrink-0">{k.icon}</span>

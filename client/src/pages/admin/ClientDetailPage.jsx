@@ -449,9 +449,14 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                         style={{ background: overdue ? '#fef2f2' : c.light, color: overdue ? '#b91c1c' : c.text }}>
                         {overdue && <AlertTriangle size={7} style={{ flexShrink: 0 }} />}
                         <span className="truncate">{ev.title}</span>
-                        {ev.status === 'done' && (
+                        {ev.status === 'done' ? (
                           <span className="flex-shrink-0 ml-auto w-3 h-3 rounded-full flex items-center justify-center" style={{ background: '#22c55e' }}>
                             <Check size={7} style={{ color: '#fff', strokeWidth: 3 }} />
+                          </span>
+                        ) : ev.isReady && (
+                          <span className="flex-shrink-0 ml-auto text-[8px] font-bold px-1.5 py-[1px] rounded-full leading-[12px]"
+                            style={{ background: '#22c55e', color: '#fff' }}>
+                            Ready
                           </span>
                         )}
                       </button>

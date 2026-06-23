@@ -190,24 +190,29 @@ router.delete('/:id', protect, authorize('admin'), asyncHandler(async (req, res)
   res.json({ success: true, message: 'Team member deleted successfully' });
 }));
 
-// @route POST /api/users/:id/documents
+// @route POST /api/users/:id/documents  (always via Cloudinary)
 router.post('/:id/documents', protect, authorize('admin'), asyncHandler(async (req, res) => {
-  const uploader = getUploader();
-  uploader.single('document')(req, res, async (err) => {
+  const { CloudinaryStorage } = require('multer-storage-cloudinary');
+  const multer = require('multer');
+  const docStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: 'toflymedia/team-documents',
+      resource_type: 'auto',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'doc', 'docx'],
+    },
+  });
+  const docUploader = multer({ storage: docStorage, limits: { fileSize: 10 * 1024 * 1024 } });
+
+  docUploader.single('document')(req, res, async (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    let fileUrl;
-    let publicId = null;
-    if (process.env.FILE_STORAGE === 'cloudinary') {
-      fileUrl = req.file.path;
-      publicId = req.file.filename;
-    } else {
-      fileUrl = getFileUrl(req, req.file.filename);
-    }
+    const fileUrl = req.file.path;
+    const publicId = req.file.filename;
 
     const ext = (req.file.originalname || '').split('.').pop().toLowerCase();
     const fileType = ['pdf'].includes(ext) ? 'pdf'

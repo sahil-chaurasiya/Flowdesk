@@ -298,19 +298,28 @@ router.get('/:id/overview', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, client, taskStats, recentUpdates, recentFiles, latestReport });
 }));
 
-// @route POST /api/clients/:id/logo  — upload company logo
+// @route POST /api/clients/:id/logo  — upload company logo (always via Cloudinary)
 router.post('/:id/logo', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
-  const uploader = getUploader();
-  uploader.single('logo')(req, res, async (err) => {
+  const { CloudinaryStorage } = require('multer-storage-cloudinary');
+  const multer = require('multer');
+
+  const logoStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: 'toflymedia/logos',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      resource_type: 'image',
+      transformation: [{ width: 400, height: 400, crop: 'limit' }],
+    },
+  });
+  const logoUploader = multer({ storage: logoStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+  logoUploader.single('logo')(req, res, async (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-    let logoUrl;
-    if (process.env.FILE_STORAGE === 'cloudinary') {
-      logoUrl = req.file.path;
-    } else {
-      logoUrl = getFileUrl(req, req.file.filename);
-    }
+    // multer-storage-cloudinary puts the secure Cloudinary URL in req.file.path
+    const logoUrl = req.file.path;
 
     const client = await Client.findByIdAndUpdate(
       req.params.id,

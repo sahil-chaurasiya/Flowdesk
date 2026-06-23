@@ -101,14 +101,16 @@ export function Avatar({ name, src, size = 'md', className }) {
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const palette = isDark ? AVATAR_PALETTES_DARK[idx] : AVATAR_PALETTES[idx];
 
-  if (src) {
+  const [imgError, setImgError] = React.useState(false);
+
+  if (src && !imgError) {
     return (
       <img
         src={src}
         alt={name}
         className={cn('rounded-full object-cover flex-shrink-0', container, className)}
         style={inlineStyle}
-        onError={e => { e.target.style.display = 'none'; }}
+        onError={() => setImgError(true)}
       />
     );
   }

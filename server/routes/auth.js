@@ -104,42 +104,54 @@ router.put('/profile', protect, asyncHandler(async (req, res) => {
   res.json({ success: true, user });
 }));
 
-// @route POST /api/auth/avatar  — upload profile photo (for logged-in user)
+// @route POST /api/auth/avatar  — upload profile photo (for logged-in user, always via Cloudinary)
 router.post('/avatar', protect, asyncHandler(async (req, res) => {
-  const uploader = getUploader();
-  uploader.single('avatar')(req, res, async (err) => {
+  const { CloudinaryStorage } = require('multer-storage-cloudinary');
+  const multer = require('multer');
+  const avatarStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: 'toflymedia/avatars',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      resource_type: 'image',
+      transformation: [{ width: 300, height: 300, crop: 'fill', gravity: 'face' }],
+    },
+  });
+  const avatarUploader = multer({ storage: avatarStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+  avatarUploader.single('avatar')(req, res, async (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-    let avatarUrl;
-    if (process.env.FILE_STORAGE === 'cloudinary') {
-      avatarUrl = req.file.path;
-    } else {
-      avatarUrl = getFileUrl(req, req.file.filename);
-    }
-
+    const avatarUrl = req.file.path;
     const user = await User.findByIdAndUpdate(req.user._id, { avatar: avatarUrl }, { new: true });
     res.json({ success: true, avatar: avatarUrl, user });
   });
 }));
 
-// @route POST /api/auth/avatar/:userId  — admin uploads avatar for any user
+// @route POST /api/auth/avatar/:userId  — admin uploads avatar for any user (always via Cloudinary)
 router.post('/avatar/:userId', protect, asyncHandler(async (req, res) => {
   if (req.user.role !== 'admin' && String(req.params.userId) !== String(req.user._id)) {
     return res.status(403).json({ success: false, message: 'Not authorized' });
   }
-  const uploader = getUploader();
-  uploader.single('avatar')(req, res, async (err) => {
+  const { CloudinaryStorage } = require('multer-storage-cloudinary');
+  const multer = require('multer');
+  const avatarStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+      folder: 'toflymedia/avatars',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+      resource_type: 'image',
+      transformation: [{ width: 300, height: 300, crop: 'fill', gravity: 'face' }],
+    },
+  });
+  const avatarUploader = multer({ storage: avatarStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+
+  avatarUploader.single('avatar')(req, res, async (err) => {
     if (err) return res.status(400).json({ success: false, message: err.message });
     if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-    let avatarUrl;
-    if (process.env.FILE_STORAGE === 'cloudinary') {
-      avatarUrl = req.file.path;
-    } else {
-      avatarUrl = getFileUrl(req, req.file.filename);
-    }
-
+    const avatarUrl = req.file.path;
     const user = await User.findByIdAndUpdate(req.params.userId, { avatar: avatarUrl }, { new: true });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     res.json({ success: true, avatar: avatarUrl, user });

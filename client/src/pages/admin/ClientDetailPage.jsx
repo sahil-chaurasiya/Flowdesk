@@ -7,7 +7,7 @@ import {
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye, EyeOff,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
   ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
-  Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink, Upload,
+  Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink, Upload, Lock,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -21,7 +21,7 @@ import { Button, Modal, Input, Textarea, Select, useToast } from '../../componen
 import { Avatar, Badge, Card, CardHeader, CardContent, Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 import {
   formatDate, getStatusColor, PLAN_LABELS, PLAN_COLORS,
-  formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo, formatFileSize
+  formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo, formatFileSize, linkifyText
 } from '../../lib/utils';
 
 const updateTypes = ['general', 'milestone', 'report', 'alert', 'campaign_launch', 'optimization', 'meeting_notes'];
@@ -90,8 +90,35 @@ const STATUS_CONFIG = {
   cancelled:   { label: 'Cancelled',   icon: XCircle,      color: '#ef4444', bg: '#fef2f2' },
 };
 
+// ─── Ready Switch ─────────────────────────────────────────────────────────────
+function ReadySwitch({ isReady, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); onChange(!isReady); }}
+      className="relative inline-flex items-center transition-colors"
+      style={{
+        width: 40, height: 22, borderRadius: 999,
+        background: isReady ? '#22c55e' : 'var(--fd-border)',
+        flexShrink: 0, border: 'none', cursor: 'pointer', padding: 0,
+      }}
+      role="switch"
+      aria-checked={isReady}
+      title={isReady ? 'Ready — click to mark Not Ready' : 'Not Ready — click to mark Ready'}
+    >
+      <span
+        className="absolute rounded-full bg-white shadow transition-transform"
+        style={{
+          width: 18, height: 18, top: 2, left: 2,
+          transform: isReady ? 'translateX(18px)' : 'translateX(0)',
+        }}
+      />
+    </button>
+  );
+}
+
 // -- Status dropdown - uses a portal so modal overflow never clips it ----------
-function StatusDropdown({ status, onStatusChange }) {
+function StatusDropdown({ status, onStatusChange, isReady = true }) {
   const [open, setOpen] = useState(false);
   const btnRef = React.useRef(null);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
@@ -138,19 +165,24 @@ function StatusDropdown({ status, onStatusChange }) {
       {Object.entries(STATUS_CONFIG).map(([val, s]) => {
         const I = s.icon;
         const isActive = val === status;
+        const isDoneLocked = val === 'done' && !isReady;
         return (
           <button key={val}
-            onClick={() => { onStatusChange(val); setOpen(false); }}
+            onClick={() => { if (isDoneLocked) return; onStatusChange(val); setOpen(false); }}
+            disabled={isDoneLocked}
+            title={isDoneLocked ? 'Mark this event as Ready first' : undefined}
             style={{
               display: 'flex', alignItems: 'center', gap: 10,
               width: '100%', padding: '10px 14px', textAlign: 'left',
               background: isActive ? s.color : 'transparent',
               color: isActive ? '#fff' : 'var(--fd-ink-1)',
-              border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+              border: 'none', cursor: isDoneLocked ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 500,
+              opacity: isDoneLocked ? 0.45 : 1,
             }}>
             <I size={14} style={{ color: isActive ? '#fff' : s.color, flexShrink: 0 }} />
             <span>{s.label}</span>
-            {isActive && <Check size={12} style={{ color: '#fff', marginLeft: 'auto' }} />}
+            {isDoneLocked && <Lock size={11} style={{ marginLeft: 'auto' }} />}
+            {isActive && !isDoneLocked && <Check size={12} style={{ color: '#fff', marginLeft: 'auto' }} />}
           </button>
         );
       })}
@@ -230,7 +262,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
     const base = new Date(day);
     base.setHours(9, 0, 0, 0);
     const end = new Date(base); end.setHours(10, 0, 0, 0);
-    setForm({ title: '', type: 'meeting', shootSubtype: '', description: '', startDate: base.toISOString(), endDate: end.toISOString() });
+    setForm({ title: '', type: 'meeting', shootSubtype: '', description: '', startDate: base.toISOString(), endDate: end.toISOString(), status: 'pending', isReady: false });
     setModal({ mode: 'new', date: day });
   };
 
@@ -264,8 +296,21 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
       setEvents(prev => prev.map(e => e._id === evId ? enriched : e));
       if (modal?.event?._id === evId) setModal(m => ({ ...m, event: enriched }));
       if (toast) toast({ type: 'success', title: `Marked as ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
-    } catch {
-      if (toast) toast({ type: 'error', title: 'Failed to update status' });
+    } catch (err) {
+      if (toast) toast({ type: 'error', title: 'Failed to update status', message: err?.response?.data?.message });
+    }
+  };
+
+  const handleReadyChange = async (evId, isReady) => {
+    try {
+      const { data } = await api.put(`/calendar/${evId}`, { isReady });
+      const enriched = enrich(data.event);
+      setEvents(prev => prev.map(e => e._id === evId ? enriched : e));
+      if (modal?.event?._id === evId) setModal(m => ({ ...m, event: enriched }));
+      setForm(f => (f._id === evId ? { ...f, isReady, status: enriched.status } : f));
+      if (toast) toast({ type: 'success', title: isReady ? 'Marked as Ready' : 'Marked as Not Ready' });
+    } catch (err) {
+      if (toast) toast({ type: 'error', title: 'Failed to update', message: err?.response?.data?.message });
     }
   };
 
@@ -465,12 +510,32 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                   </span>
                 )}
               </div>
+              {/* Ready */}
+              {canActOnEvent(form) && (
+                <div className="flex items-center justify-between px-4 py-3 rounded-xl"
+                  style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                  <div>
+                    <span className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>Ready</span>
+                    <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>
+                      {form.isReady ? 'Can be marked Done' : 'Switch on before marking Done'}
+                    </div>
+                  </div>
+                  <ReadySwitch
+                    isReady={!!form.isReady}
+                    onChange={(val) => {
+                      handleReadyChange(form._id, val);
+                      setForm(f => ({ ...f, isReady: val, status: (!val && f.status === 'done') ? 'pending' : f.status }));
+                    }}
+                  />
+                </div>
+              )}
               {/* Status */}
               <div className="flex items-center justify-between px-4 py-3 rounded-xl"
                 style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
                 <span className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>Status</span>
                 <StatusDropdown
                   status={form.status || 'pending'}
+                  isReady={!!form.isReady}
                   onStatusChange={(val) => {
                     handleStatusChange(form._id, val);
                     setForm(f => ({ ...f, status: val }));
@@ -478,7 +543,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                 />
               </div>
               {form.description && (
-                <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>{form.description}</p>
+                <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>{linkifyText(form.description)}</p>
               )}
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center text-[12px] font-semibold px-3 py-1 rounded-full"
@@ -519,6 +584,20 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                   />
                 </div>
               </div>
+              {/* Ready */}
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl"
+                style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div>
+                  <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Ready</span>
+                  <div className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
+                    {form.isReady ? 'Can be marked Done' : 'Switch on before marking Done'}
+                  </div>
+                </div>
+                <ReadySwitch
+                  isReady={!!form.isReady}
+                  onChange={val => setForm(f => ({ ...f, isReady: val, status: (!val && f.status === 'done') ? 'pending' : f.status }))}
+                />
+              </div>
               {/* Status */}
               <div className="space-y-1.5">
                 <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Status</label>
@@ -526,14 +605,19 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                   {Object.entries(STATUS_CONFIG).map(([val, s]) => {
                     const Icon = s.icon;
                     const isActive = (form.status || 'pending') === val;
+                    const isDoneLocked = val === 'done' && !form.isReady;
                     return (
-                      <button key={val} onClick={() => setForm(f => ({ ...f, status: val }))}
+                      <button key={val}
+                        onClick={() => { if (isDoneLocked) return; setForm(f => ({ ...f, status: val })); }}
+                        disabled={isDoneLocked}
+                        title={isDoneLocked ? 'Mark this event as Ready first' : undefined}
                         className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-all"
                         style={isActive
                           ? { background: s.color, color: '#fff', boxShadow: `0 2px 8px ${s.color}55` }
-                          : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }
+                          : { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)', opacity: isDoneLocked ? 0.45 : 1, cursor: isDoneLocked ? 'not-allowed' : 'pointer' }
                         }>
                         <Icon size={11} /> {s.label}
+                        {isDoneLocked && <Lock size={10} />}
                       </button>
                     );
                   })}

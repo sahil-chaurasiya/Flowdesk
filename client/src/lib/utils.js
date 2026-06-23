@@ -1,3 +1,4 @@
+import React from 'react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
@@ -121,4 +122,45 @@ export const PLAN_COLORS = {
   '3_month': 'bg-slate-100 text-slate-700',
   '6_month': 'bg-blue-100 text-blue-700',
   '1_year':  'bg-purple-100 text-purple-700',
+};
+
+// Turns plain text containing URLs into text + clickable <a> nodes.
+// Preserves line breaks. Safe to drop straight into JSX: {linkifyText(str)}
+// Written with React.createElement (no JSX) since this file is plain .js.
+const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/gi;
+
+export const linkifyText = (text, linkClassName = 'underline break-all') => {
+  if (!text) return null;
+  const lines = String(text).split('\n');
+
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(URL_REGEX);
+    const rendered = parts.map((part, partIdx) => {
+      const isUrl = URL_REGEX.test(part);
+      URL_REGEX.lastIndex = 0; // reset since the regex is global
+      if (isUrl) {
+        return React.createElement(
+          'a',
+          {
+            key: partIdx,
+            href: part,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            className: linkClassName,
+            style: { color: 'var(--fd-accent, #4f6ef0)' },
+            onClick: (e) => e.stopPropagation(),
+          },
+          part
+        );
+      }
+      return React.createElement(React.Fragment, { key: partIdx }, part);
+    });
+
+    return React.createElement(
+      React.Fragment,
+      { key: lineIdx },
+      rendered,
+      lineIdx < lines.length - 1 ? React.createElement('br') : null
+    );
+  });
 };

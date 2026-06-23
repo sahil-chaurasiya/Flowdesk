@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import {
   ChevronLeft, ChevronRight, Plus, Check, Edit2, Trash2,
   Clock, AlignLeft, List, Filter, X, AlertTriangle, User,
-  CheckCircle2, Circle, Loader, XCircle, Building2, Star, Sparkles,
+  CheckCircle2, Circle, Loader, XCircle, Building2, Star, Sparkles, Lock,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -14,6 +14,7 @@ import api from '../../lib/api';
 import { useToast, Button, Input, Modal } from '../../components/ui/index';
 import { Spinner } from '../../components/shared/LoadingScreen';
 import useAuthStore from '../../context/authStore';
+import { linkifyText } from '../../lib/utils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EVENT_COLORS = {
@@ -79,7 +80,7 @@ function OverdueBadge() {
 }
 
 // ─── Status Toggle ────────────────────────────────────────────────────────────
-function StatusToggle({ status, onChange, compact = false }) {
+function StatusToggle({ status, onChange, compact = false, isReady = true }) {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const Icon = cfg.icon;
   const [open, setOpen] = useState(false);
@@ -103,13 +104,25 @@ function StatusToggle({ status, onChange, compact = false }) {
         >
           {Object.entries(STATUS_CONFIG).map(([val, s]) => {
             const I = s.icon;
+            const isDoneLocked = val === 'done' && !isReady;
             return (
-              <button key={val} onClick={() => { onChange(val); setOpen(false); }}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:opacity-70 transition-opacity text-left"
-                style={{ background: val === status ? s.bg : 'transparent' }}>
+              <button key={val}
+                onClick={() => { if (isDoneLocked) return; onChange(val); setOpen(false); }}
+                disabled={isDoneLocked}
+                title={isDoneLocked ? 'Mark this event as Ready first' : undefined}
+                className="w-full flex items-center gap-2 px-3 py-2 transition-opacity text-left"
+                style={{
+                  background: val === status ? s.bg : 'transparent',
+                  opacity: isDoneLocked ? 0.4 : 1,
+                  cursor: isDoneLocked ? 'not-allowed' : 'pointer',
+                }}
+                onMouseEnter={e => { if (!isDoneLocked) e.currentTarget.style.opacity = '0.7'; }}
+                onMouseLeave={e => { if (!isDoneLocked) e.currentTarget.style.opacity = '1'; }}
+              >
                 <I size={12} style={{ color: s.color }} />
                 <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{s.label}</span>
-                {val === status && <Check size={10} className="ml-auto" style={{ color: s.color }} />}
+                {isDoneLocked && <Lock size={9} className="ml-auto" style={{ color: 'var(--fd-ink-4)' }} />}
+                {val === status && !isDoneLocked && <Check size={10} className="ml-auto" style={{ color: s.color }} />}
               </button>
             );
           })}
@@ -118,6 +131,34 @@ function StatusToggle({ status, onChange, compact = false }) {
     </div>
   );
 }
+
+// ─── Ready Switch ─────────────────────────────────────────────────────────────
+function ReadySwitch({ isReady, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={e => { e.stopPropagation(); onChange(!isReady); }}
+      className="relative inline-flex items-center transition-colors"
+      style={{
+        width: 40, height: 22, borderRadius: 999,
+        background: isReady ? '#22c55e' : 'var(--fd-border)',
+        flexShrink: 0,
+      }}
+      role="switch"
+      aria-checked={isReady}
+      title={isReady ? 'Ready — click to mark Not Ready' : 'Not Ready — click to mark Ready'}
+    >
+      <span
+        className="absolute rounded-full bg-white shadow transition-transform"
+        style={{
+          width: 18, height: 18, top: 2, left: 2,
+          transform: isReady ? 'translateX(18px)' : 'translateX(0)',
+        }}
+      />
+    </button>
+  );
+}
+
 
 // ─── Event Chip (desktop) ─────────────────────────────────────────────────────
 function EventChip({ event, isStart, isEnd, onClick }) {
@@ -160,9 +201,10 @@ function EventChip({ event, isStart, isEnd, onClick }) {
 }
 
 // ─── View Modal ───────────────────────────────────────────────────────────────
-function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange, canAct }) {
+function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange, onReadyChange, canAct }) {
   const [deleting, setDeleting] = useState(false);
   const color = EVENT_COLORS[event.type] || EVENT_COLORS.other;
+  const isReady = !!event.isReady;
 
   const del = async () => {
     setDeleting(true);
@@ -214,11 +256,25 @@ function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange, canA
         </div>
       </div>
 
+      {/* Ready toggle */}
+      {canAct && (
+        <div className="flex items-center justify-between p-3 rounded-xl mb-3"
+          style={{ background: 'var(--fd-surface-sunken)' }}>
+          <div>
+            <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>Ready</span>
+            <div className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
+              {isReady ? 'Can be marked Done' : 'Switch on before marking Done'}
+            </div>
+          </div>
+          <ReadySwitch isReady={isReady} onChange={val => onReadyChange(event._id, val)} />
+        </div>
+      )}
+
       {/* Status */}
       <div className="flex items-center justify-between p-3 rounded-xl mb-3"
         style={{ background: 'var(--fd-surface-sunken)' }}>
         <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>Status</span>
-        <StatusToggle status={event.status || 'pending'} onChange={val => onStatusChange(event._id, val)} />
+        <StatusToggle status={event.status || 'pending'} isReady={isReady} onChange={val => onStatusChange(event._id, val)} />
       </div>
 
       <div className="space-y-3">
@@ -255,7 +311,7 @@ function EventViewModal({ event, onClose, onEdit, onDelete, onStatusChange, canA
           <div className="flex items-start gap-2.5 p-3 rounded-xl min-w-0" style={{ background: 'var(--fd-surface-sunken)' }}>
             <AlignLeft size={13} style={{ color: 'var(--fd-ink-4)', marginTop: 1, flexShrink: 0 }} />
             <p className="text-[12.5px] leading-relaxed whitespace-pre-wrap break-words min-w-0" style={{ color: 'var(--fd-ink-2)' }}>
-              {event.description}
+              {linkifyText(event.description)}
             </p>
           </div>
         )}
@@ -281,6 +337,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
         visibleTo:    (event.visibleTo || []).map(u => (typeof u === 'object' ? u._id : u)),
         client:       event.client ? (typeof event.client === 'object' ? event.client._id : event.client) : '',
         status:       event.status || 'pending',
+        isReady:      event.isReady || false,
         visibleToClient: event.visibleToClient || false,
       };
     }
@@ -295,6 +352,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
       description: '', visibility: 'all', visibleTo: [],
       client: prefillClientId || '',
       status: 'pending',
+      isReady: false,
       visibleToClient: false,
     };
   };
@@ -456,27 +514,47 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
           </button>
         )}
 
+        {/* Ready toggle */}
+        <div className="flex items-center justify-between p-3 rounded-xl"
+          style={{ background: 'var(--fd-surface-sunken)' }}>
+          <div>
+            <span className="text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Ready</span>
+            <div className="text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
+              {form.isReady ? 'Can be marked Done' : 'Switch on before marking Done'}
+            </div>
+          </div>
+          <ReadySwitch
+            isReady={!!form.isReady}
+            onChange={val => setForm(f => ({ ...f, isReady: val, status: (!val && f.status === 'done') ? 'pending' : f.status }))}
+          />
+        </div>
+
         {/* Status */}
         <div className="space-y-1.5">
           <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Status</label>
           <div className="flex flex-wrap gap-1.5">
             {Object.entries(STATUS_CONFIG).map(([val, s]) => {
               const Icon = s.icon;
+              const isDoneLocked = val === 'done' && !form.isReady;
               return (
                 <button key={val}
-                  onClick={() => setForm(f => ({ ...f, status: val }))}
+                  onClick={() => { if (isDoneLocked) return; setForm(f => ({ ...f, status: val })); }}
+                  disabled={isDoneLocked}
+                  title={isDoneLocked ? 'Mark this event as Ready first' : undefined}
                   className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full transition-all"
                   style={form.status === val
                     ? { background: s.color, color: '#fff' }
-                    : { background: s.bg, color: s.color, border: `1px solid ${s.color}40` }
+                    : { background: s.bg, color: s.color, border: `1px solid ${s.color}40`, opacity: isDoneLocked ? 0.45 : 1, cursor: isDoneLocked ? 'not-allowed' : 'pointer' }
                   }
                 >
                   <Icon size={10} /> {s.label}
+                  {isDoneLocked && <Lock size={9} />}
                 </button>
               );
             })}
           </div>
         </div>
+
 
         {/* Type */}
         <div className="space-y-1.5">
@@ -1074,10 +1152,22 @@ export default function CalendarPage() {
       // Update modal if open
       setModal(m => m?.event?._id === id ? { ...m, event: data.event } : m);
       toast({ type: 'success', title: `Marked as ${STATUS_CONFIG[newStatus]?.label || newStatus}` });
-    } catch {
-      toast({ type: 'error', title: 'Failed to update status' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to update status', message: err?.response?.data?.message });
     }
   };
+
+  const handleReadyChange = async (id, isReady) => {
+    try {
+      const { data } = await api.put(`/calendar/${id}`, { isReady });
+      setEvents(prev => prev.map(e => e._id === id ? data.event : e));
+      setModal(m => m?.event?._id === id ? { ...m, event: data.event } : m);
+      toast({ type: 'success', title: isReady ? 'Marked as Ready' : 'Marked as Not Ready' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to update', message: err?.response?.data?.message });
+    }
+  };
+
 
   // Grid
   const monthStart = startOfMonth(current);
@@ -1607,6 +1697,7 @@ export default function CalendarPage() {
           onEdit={() => setModal({ mode: 'edit', event: modal.event })}
           onDelete={handleDelete}
           onStatusChange={handleStatusChange}
+          onReadyChange={handleReadyChange}
           canAct={user?.role === 'admin' || String(modal.event?.createdBy?._id || modal.event?.createdBy) === String(user?._id)}
         />
       )}

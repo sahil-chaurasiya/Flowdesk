@@ -139,13 +139,20 @@ router.post('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, r
     }
   }
 
+  // Can't create an event already marked "done" unless it's also marked ready
+  let initialStatus = rest.status || 'pending';
+  if (initialStatus === 'done' && !rest.isReady) {
+    initialStatus = 'pending';
+  }
+
   const event = await CalendarEvent.create({
     ...rest,
     createdBy: req.user._id,
     visibility,
     visibleTo: visibility === 'specific' ? visibleTo : [],
     visibleToClient: rest.visibleToClient || false,
-    status: rest.status || 'pending',
+    status: initialStatus,
+    isReady: rest.isReady || false,
   });
 
   const populated = await CalendarEvent.findById(event._id)
@@ -175,13 +182,29 @@ router.put('/:id', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req,
   const isOwner    = String(existing.createdBy) === String(req.user._id);
   const isAssigned = existing.assignedTo.map(String).includes(String(req.user._id));
 
-  // Status-only updates (mark done/pending etc.) allowed for assigned users
-  const isStatusOnlyUpdate = Object.keys(req.body).length === 1 && 'status' in req.body;
+  // Status-only / ready-only updates (mark done/pending, toggle ready) allowed for assigned users
+  const bodyKeys = Object.keys(req.body);
+  const isStatusOnlyUpdate = bodyKeys.length === 1 && ('status' in req.body || 'isReady' in req.body);
+  const isStatusAndReadyUpdate = bodyKeys.length === 2 && ('status' in req.body) && ('isReady' in req.body);
 
-  // Admin can edit anything; everyone else only their own events (or status-only if assigned)
-  if (!isAdmin && !isOwner && !(isAssigned && isStatusOnlyUpdate)) {
+  // Admin can edit anything; everyone else only their own events (or status/ready-only if assigned)
+  if (!isAdmin && !isOwner && !(isAssigned && (isStatusOnlyUpdate || isStatusAndReadyUpdate))) {
     return res.status(403).json({ success: false, message: 'Not authorised to edit this event' });
   }
+
+  // Guard: an event can only be marked "done" once it has been switched to "ready"
+  if (req.body.status === 'done') {
+    const effectiveReady = 'isReady' in req.body ? req.body.isReady : existing.isReady;
+    if (!effectiveReady) {
+      return res.status(400).json({ success: false, message: 'Mark this event as ready before completing it.' });
+    }
+  }
+
+  // If ready is being switched off while the event is (or was) marked done, drop it back to pending
+  if ('isReady' in req.body && !req.body.isReady && !('status' in req.body) && existing.status === 'done') {
+    req.body.status = 'pending';
+  }
+
 
   const newVisibility = req.body.visibility ?? existing.visibility;
   const newVisibleTo  = req.body.visibleTo  ?? existing.visibleTo;

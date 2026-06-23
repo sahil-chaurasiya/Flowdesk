@@ -35,6 +35,9 @@ const calendarEventSchema = new mongoose.Schema({
     default: 'pending',
   },
 
+  // Ready toggle — must be switched on before an event can be marked "done"
+  isReady: { type: Boolean, default: false },
+
   // Client visibility — show this event on the client portal calendar
   visibleToClient: { type: Boolean, default: false },
 

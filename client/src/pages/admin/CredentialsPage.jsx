@@ -336,8 +336,8 @@ export default function CredentialsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Credentials"
-        description="Store social media and platform login credentials"
-        action={
+        subtitle="Store social media and platform login credentials"
+        actions={
           <Button onClick={() => { setEditCred(null); setShowModal(true); }}>
             <Plus size={14} /> Add Credential
           </Button>

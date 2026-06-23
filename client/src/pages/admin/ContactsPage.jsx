@@ -183,8 +183,8 @@ export default function ContactsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Contacts"
-        description="Freelancers, vendors, and collaborators"
-        action={
+        subtitle="Freelancers, vendors, and collaborators"
+        actions={
           <Button onClick={() => { setEditContact(null); setShowModal(true); }}>
             <Plus size={14} /> Add Contact
           </Button>

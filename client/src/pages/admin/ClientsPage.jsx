@@ -576,7 +576,7 @@ export default function ClientsPage() {
 
   const loadClients = () => fetchClients(page, search, statusFilter, managerFilter);
   useEffect(() => {
-    api.get('/users?role=manager').then(res => {
+    api.get('/users?role=manager,admin').then(res => {
       setManagers(res.data.users || []);
     });
   }, []);

@@ -63,8 +63,14 @@ router.get('/', protect, asyncHandler(async (req, res) => {
   } else if (!['admin', 'manager', 'client'].includes(req.user.role)) {
     query.$or = [{ accountManager: req.user._id }, { teamMembers: req.user._id }];
   } else if (req.user.role === 'manager') {
-    // Managers always see only their own clients — ignore any accountManager param
-    query.$or = [{ accountManager: req.user._id }, { teamMembers: req.user._id }];
+    // Managers see only clients they're accountManager or teamMember of.
+    // If they apply the accountManager filter, further restrict within that scope.
+    const managerScope = { $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }] };
+    if (accountManager) {
+      query.$and = [managerScope, { accountManager }];
+    } else {
+      query.$or = managerScope.$or;
+    }
   }
 
   if (status) query.status = status;

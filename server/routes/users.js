@@ -72,10 +72,11 @@ router.get('/', protect, asyncHandler(async (req, res) => {
 
   if (role === 'team') {
     query.role = { $in: [...TEAM_ONLY_ROLES, 'manager', 'admin'] };
+  } else if (role && role.includes(',')) {
+    query.role = { $in: role.split(',').map(r => r.trim()) };
   } else if (role) {
     query.role = role;
   }
-
   if (!isManagerOrAdmin && !query.role) {
     query.role = { $in: [...TEAM_ONLY_ROLES, 'manager', 'admin'] };
   }

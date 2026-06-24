@@ -1480,815 +1480,11 @@ function ClientTargetsTab({ clientId, isAdmin }) {
 }
 
 
-// ─── Board Widget ─────────────────────────────────────────────────────────────
-
-// ── RichEditor: a Word-like contentEditable document editor ──────────────────
-const TOOLBAR_FONTS = [
-  { label: 'Sans Serif', value: 'ui-sans-serif, system-ui, sans-serif' },
-  { label: 'Serif',      value: 'Georgia, "Times New Roman", serif' },
-  { label: 'Monospace',  value: 'ui-monospace, "Courier New", monospace' },
-];
-const TOOLBAR_SIZES = ['8','9','10','11','12','14','16','18','20','22','24','26','28','36','48','72'];
-
-function RichToolbar({ editorRef }) {
-  const [bold, setBold] = React.useState(false);
-  const [italic, setItalic] = React.useState(false);
-  const [underline, setUnderline] = React.useState(false);
-  const [align, setAlign] = React.useState('left');
-  const [fontSize, setFontSize] = React.useState('14');
-  const [fontName, setFontName] = React.useState(TOOLBAR_FONTS[0].value);
-  const [textColor, setTextColor] = React.useState('#000000');
-  const [bgColor, setBgColor]   = React.useState('#ffff00');
-
-  const syncState = () => {
-    setBold(document.queryCommandState('bold'));
-    setItalic(document.queryCommandState('italic'));
-    setUnderline(document.queryCommandState('underline'));
-    if (document.queryCommandState('justifyCenter')) setAlign('center');
-    else if (document.queryCommandState('justifyRight')) setAlign('right');
-    else if (document.queryCommandState('justifyFull')) setAlign('justify');
-    else setAlign('left');
-  };
-
-  React.useEffect(() => {
-    const el = editorRef.current;
-    if (!el) return;
-    el.addEventListener('keyup', syncState);
-    el.addEventListener('mouseup', syncState);
-    el.addEventListener('selectionchange', syncState);
-    return () => {
-      el.removeEventListener('keyup', syncState);
-      el.removeEventListener('mouseup', syncState);
-      el.removeEventListener('selectionchange', syncState);
-    };
-  }, [editorRef]);
-
-  const cmd = (command, value = null) => {
-    editorRef.current?.focus();
-    document.execCommand(command, false, value);
-    syncState();
-  };
-
-  const insertTable = (rows = 3, cols = 3) => {
-    editorRef.current?.focus();
-    const id = `tbl-${Date.now()}`;
-    let html = `<table id="${id}" style="border-collapse:collapse;width:100%;margin:8px 0;table-layout:fixed" data-fd-table="1"><colgroup>`;
-    for (let c = 0; c < cols; c++) html += `<col style="width:${(100/cols).toFixed(2)}%">`;
-    html += '</colgroup><tbody>';
-    for (let r = 0; r < rows; r++) {
-      html += '<tr>';
-      for (let c = 0; c < cols; c++) {
-        if (r === 0) {
-          html += `<th style="border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left;position:relative">Header ${c+1}</th>`;
-        } else {
-          html += `<td style="border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative">&nbsp;</td>`;
-        }
-      }
-      html += '</tr>';
-    }
-    html += '</tbody></table><p><br></p>';
-    document.execCommand('insertHTML', false, html);
-  };
-
-  const sep = (
-    <div style={{ width: 1, height: 18, background: 'var(--fd-border-strong)', margin: '0 3px', flexShrink: 0 }} />
-  );
-
-  const TB = ({ active, onClick, title, children, danger }) => (
-    <button
-      onMouseDown={e => { e.preventDefault(); onClick(); }}
-      title={title}
-      className="flex items-center justify-center rounded transition-all"
-      style={{
-        width: 26, height: 26, flexShrink: 0,
-        background: active ? '#4f6ef0' : danger ? 'transparent' : 'transparent',
-        color: active ? '#fff' : danger ? '#dc2626' : 'var(--fd-ink-2)',
-        fontSize: 12, fontWeight: 600,
-        border: active ? 'none' : 'none',
-      }}>
-      {children}
-    </button>
-  );
-
-  return (
-    <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5 border-b select-none"
-      style={{ borderColor: 'var(--fd-border)', background: 'var(--fd-surface)', minHeight: 40 }}>
-
-      {/* Heading */}
-      <select
-        onMouseDown={e => e.stopPropagation()}
-        onChange={e => { editorRef.current?.focus(); document.execCommand('formatBlock', false, e.target.value); }}
-        defaultValue="p"
-        className="text-[11px] h-[26px] px-1 rounded font-medium cursor-pointer"
-        style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)', border: '1px solid var(--fd-border)', outline: 'none', marginRight: 2 }}>
-        <option value="p">Normal</option>
-        <option value="h1">Heading 1</option>
-        <option value="h2">Heading 2</option>
-        <option value="h3">Heading 3</option>
-        <option value="h4">Heading 4</option>
-        <option value="pre">Code</option>
-      </select>
-
-      {/* Font family */}
-      <select
-        onMouseDown={e => e.stopPropagation()}
-        value={fontName}
-        onChange={e => { setFontName(e.target.value); cmd('fontName', e.target.value); }}
-        className="text-[11px] h-[26px] px-1 rounded cursor-pointer"
-        style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)', border: '1px solid var(--fd-border)', outline: 'none', marginRight: 2, maxWidth: 90 }}>
-        {TOOLBAR_FONTS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-      </select>
-
-      {/* Font size */}
-      <select
-        onMouseDown={e => e.stopPropagation()}
-        value={fontSize}
-        onChange={e => { setFontSize(e.target.value); cmd('fontSize', 3); /* we'll use inline style instead */
-          // execCommand fontSize only takes 1-7. Use insertHTML workaround via style
-          const sel = window.getSelection();
-          if (sel && sel.rangeCount) {
-            const range = sel.getRangeAt(0);
-            if (!range.collapsed) {
-              const span = document.createElement('span');
-              span.style.fontSize = e.target.value + 'pt';
-              range.surroundContents(span);
-            }
-          }
-        }}
-        className="text-[11px] h-[26px] px-1 rounded cursor-pointer"
-        style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)', border: '1px solid var(--fd-border)', outline: 'none', marginRight: 4, width: 46 }}>
-        {TOOLBAR_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-      </select>
-
-      {sep}
-
-      <TB active={bold} onClick={() => cmd('bold')} title="Bold (Ctrl+B)"><span style={{ fontWeight: 700, fontFamily: 'Georgia,serif', fontSize: 13 }}>B</span></TB>
-      <TB active={italic} onClick={() => cmd('italic')} title="Italic (Ctrl+I)"><span style={{ fontStyle: 'italic', fontFamily: 'Georgia,serif', fontSize: 13 }}>I</span></TB>
-      <TB active={underline} onClick={() => cmd('underline')} title="Underline (Ctrl+U)"><span style={{ textDecoration: 'underline', fontSize: 12 }}>U</span></TB>
-      <TB active={false} onClick={() => cmd('strikeThrough')} title="Strikethrough"><span style={{ textDecoration: 'line-through', fontSize: 12 }}>S</span></TB>
-
-      {sep}
-
-      {/* Text color */}
-      <label title="Text color" className="flex items-center justify-center rounded cursor-pointer transition-all"
-        style={{ width: 26, height: 26, position: 'relative' }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: textColor, textShadow: '0 0 1px rgba(0,0,0,0.3)' }}>A</span>
-        <div style={{ position: 'absolute', bottom: 2, left: 4, right: 4, height: 3, borderRadius: 2, background: textColor }} />
-        <input type="color" value={textColor} onChange={e => { setTextColor(e.target.value); cmd('foreColor', e.target.value); }}
-          style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
-      </label>
-
-      {/* Highlight */}
-      <label title="Highlight color" className="flex items-center justify-center rounded cursor-pointer transition-all"
-        style={{ width: 26, height: 26, position: 'relative' }}>
-        <span style={{ fontSize: 11, background: bgColor, padding: '1px 3px', borderRadius: 2, color: '#111', fontWeight: 700 }}>ab</span>
-        <input type="color" value={bgColor} onChange={e => { setBgColor(e.target.value); cmd('hiliteColor', e.target.value); }}
-          style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} />
-      </label>
-
-      {sep}
-
-      {/* Align */}
-      <TB active={align==='left'}    onClick={() => cmd('justifyLeft')}    title="Align left">
-        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="0" y="4" width="8" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="0" y="10" width="8" height="1.5" rx="0.75"/></svg>
-      </TB>
-      <TB active={align==='center'}  onClick={() => cmd('justifyCenter')}  title="Center">
-        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="2" y="4" width="8" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="2" y="10" width="8" height="1.5" rx="0.75"/></svg>
-      </TB>
-      <TB active={align==='right'}   onClick={() => cmd('justifyRight')}   title="Align right">
-        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="4" y="4" width="8" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="4" y="10" width="8" height="1.5" rx="0.75"/></svg>
-      </TB>
-      <TB active={align==='justify'} onClick={() => cmd('justifyFull')}    title="Justify">
-        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.5" rx="0.75"/><rect x="0" y="4" width="12" height="1.5" rx="0.75"/><rect x="0" y="7" width="12" height="1.5" rx="0.75"/><rect x="0" y="10" width="9" height="1.5" rx="0.75"/></svg>
-      </TB>
-
-      {sep}
-
-      {/* Lists */}
-      <TB active={false} onClick={() => cmd('insertUnorderedList')} title="Bullet list">
-        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><circle cx="1.5" cy="2.5" r="1.2"/><rect x="4" y="1.8" width="8" height="1.4" rx="0.7"/><circle cx="1.5" cy="6" r="1.2"/><rect x="4" y="5.3" width="8" height="1.4" rx="0.7"/><circle cx="1.5" cy="9.5" r="1.2"/><rect x="4" y="8.8" width="8" height="1.4" rx="0.7"/></svg>
-      </TB>
-      <TB active={false} onClick={() => cmd('insertOrderedList')} title="Numbered list">
-        <svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><text x="0" y="4" style={{fontSize:'4px',fontWeight:'bold'}}>1.</text><rect x="4" y="1.8" width="8" height="1.4" rx="0.7"/><text x="0" y="7.5" style={{fontSize:'4px',fontWeight:'bold'}}>2.</text><rect x="4" y="5.3" width="8" height="1.4" rx="0.7"/><text x="0" y="11" style={{fontSize:'4px',fontWeight:'bold'}}>3.</text><rect x="4" y="8.8" width="8" height="1.4" rx="0.7"/></svg>
-      </TB>
-
-      {sep}
-
-      {/* Indent */}
-      <TB active={false} onClick={() => cmd('indent')}   title="Indent"><svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.4" rx="0.7"/><rect x="3" y="4" width="9" height="1.4" rx="0.7"/><rect x="3" y="7" width="9" height="1.4" rx="0.7"/><rect x="0" y="10" width="12" height="1.4" rx="0.7"/><path d="M0 4.5 L2.5 6 L0 7.5Z"/></svg></TB>
-      <TB active={false} onClick={() => cmd('outdent')}  title="Outdent"><svg width="13" height="13" viewBox="0 0 12 12" fill="currentColor"><rect x="0" y="1" width="12" height="1.4" rx="0.7"/><rect x="3" y="4" width="9" height="1.4" rx="0.7"/><rect x="3" y="7" width="9" height="1.4" rx="0.7"/><rect x="0" y="10" width="12" height="1.4" rx="0.7"/><path d="M2.5 4.5 L0 6 L2.5 7.5Z"/></svg></TB>
-
-      {sep}
-
-      {/* Table insert with grid picker */}
-      {(() => {
-        const [showPicker, setShowPicker] = React.useState(false);
-        const [hover, setHover] = React.useState({ r: 0, c: 0 });
-        const pickerRef = React.useRef(null);
-        React.useEffect(() => {
-          if (!showPicker) return;
-          const close = (e) => { if (pickerRef.current && !pickerRef.current.contains(e.target)) setShowPicker(false); };
-          window.addEventListener('mousedown', close);
-          return () => window.removeEventListener('mousedown', close);
-        }, [showPicker]);
-        return (
-          <div style={{ position: 'relative', flexShrink: 0 }} ref={pickerRef}>
-            <button
-              onMouseDown={e => { e.preventDefault(); setShowPicker(v => !v); }}
-              title="Insert table"
-              className="flex items-center gap-1 px-2 h-[26px] rounded text-[11px] font-semibold transition-all"
-              style={{ background: showPicker ? '#4f6ef0' : 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', color: showPicker ? '#fff' : 'var(--fd-ink-2)', flexShrink: 0 }}>
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="currentColor">
-                <rect x="0" y="0" width="12" height="12" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2"/>
-                <line x1="4" y1="0" x2="4" y2="12" stroke="currentColor" strokeWidth="1"/>
-                <line x1="8" y1="0" x2="8" y2="12" stroke="currentColor" strokeWidth="1"/>
-                <line x1="0" y1="4" x2="12" y2="4" stroke="currentColor" strokeWidth="1"/>
-                <line x1="0" y1="8" x2="12" y2="8" stroke="currentColor" strokeWidth="1"/>
-              </svg>
-              Table
-            </button>
-            {showPicker && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, zIndex: 9999, marginTop: 4,
-                background: '#fff', border: '1px solid #e5e7eb', borderRadius: 10,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.14)', padding: 10,
-              }}>
-                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 6, fontWeight: 600 }}>
-                  {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c} table` : 'Select table size'}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 18px)', gap: 2 }}>
-                  {Array.from({ length: 64 }, (_, i) => {
-                    const r = Math.floor(i / 8) + 1;
-                    const c = (i % 8) + 1;
-                    const active = r <= hover.r && c <= hover.c;
-                    return (
-                      <div
-                        key={i}
-                        onMouseEnter={() => setHover({ r, c })}
-                        onMouseDown={e => {
-                          e.preventDefault();
-                          insertTable(r, c);
-                          setShowPicker(false);
-                          setHover({ r: 0, c: 0 });
-                        }}
-                        style={{
-                          width: 18, height: 18, borderRadius: 2,
-                          border: `1.5px solid ${active ? '#4f6ef0' : '#e5e7eb'}`,
-                          background: active ? '#eff0fe' : '#f9fafb',
-                          cursor: 'pointer',
-                          transition: 'all 0.05s',
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {sep}
-
-      {/* Undo / Redo */}
-      <TB active={false} onClick={() => cmd('undo')} title="Undo (Ctrl+Z)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-      </TB>
-      <TB active={false} onClick={() => cmd('redo')} title="Redo (Ctrl+Y)">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
-      </TB>
-
-      {sep}
-
-      {/* Clear formatting */}
-      <TB active={false} onClick={() => cmd('removeFormat')} title="Clear formatting" danger>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/><line x1="18" y1="18" x2="22" y2="22"/></svg>
-      </TB>
-    </div>
-  );
-}
-
-// ── Table context menu helpers ─────────────────────────────────────────────
-function getTableFromCell(cell) {
-  let el = cell;
-  while (el && el.tagName !== 'TABLE') el = el.parentElement;
-  return el;
-}
-function getCellCoords(cell) {
-  const row = cell.parentElement;
-  const tbody = row.parentElement;
-  const rows = Array.from(tbody.querySelectorAll('tr'));
-  const ri = rows.indexOf(row);
-  const cells = Array.from(row.querySelectorAll('td,th'));
-  const ci = cells.indexOf(cell);
-  return { ri, ci, rows, cells };
-}
-
-function TableContextMenu({ menu, onClose, editorRef }) {
-  if (!menu) return null;
-  const { x, y, cell } = menu;
-
-  const action = (fn) => { fn(); onClose(); };
-
-  const addRowBelow = () => action(() => {
-    const table = getTableFromCell(cell);
-    const { ri, rows, cells } = getCellCoords(cell);
-    const colCount = rows[0].querySelectorAll('td,th').length;
-    const tr = document.createElement('tr');
-    for (let i = 0; i < colCount; i++) {
-      const td = document.createElement('td');
-      td.style.cssText = 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
-      td.innerHTML = '&nbsp;';
-      tr.appendChild(td);
-    }
-    const refRow = rows[ri];
-    refRow.parentElement.insertBefore(tr, refRow.nextSibling);
-  });
-
-  const addRowAbove = () => action(() => {
-    const table = getTableFromCell(cell);
-    const { ri, rows } = getCellCoords(cell);
-    const colCount = rows[0].querySelectorAll('td,th').length;
-    const tr = document.createElement('tr');
-    for (let i = 0; i < colCount; i++) {
-      const td = document.createElement('td');
-      td.style.cssText = 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
-      td.innerHTML = '&nbsp;';
-      tr.appendChild(td);
-    }
-    rows[ri].parentElement.insertBefore(tr, rows[ri]);
-  });
-
-  const addColRight = () => action(() => {
-    const table = getTableFromCell(cell);
-    const { ri, ci, rows } = getCellCoords(cell);
-    const colgroup = table.querySelector('colgroup');
-    if (colgroup) {
-      const col = document.createElement('col');
-      const cols = colgroup.querySelectorAll('col');
-      const pct = (100 / (cols.length + 1)).toFixed(2) + '%';
-      cols.forEach(c => c.style.width = pct);
-      col.style.width = pct;
-      colgroup.insertBefore(col, cols[ci]?.nextSibling || null);
-    }
-    rows.forEach((row, rIdx) => {
-      const rowCells = Array.from(row.querySelectorAll('td,th'));
-      const refCell = rowCells[ci];
-      const newCell = document.createElement(rIdx === 0 ? 'th' : 'td');
-      newCell.style.cssText = rIdx === 0
-        ? 'border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left;position:relative'
-        : 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
-      newCell.innerHTML = rIdx === 0 ? 'Header' : '&nbsp;';
-      if (refCell) refCell.parentElement.insertBefore(newCell, refCell.nextSibling);
-      else row.appendChild(newCell);
-    });
-  });
-
-  const addColLeft = () => action(() => {
-    const table = getTableFromCell(cell);
-    const { ci, rows } = getCellCoords(cell);
-    const colgroup = table.querySelector('colgroup');
-    if (colgroup) {
-      const col = document.createElement('col');
-      const cols = colgroup.querySelectorAll('col');
-      const pct = (100 / (cols.length + 1)).toFixed(2) + '%';
-      cols.forEach(c => c.style.width = pct);
-      col.style.width = pct;
-      colgroup.insertBefore(col, cols[ci] || null);
-    }
-    rows.forEach((row, rIdx) => {
-      const rowCells = Array.from(row.querySelectorAll('td,th'));
-      const refCell = rowCells[ci];
-      const newCell = document.createElement(rIdx === 0 ? 'th' : 'td');
-      newCell.style.cssText = rIdx === 0
-        ? 'border:1px solid #d1d5db;padding:6px 10px;background:#f3f4f6;font-weight:700;font-size:13px;text-align:left;position:relative'
-        : 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
-      newCell.innerHTML = rIdx === 0 ? 'Header' : '&nbsp;';
-      if (refCell) row.insertBefore(newCell, refCell);
-      else row.appendChild(newCell);
-    });
-  });
-
-  const deleteRow = () => action(() => {
-    const { ri, rows } = getCellCoords(cell);
-    if (rows.length > 1) rows[ri].remove();
-  });
-
-  const deleteCol = () => action(() => {
-    const table = getTableFromCell(cell);
-    const { ci, rows } = getCellCoords(cell);
-    const colgroup = table.querySelector('colgroup');
-    if (colgroup) {
-      const cols = colgroup.querySelectorAll('col');
-      if (cols.length > 1) cols[ci]?.remove();
-      const remaining = colgroup.querySelectorAll('col');
-      const pct = (100 / remaining.length).toFixed(2) + '%';
-      remaining.forEach(c => c.style.width = pct);
-    }
-    rows.forEach(row => {
-      const rowCells = Array.from(row.querySelectorAll('td,th'));
-      if (rowCells.length > 1) rowCells[ci]?.remove();
-    });
-  });
-
-  const deleteTable = () => action(() => {
-    const table = getTableFromCell(cell);
-    table?.remove();
-  });
-
-  const menuItems = [
-    { label: '↑ Insert row above', fn: addRowAbove, icon: '⬆' },
-    { label: '↓ Insert row below', fn: addRowBelow, icon: '⬇' },
-    { label: '← Insert column left', fn: addColLeft, icon: '⬅' },
-    { label: '→ Insert column right', fn: addColRight, icon: '➡' },
-    null, // separator
-    { label: 'Delete row', fn: deleteRow, danger: true },
-    { label: 'Delete column', fn: deleteCol, danger: true },
-    { label: 'Delete table', fn: deleteTable, danger: true },
-  ];
-
-  return (
-    <div
-      style={{
-        position: 'fixed', left: x, top: y, zIndex: 99999,
-        background: '#fff', border: '1px solid #e5e7eb',
-        borderRadius: 10, boxShadow: '0 8px 32px rgba(0,0,0,0.16)',
-        minWidth: 200, overflow: 'hidden',
-      }}
-      onMouseDown={e => e.stopPropagation()}
-    >
-      <div style={{ padding: '4px 0' }}>
-        {menuItems.map((item, i) =>
-          item === null ? (
-            <div key={i} style={{ height: 1, background: '#f3f4f6', margin: '3px 0' }} />
-          ) : (
-            <button
-              key={i}
-              onClick={() => item.fn()}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left',
-                padding: '7px 14px', fontSize: 13, cursor: 'pointer',
-                background: 'transparent', border: 'none',
-                color: item.danger ? '#dc2626' : '#111',
-                fontWeight: item.danger ? 500 : 400,
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = item.danger ? '#fef2f2' : '#f3f4f6'}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >
-              {item.label}
-            </button>
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Add-Row/Col ghost buttons that appear at table edges ──────────────────────
-function TableAddButtons({ editorRef, tableContextTrigger }) {
-  // We attach real DOM listeners to the editor for hover detection on table edges
-  // This component just renders a portal-like overlay div
-  return null; // Handled via CSS/DOM manipulation in BoardEditorModal
-}
-
-function BoardEditorModal({ board, onClose, onSave }) {
-  const editorRef  = React.useRef(null);
-  const [saving, setSaving] = React.useState(false);
-  const [title, setTitle]   = React.useState(board.title || 'Untitled Board');
-  const initialized = React.useRef(false);
-  const [ctxMenu, setCtxMenu] = React.useState(null); // { x, y, cell }
-  const resizeState = React.useRef(null); // { col, table, startX, startWidths }
-
-  // Load saved HTML into the editor on first mount
-  React.useEffect(() => {
-    if (editorRef.current && !initialized.current) {
-      initialized.current = true;
-      editorRef.current.innerHTML = board.html || '<p><br></p>';
-    }
-  }, [board.html]);
-
-  const handleSave = async () => {
-    // Clean up any resize handles before saving
-    setSaving(true);
-    const html = editorRef.current?.innerHTML || '';
-    await onSave({ html, title });
-    setSaving(false);
-  };
-
-  // Close on Escape
-  React.useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') { setCtxMenu(null); onClose(); } };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  // Right-click on table cell → context menu
-  React.useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const onCtx = (e) => {
-      const cell = e.target.closest('td,th');
-      if (!cell) return;
-      e.preventDefault();
-      // Keep caret in cell
-      setCtxMenu({ x: e.clientX, y: e.clientY, cell });
-    };
-    editor.addEventListener('contextmenu', onCtx);
-    return () => editor.removeEventListener('contextmenu', onCtx);
-  }, []);
-
-  // Column resize via mousedown on cell right border
-  React.useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-
-    const onMouseMove = (e) => {
-      // Show resize cursor when near right edge of a cell
-      const cell = e.target.closest('td,th');
-      if (!cell) { editor.style.cursor = ''; return; }
-      const rect = cell.getBoundingClientRect();
-      const nearRight = e.clientX > rect.right - 6;
-      editor.style.cursor = nearRight ? 'col-resize' : '';
-    };
-
-    const onMouseDown = (e) => {
-      const cell = e.target.closest('td,th');
-      if (!cell) return;
-      const rect = cell.getBoundingClientRect();
-      if (e.clientX <= rect.right - 6) return; // not near right edge
-      e.preventDefault();
-      e.stopPropagation();
-
-      const table = getTableFromCell(cell);
-      const colgroup = table.querySelector('colgroup');
-      if (!colgroup) return;
-
-      const { ci } = getCellCoords(cell);
-      const cols = Array.from(colgroup.querySelectorAll('col'));
-      const tableRect = table.getBoundingClientRect();
-      const tableWidth = tableRect.width;
-
-      // Convert % widths to px for dragging
-      const widthsPx = cols.map(col => {
-        const pct = parseFloat(col.style.width) / 100;
-        return pct * tableWidth;
-      });
-
-      resizeState.current = { ci, cols, widthsPx, startX: e.clientX, tableWidth };
-
-      const onMove = (ev) => {
-        const rs = resizeState.current;
-        if (!rs) return;
-        const dx = ev.clientX - rs.startX;
-        const newWidths = [...rs.widthsPx];
-        const minWidth = 30;
-
-        if (rs.ci < rs.cols.length - 1) {
-          // Resize between ci and ci+1
-          const total = newWidths[rs.ci] + newWidths[rs.ci + 1];
-          newWidths[rs.ci] = Math.max(minWidth, Math.min(total - minWidth, rs.widthsPx[rs.ci] + dx));
-          newWidths[rs.ci + 1] = total - newWidths[rs.ci];
-        } else {
-          // Last column — just expand/shrink it
-          newWidths[rs.ci] = Math.max(minWidth, rs.widthsPx[rs.ci] + dx);
-        }
-
-        const totalPx = newWidths.reduce((a, b) => a + b, 0);
-        rs.cols.forEach((col, i) => {
-          col.style.width = ((newWidths[i] / totalPx) * 100).toFixed(2) + '%';
-        });
-      };
-
-      const onUp = () => {
-        resizeState.current = null;
-        editor.style.cursor = '';
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
-      };
-
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
-    };
-
-    editor.addEventListener('mousemove', onMouseMove);
-    editor.addEventListener('mousedown', onMouseDown);
-    return () => {
-      editor.removeEventListener('mousemove', onMouseMove);
-      editor.removeEventListener('mousedown', onMouseDown);
-    };
-  }, []);
-
-  // Click-outside to close context menu
-  React.useEffect(() => {
-    if (!ctxMenu) return;
-    const close = () => setCtxMenu(null);
-    window.addEventListener('mousedown', close);
-    return () => window.removeEventListener('mousedown', close);
-  }, [ctxMenu]);
-
-  // Tab key: navigate between table cells (Tab = next, Shift+Tab = prev)
-  React.useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-    const onKeyDown = (e) => {
-      if (e.key !== 'Tab') return;
-      const selNode = window.getSelection()?.anchorNode;
-      const td = selNode?.nodeType === 1 ? selNode.closest('td,th') : selNode?.parentElement?.closest('td,th');
-      if (!td) return;
-      e.preventDefault();
-      const table = getTableFromCell(td);
-      const allCells = Array.from(table.querySelectorAll('td,th'));
-      const idx = allCells.indexOf(td);
-      const nextIdx = e.shiftKey ? idx - 1 : idx + 1;
-      if (nextIdx >= 0 && nextIdx < allCells.length) {
-        const nextCell = allCells[nextIdx];
-        nextCell.focus();
-        const range = document.createRange();
-        range.selectNodeContents(nextCell);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-      } else if (!e.shiftKey && nextIdx >= allCells.length) {
-        const rows = Array.from(table.querySelectorAll('tr'));
-        const lastRow = rows[rows.length - 1];
-        const colCount = lastRow.querySelectorAll('td,th').length;
-        const tr = document.createElement('tr');
-        for (let i = 0; i < colCount; i++) {
-          const newTd = document.createElement('td');
-          newTd.style.cssText = 'border:1px solid #d1d5db;padding:6px 10px;font-size:13px;position:relative';
-          newTd.innerHTML = '&nbsp;';
-          tr.appendChild(newTd);
-        }
-        lastRow.parentElement.appendChild(tr);
-        const firstNew = tr.querySelector('td');
-        if (firstNew) {
-          firstNew.focus();
-          const range = document.createRange();
-          range.selectNodeContents(firstNew);
-          range.collapse(false);
-          const sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      }
-    };
-    editor.addEventListener('keydown', onKeyDown);
-    return () => editor.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)' }}
-      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-
-      {/* Word-like document shell */}
-      <div className="flex flex-col rounded-2xl shadow-2xl overflow-hidden"
-        style={{ width: 'min(92vw, 960px)', height: '90vh', background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}>
-
-        {/* Title bar */}
-        <div className="flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0"
-          style={{ borderColor: 'var(--fd-border)', background: 'var(--fd-surface)' }}>
-          <div className="flex-1 flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4f6ef0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            <input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              className="flex-1 bg-transparent text-[14px] font-semibold outline-none border-none"
-              style={{ color: 'var(--fd-ink-1)', minWidth: 0 }}
-              placeholder="Document title"
-            />
-          </div>
-          <button onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-[13px] font-semibold transition-all"
-            style={{ background: '#4f6ef0', color: '#fff', opacity: saving ? 0.7 : 1, flexShrink: 0 }}>
-            {saving
-              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <Save size={13} />}
-            Save
-          </button>
-          <button onMouseDown={onClose}
-            className="p-1.5 rounded-xl transition-colors"
-            style={{ color: 'var(--fd-ink-3)' }}
-            onMouseEnter={e => e.currentTarget.style.background='var(--fd-surface-sunken)'}
-            onMouseLeave={e => e.currentTarget.style.background='transparent'}>
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Toolbar */}
-        <RichToolbar editorRef={editorRef} />
-
-        {/* Table editing hint */}
-        <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '4px 14px', fontSize: 11, color: '#92600a', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span><strong>Table tips:</strong> Right-click any cell to add/delete rows &amp; columns · Drag column borders to resize</span>
-        </div>
-
-        {/* Page-like document area */}
-        <div className="flex-1 overflow-y-auto py-8 px-6"
-          style={{ background: '#f0f0f0' }}>
-          {/* The "paper" */}
-          <div
-            style={{
-              maxWidth: 760,
-              margin: '0 auto',
-              background: '#ffffff',
-              minHeight: 'calc(100% - 32px)',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.12), 0 4px 24px rgba(0,0,0,0.08)',
-              borderRadius: 2,
-              padding: '48px 64px',
-              color: '#111',
-            }}>
-            <div
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning
-              spellCheck
-              className="outline-none fd-rich-editor"
-              style={{
-                minHeight: 480,
-                fontSize: 14,
-                lineHeight: 1.8,
-                color: '#111',
-                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-                caretColor: '#4f6ef0',
-              }}
-              onInput={() => {/* content tracked via innerHTML on save */}}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Context menu */}
-      {ctxMenu && (
-        <TableContextMenu
-          menu={ctxMenu}
-          onClose={() => setCtxMenu(null)}
-          editorRef={editorRef}
-        />
-      )}
-
-      {/* Rich text styles scoped to editor */}
-      <style>{`
-        .fd-rich-editor h1 { font-size: 2em; font-weight: 700; margin: 0.67em 0; line-height: 1.2; }
-        .fd-rich-editor h2 { font-size: 1.5em; font-weight: 700; margin: 0.75em 0; line-height: 1.3; }
-        .fd-rich-editor h3 { font-size: 1.17em; font-weight: 700; margin: 0.83em 0; }
-        .fd-rich-editor h4 { font-size: 1em; font-weight: 700; margin: 1em 0; }
-        .fd-rich-editor p  { margin: 0.5em 0; }
-        .fd-rich-editor ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
-        .fd-rich-editor ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
-        .fd-rich-editor li { margin: 0.25em 0; }
-        .fd-rich-editor pre { font-family: ui-monospace, monospace; background: #f3f4f6; padding: 10px 14px; border-radius: 6px; font-size: 12.5px; overflow-x: auto; }
-        .fd-rich-editor blockquote { border-left: 3px solid #c7d2fe; margin: 8px 0; padding-left: 14px; color: #6b7280; font-style: italic; }
-        .fd-rich-editor table { border-collapse: collapse; width: 100%; margin: 10px 0; table-layout: fixed; }
-        .fd-rich-editor th { border: 1px solid #d1d5db; padding: 7px 10px; background: #f9fafb; font-weight: 700; font-size: 13px; text-align: left; position: relative; }
-        .fd-rich-editor td { border: 1px solid #d1d5db; padding: 7px 10px; font-size: 13px; position: relative; }
-        .fd-rich-editor td:focus, .fd-rich-editor th:focus { outline: 2px solid #4f6ef0; outline-offset: -2px; background: #eff0fe !important; }
-        .fd-rich-editor td:hover, .fd-rich-editor th:hover { background: rgba(79,110,240,0.04); }
-        .fd-rich-editor tr:last-child td::after {
-          content: '+';
-          position: absolute;
-          bottom: -14px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 18px; height: 14px;
-          background: #4f6ef0;
-          color: #fff;
-          font-size: 11px;
-          line-height: 14px;
-          text-align: center;
-          border-radius: 3px;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.15s;
-          z-index: 10;
-        }
-        .fd-rich-editor table:hover tr:last-child td:first-child::after { opacity: 1; }
-        .fd-rich-editor tr td:last-child::before {
-          content: '+';
-          position: absolute;
-          right: -14px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 14px; height: 18px;
-          background: #4f6ef0;
-          color: #fff;
-          font-size: 11px;
-          line-height: 18px;
-          text-align: center;
-          border-radius: 3px;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.15s;
-          z-index: 10;
-        }
-        .fd-rich-editor table:hover tr td:last-child::before { opacity: 1; }
-        .fd-rich-editor:empty:before { content: 'Start typing your document…'; color: #9ca3af; pointer-events: none; }
-      `}</style>
-    </div>
-  );
-}
+// ─── Notes / Documents Widget ────────────────────────────────────────────────
+
+const _RICH_EDITOR_STUB = null; // RichEditor replaced by simple notes
+const TOOLBAR_FONTS = []; // kept to avoid any stray references
+const TOOLBAR_SIZES = [];
 
 // ── Simple HTML sanitizer (no dependencies) ──────────────────────────────────
 function sanitizeHtml(dirty) {
@@ -2301,91 +1497,165 @@ function sanitizeHtml(dirty) {
   return clean;
 }
 
-// ── API-backed Documents Section (admin side) ─────────────────────────────────
+// ── Simple Notes / Documents Section ─────────────────────────────────────────
+function NoteEditorModal({ note, onClose, onSave }) {
+  const [title, setTitle] = React.useState(note?.title || '');
+  const [content, setContent] = React.useState(note?.html || '');
+  const [saving, setSaving] = React.useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave({ title: title.trim() || 'Untitled Note', content });
+    setSaving(false);
+  };
+
+  React.useEffect(() => {
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full flex flex-col rounded-2xl shadow-2xl overflow-hidden"
+        style={{
+          maxWidth: 680,
+          maxHeight: '90vh',
+          background: 'var(--fd-surface)',
+          border: '1px solid var(--fd-border)',
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center gap-3 px-5 py-4 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--fd-border-subtle)' }}
+        >
+          <input
+            autoFocus
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Note title…"
+            className="flex-1 text-[15px] font-semibold bg-transparent outline-none"
+            style={{ color: 'var(--fd-ink-1)' }}
+          />
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: 'var(--fd-ink-3)' }}
+          >
+            <X size={15} />
+          </button>
+        </div>
+
+        {/* Textarea */}
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          placeholder="Write your note here…"
+          className="flex-1 resize-none outline-none px-5 py-4 text-[13.5px] leading-relaxed"
+          style={{
+            background: 'var(--fd-surface)',
+            color: 'var(--fd-ink-1)',
+            minHeight: 280,
+          }}
+        />
+
+        {/* Footer */}
+        <div
+          className="flex items-center justify-end gap-2 px-5 py-3 flex-shrink-0"
+          style={{ borderTop: '1px solid var(--fd-border-subtle)' }}
+        >
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl text-[13px] font-medium"
+            style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2"
+            style={{ background: '#4f6ef0', color: '#fff', opacity: saving ? 0.7 : 1 }}
+          >
+            {saving && <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />}
+            Save Note
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function ClientBoardsSection({ clientId }) {
-  const [boards, setBoards] = React.useState([]);
+  const [notes, setNotes] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
-  const [openBoard, setOpenBoard] = React.useState(null);
-  const [showCreateModal, setShowCreateModal] = React.useState(false);
-  const [creating, setCreating] = React.useState(false);
-  const [newName, setNewName] = React.useState('');
-  const [newClientVisible, setNewClientVisible] = React.useState(false);
-  const [newClientCanEdit, setNewClientCanEdit] = React.useState(false);
+  const [openNote, setOpenNote] = React.useState(null); // null | 'new' | noteObject
+  const [deletingId, setDeletingId] = React.useState(null);
   const toast = useToast ? useToast() : null;
 
-  const fetchBoards = React.useCallback(async () => {
+  const fetchNotes = React.useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get(`/documents?client=${clientId}`);
-      setBoards(data.documents || []);
+      setNotes(data.documents || []);
     } catch {
-      setBoards([]);
+      setNotes([]);
     } finally {
       setLoading(false);
     }
   }, [clientId]);
 
-  React.useEffect(() => { fetchBoards(); }, [fetchBoards]);
+  React.useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
-  const openCreateModal = () => {
-    setNewName('');
-    setNewClientVisible(false);
-    setNewClientCanEdit(false);
-    setShowCreateModal(true);
-  };
-
-  const createBoard = async () => {
-    const title = newName.trim() || 'Untitled Document';
-    setCreating(true);
+  const handleSave = async ({ title, content }) => {
     try {
-      const { data } = await api.post('/documents', {
-        client: clientId,
-        title,
-        html: '',
-        clientVisible: newClientVisible,
-        clientCanEdit: newClientCanEdit,
-      });
-      setBoards(prev => [data.document, ...prev]);
-      setShowCreateModal(false);
-      setOpenBoard(data.document);
-    } catch {
-      if (toast) toast({ type: 'error', title: 'Failed to create document' });
-    } finally {
-      setCreating(false);
-    }
-  };
-
-  const saveBoard = async ({ html, title }) => {
-    if (!openBoard) return;
-    try {
-      const { data } = await api.put(`/documents/${openBoard._id}`, { html, title });
-      setBoards(prev => prev.map(b => b._id === openBoard._id ? data.document : b));
-      setOpenBoard(data.document);
+      if (openNote === 'new') {
+        const { data } = await api.post('/documents', {
+          client: clientId,
+          title,
+          html: content,
+          clientVisible: false,
+          clientCanEdit: false,
+        });
+        setNotes(prev => [data.document, ...prev]);
+      } else {
+        const { data } = await api.put(`/documents/${openNote._id}`, {
+          title,
+          html: content,
+        });
+        setNotes(prev => prev.map(n => n._id === openNote._id ? data.document : n));
+      }
       if (toast) toast({ type: 'success', title: 'Saved' });
     } catch {
       if (toast) toast({ type: 'error', title: 'Failed to save' });
     }
+    setOpenNote(null);
   };
 
-  const updatePermissions = async (docId, clientVisible, clientCanEdit) => {
-    try {
-      const { data } = await api.put(`/documents/${docId}`, { clientVisible, clientCanEdit });
-      setBoards(prev => prev.map(b => b._id === docId ? data.document : b));
-      if (toast) toast({ type: 'success', title: 'Permissions updated' });
-    } catch {
-      if (toast) toast({ type: 'error', title: 'Failed to update permissions' });
-    }
-  };
-
-  const deleteBoard = async (e, id) => {
+  const handleDelete = async (e, id) => {
     e.stopPropagation();
+    setDeletingId(id);
     try {
       await api.delete(`/documents/${id}`);
-      setBoards(prev => prev.filter(b => b._id !== id));
-      if (openBoard?._id === id) setOpenBoard(null);
+      setNotes(prev => prev.filter(n => n._id !== id));
     } catch {
       if (toast) toast({ type: 'error', title: 'Failed to delete' });
+    } finally {
+      setDeletingId(null);
     }
+  };
+
+  // Strip HTML tags for preview text
+  const stripHtml = (html) => {
+    if (!html) return '';
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   };
 
   if (loading) return <div className="flex justify-center py-8"><Spinner /></div>;
@@ -2393,229 +1663,92 @@ function ClientBoardsSection({ clientId }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-sm" style={{ color: 'var(--fd-ink-1)' }}>📄 Documents</h3>
-        <Button size="xs" variant="secondary" onClick={openCreateModal}>
-          <Plus size={12} /> New Document
+        <h3 className="font-semibold text-sm" style={{ color: 'var(--fd-ink-1)' }}>📝 Notes</h3>
+        <Button size="xs" variant="secondary" onClick={() => setOpenNote('new')}>
+          <Plus size={12} /> New Note
         </Button>
       </div>
 
-      {boards.length === 0 ? (
-        <div className="text-center py-10 rounded-2xl" style={{ background: 'var(--fd-surface)', border: '1px dashed var(--fd-border-strong)' }}>
-          <div className="text-3xl mb-2">📄</div>
-          <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>No documents yet</div>
-          <div className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>Create a document to add rich text notes, tables and more</div>
+      {notes.length === 0 ? (
+        <div
+          className="text-center py-10 rounded-2xl cursor-pointer transition-colors"
+          style={{ background: 'var(--fd-surface)', border: '1px dashed var(--fd-border-strong)' }}
+          onClick={() => setOpenNote('new')}
+        >
+          <div className="text-3xl mb-2">📝</div>
+          <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-3)' }}>No notes yet</div>
+          <div className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>Click to add your first note</div>
         </div>
       ) : (
-        <div style={{ columns: '320px', columnGap: 16 }}>
-          {boards.map((board) => (
-            <div
-              key={board._id}
-              onClick={() => setOpenBoard(board)}
-              className="group relative rounded-xl border transition-shadow hover:shadow-md cursor-pointer"
-              style={{
-                background: 'var(--fd-surface)',
-                borderColor: board.clientVisible ? '#c7d2fe' : 'var(--fd-border)',
-                breakInside: 'avoid',
-                marginBottom: 16,
-                display: 'inline-block',
-                width: '100%',
-              }}
-            >
-              {/* Permission badge */}
-              <div className="absolute top-2 left-2 flex gap-1 z-10">
-                {board.clientVisible && (
-                  <span
-                    className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
-                    style={{ background: board.clientCanEdit ? '#dcfce7' : '#eff0fe', color: board.clientCanEdit ? '#15803d' : '#4338ca' }}
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+          {notes.map((note) => {
+            const preview = stripHtml(note.html);
+            const date = note.updatedAt
+              ? new Date(note.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+              : '';
+            return (
+              <div
+                key={note._id}
+                onClick={() => setOpenNote(note)}
+                className="group relative rounded-xl border cursor-pointer transition-all hover:shadow-md"
+                style={{
+                  background: 'var(--fd-surface)',
+                  borderColor: 'var(--fd-border)',
+                  padding: '14px 16px',
+                }}
+              >
+                {/* Delete btn */}
+                <button
+                  onClick={e => handleDelete(e, note._id)}
+                  disabled={deletingId === note._id}
+                  className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ background: '#fee2e2', color: '#ef4444' }}
+                  title="Delete note"
+                >
+                  {deletingId === note._id
+                    ? <div className="w-3 h-3 rounded-full border-2 border-red-400 border-t-transparent animate-spin" />
+                    : <Trash2 size={12} />
+                  }
+                </button>
+
+                <div
+                  className="font-semibold text-[13px] truncate pr-6 mb-1.5"
+                  style={{ color: 'var(--fd-ink-1)' }}
+                >
+                  {note.title || 'Untitled Note'}
+                </div>
+
+                {preview ? (
+                  <div
+                    className="text-[12px] leading-relaxed line-clamp-3"
+                    style={{ color: 'var(--fd-ink-3)' }}
                   >
-                    {board.clientCanEdit ? '✏️ Client Edit' : '👁 Client View'}
-                  </span>
+                    {preview}
+                  </div>
+                ) : (
+                  <div className="text-[12px] italic" style={{ color: 'var(--fd-ink-5)' }}>Empty note</div>
+                )}
+
+                {date && (
+                  <div className="mt-3 text-[11px]" style={{ color: 'var(--fd-ink-5)' }}>{date}</div>
                 )}
               </div>
-
-              <button
-                onClick={e => deleteBoard(e, board._id)}
-                className="absolute top-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                style={{ background: '#fee2e2', color: '#ef4444' }}
-                title="Delete document"
-              >
-                <Trash2 size={12} />
-              </button>
-
-              <div className="p-4 pt-8">
-                <div className="font-semibold text-[14px] mb-3 truncate" style={{ color: 'var(--fd-ink-1)' }}>
-                  {board.title}
-                </div>
-                {/* Full content — no height cap, card grows to fit */}
-                <div
-                  className="prose-like"
-                  style={{ color: 'var(--fd-ink-2)', fontSize: 13, lineHeight: 1.7 }}
-                  dangerouslySetInnerHTML={{
-                    __html: sanitizeHtml(board.html) || '<p style="color:#9ca3af;font-style:italic;">Empty document</p>'
-                  }}
-                />
-                <div className="mt-3 pt-3 flex items-center justify-between gap-2" style={{ borderTop: '1px solid var(--fd-border-subtle)' }}>
-                  <span className="text-[11px]" style={{ color: 'var(--fd-ink-5)' }}>
-                    {board.updatedAt ? new Date(board.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
-                  </span>
-                  {/* Inline permission toggles */}
-                  <div className="flex gap-1" onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={() => updatePermissions(board._id, !board.clientVisible, board.clientVisible ? false : board.clientCanEdit)}
-                      className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full transition-all"
-                      style={{
-                        background: board.clientVisible ? '#eff0fe' : 'var(--fd-surface-sunken)',
-                        color: board.clientVisible ? '#4338ca' : 'var(--fd-ink-4)',
-                        border: '1px solid ' + (board.clientVisible ? '#c7d2fe' : 'var(--fd-border)'),
-                      }}
-                      title="Toggle client visibility"
-                    >
-                      👁 Visible
-                    </button>
-                    {board.clientVisible && (
-                      <button
-                        onClick={() => updatePermissions(board._id, true, !board.clientCanEdit)}
-                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full transition-all"
-                        style={{
-                          background: board.clientCanEdit ? '#dcfce7' : 'var(--fd-surface-sunken)',
-                          color: board.clientCanEdit ? '#15803d' : 'var(--fd-ink-4)',
-                          border: '1px solid ' + (board.clientCanEdit ? '#86efac' : 'var(--fd-border)'),
-                        }}
-                        title="Toggle client edit permission"
-                      >
-                        ✏️ Editable
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Create modal with permission options */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center"
-          style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
-          onClick={e => { if (e.target === e.currentTarget) setShowCreateModal(false); }}
-        >
-          <div className="rounded-2xl shadow-2xl p-6 w-full max-w-md space-y-5"
-            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-[16px]" style={{ color: 'var(--fd-ink-1)' }}>New Document</h3>
-              <button onClick={() => setShowCreateModal(false)} className="p-1.5 rounded-lg" style={{ color: 'var(--fd-ink-3)' }}>
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-[12px] font-medium" style={{ color: 'var(--fd-ink-2)' }}>Document Name</label>
-              <input
-                autoFocus
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') createBoard(); if (e.key === 'Escape') setShowCreateModal(false); }}
-                placeholder="e.g. Monthly Report, Strategy Doc…"
-                className="fd-input w-full text-[13px]"
-              />
-            </div>
-
-            {/* Client panel permissions */}
-            <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
-              <div className="text-[12px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>Client Portal Permissions</div>
-
-              <label className="flex items-start gap-3 cursor-pointer group">
-                <div className="relative mt-0.5">
-                  <input
-                    type="checkbox"
-                    checked={newClientVisible}
-                    onChange={e => { setNewClientVisible(e.target.checked); if (!e.target.checked) setNewClientCanEdit(false); }}
-                    className="sr-only"
-                  />
-                  <div
-                    className="w-4 h-4 rounded flex items-center justify-center transition-all"
-                    style={{
-                      background: newClientVisible ? '#4f6ef0' : 'var(--fd-surface)',
-                      border: '2px solid ' + (newClientVisible ? '#4f6ef0' : 'var(--fd-border-strong)'),
-                    }}
-                  >
-                    {newClientVisible && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>Visible in client portal</div>
-                  <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>Client will see this document in their portal</div>
-                </div>
-              </label>
-
-              {newClientVisible && (
-                <label className="flex items-start gap-3 cursor-pointer ml-7">
-                  <div className="relative mt-0.5">
-                    <input
-                      type="checkbox"
-                      checked={newClientCanEdit}
-                      onChange={e => setNewClientCanEdit(e.target.checked)}
-                      className="sr-only"
-                    />
-                    <div
-                      className="w-4 h-4 rounded flex items-center justify-center transition-all"
-                      style={{
-                        background: newClientCanEdit ? '#22c55e' : 'var(--fd-surface)',
-                        border: '2px solid ' + (newClientCanEdit ? '#22c55e' : 'var(--fd-border-strong)'),
-                      }}
-                    >
-                      {newClientCanEdit && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2 5l2.5 2.5L8 3" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>Allow client to edit</div>
-                    <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>Client can make changes to this document</div>
-                  </div>
-                </label>
-              )}
-            </div>
-
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 rounded-xl text-[13px] font-medium"
-                style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' }}>
-                Cancel
-              </button>
-              <button onClick={createBoard} disabled={creating}
-                className="px-4 py-2 rounded-xl text-[13px] font-semibold flex items-center gap-2"
-                style={{ background: '#4f6ef0', color: '#fff', opacity: creating ? 0.7 : 1 }}>
-                {creating && <div className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />}
-                Create Document
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {openBoard && (
-        <BoardEditorModal
-          board={openBoard}
-          onClose={() => setOpenBoard(null)}
-          onSave={saveBoard}
+      {openNote && (
+        <NoteEditorModal
+          note={openNote === 'new' ? null : openNote}
+          onClose={() => setOpenNote(null)}
+          onSave={handleSave}
         />
       )}
-
-      <style>{`
-        .prose-like h1 { font-size: 1.5em; font-weight: 700; margin: 0.5em 0; }
-        .prose-like h2 { font-size: 1.2em; font-weight: 700; margin: 0.4em 0; }
-        .prose-like h3 { font-size: 1.1em; font-weight: 600; margin: 0.3em 0; }
-        .prose-like p  { margin: 0.3em 0; }
-        .prose-like ul { padding-left: 1.2em; margin: 0.3em 0; }
-        .prose-like ol { padding-left: 1.2em; margin: 0.3em 0; }
-        .prose-like table { border-collapse: collapse; width: 100%; margin: 0.5em 0; }
-        .prose-like th { border: 1px solid #d1d5db; padding: 4px 6px; background: #f9fafb; font-size: 12px; }
-        .prose-like td { border: 1px solid #d1d5db; padding: 4px 6px; font-size: 12px; }
-      `}</style>
     </div>
   );
 }
+
 
 // ── Credential table helpers (mirrors CredentialsPage) ────────────────────────
 const CRED_PLATFORM_MAP = [
@@ -3226,7 +2359,7 @@ export default function ClientDetailPage() {
     { id: 'reports',   label: `Ad Reports (${reports.length})` },
     { id: 'files',     label: `Files (${files.length})` },
     { id: 'gmb',       label: 'GMB Panel' },
-    { id: 'documents', label: 'Documents' },
+    { id: 'documents', label: 'Notes' },
     { id: 'monthlyReports', label: `Monthly Reports (${monthlyReports.length})` },
   ];
 

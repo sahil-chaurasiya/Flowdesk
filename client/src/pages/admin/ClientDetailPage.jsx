@@ -7,7 +7,7 @@ import {
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye, EyeOff,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
   ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
-  Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink, Upload, Lock,
+  Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink, Upload, Lock, Download, FileStack,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -22,7 +22,7 @@ import { Avatar, Badge, Card, CardHeader, CardContent, Spinner, EmptyState } fro
 import { ReportCard, ReportUploadModal } from '../../components/shared/ReportViews';
 import {
   formatDate, getStatusColor, PLAN_LABELS, PLAN_COLORS,
-  formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo, formatFileSize, linkifyText
+  formatCurrency, getTaskStatusColor, getPriorityColor, timeAgo, formatFileSize, linkifyText, getFileIcon
 } from '../../lib/utils';
 
 const updateTypes = ['general', 'milestone', 'report', 'alert', 'campaign_launch', 'optimization', 'meeting_notes'];
@@ -2849,6 +2849,14 @@ export default function ClientDetailPage() {
   const [fileUploadError, setFileUploadError] = useState(null);
   const [deleteFileId, setDeleteFileId] = useState(null);
   const [deletingFile, setDeletingFile] = useState(false);
+  const [monthlyReports, setMonthlyReports] = useState([]);
+  const [showMonthlyReportUploadModal, setShowMonthlyReportUploadModal] = useState(false);
+  const [monthlyReportName, setMonthlyReportName] = useState('');
+  const [selectedMonthlyReportFile, setSelectedMonthlyReportFile] = useState(null);
+  const [uploadingMonthlyReport, setUploadingMonthlyReport] = useState(false);
+  const [monthlyReportUploadError, setMonthlyReportUploadError] = useState(null);
+  const [deleteMonthlyReportId, setDeleteMonthlyReportId] = useState(null);
+  const [deletingMonthlyReport, setDeletingMonthlyReport] = useState(false);
   const [reports, setReports] = useState([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showUploadReportModal, setShowUploadReportModal] = useState(false);
@@ -2956,6 +2964,7 @@ export default function ClientDetailPage() {
     setTasks([]);
     setUpdates([]);
     setFiles([]);
+    setMonthlyReports([]);
     setReports([]);
     setSocialAccounts([]);
     setSocialAnalytics(null);
@@ -2964,11 +2973,12 @@ export default function ClientDetailPage() {
     setCalendarEvents([]);
     setLoading(true);
     try {
-      const [ovRes, taskRes, updRes, fileRes, repRes, socialAccRes, socialAnaRes, socialPostRes, credRes] = await Promise.all([
+      const [ovRes, taskRes, updRes, fileRes, monthlyReportRes, repRes, socialAccRes, socialAnaRes, socialPostRes, credRes] = await Promise.all([
         api.get(`/clients/${id}/overview`),
         api.get(`/tasks?clientId=${id}&limit=50`),
         api.get(`/updates?clientId=${id}&limit=20`),
         api.get(`/files?clientId=${id}&limit=20`),
+        api.get(`/files?clientId=${id}&category=monthly_report&limit=100`),
         api.get(`/reports?clientId=${id}&limit=10`),
         api.get(`/social/accounts?clientId=${id}`),
         api.get(`/social/analytics?clientId=${id}&days=${socialDays}`),
@@ -2979,6 +2989,7 @@ export default function ClientDetailPage() {
       setTasks(taskRes.data.tasks || []);
       setUpdates(updRes.data.updates || []);
       setFiles(fileRes.data.files || []);
+      setMonthlyReports(monthlyReportRes.data.files || []);
       setReports(repRes.data.reports || []);
       setSocialAccounts(socialAccRes.data.accounts || []);
       setSocialAnalytics(socialAnaRes.data.analytics || null);
@@ -3216,6 +3227,7 @@ export default function ClientDetailPage() {
     { id: 'files',     label: `Files (${files.length})` },
     { id: 'gmb',       label: 'GMB Panel' },
     { id: 'documents', label: 'Documents' },
+    { id: 'monthlyReports', label: `Monthly Reports (${monthlyReports.length})` },
   ];
 
   return (
@@ -4494,6 +4506,179 @@ export default function ClientDetailPage() {
       {/* DOCUMENTS TAB */}
       {activeTab === 'documents' && (
         <ClientBoardsSection clientId={id} />
+      )}
+
+      {/* MONTHLY REPORTS TAB */}
+      {activeTab === 'monthlyReports' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => {
+              setShowMonthlyReportUploadModal(true);
+              setMonthlyReportUploadError(null);
+              setSelectedMonthlyReportFile(null);
+              setMonthlyReportName('');
+            }}>
+              <Upload size={14} /> Upload Report
+            </Button>
+          </div>
+
+          {monthlyReports.length === 0 ? (
+            <EmptyState icon={FileStack} title="No monthly reports yet" description="Upload PDF, Word or Excel reports for this client — they'll show up here." />
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+              {monthlyReports.map(f => (
+                <Card key={f._id} className="hover:shadow-md transition-shadow">
+                  <CardContent>
+                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="block" title={`Open ${f.name}`}>
+                      <div
+                        className="rounded-lg flex items-center justify-center mb-3"
+                        style={{ height: 92, fontSize: 38, background: 'var(--fd-surface-raised)' }}
+                      >
+                        {getFileIcon(f.mimeType)}
+                      </div>
+                    </a>
+                    <div className="font-medium text-[var(--fd-ink-1)] text-[13px] truncate" title={f.name}>{f.name}</div>
+                    <div className="text-[11px] text-[var(--fd-ink-4)] mt-1 truncate">{f.uploadedBy?.name || 'Unknown'} · {timeAgo(f.createdAt)}</div>
+                    <div className="flex items-center justify-between mt-2.5">
+                      <span className="text-[11px] text-[var(--fd-ink-4)]">{formatFileSize(f.size)}</span>
+                      <div className="flex items-center gap-1">
+                        <a
+                          href={f.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Download"
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: 'var(--fd-ink-3)' }}
+                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--fd-surface-raised)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                        >
+                          <Download size={14} />
+                        </a>
+                        {isManager && (
+                          <button
+                            onClick={() => setDeleteMonthlyReportId(f._id)}
+                            title="Delete report"
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{ color: 'var(--fd-ink-4)' }}
+                            onMouseEnter={e => { e.currentTarget.style.color = '#b91c1c'; e.currentTarget.style.background = 'var(--fd-surface-raised)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = 'var(--fd-ink-4)'; e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* Monthly Report Delete Confirm Modal */}
+          <Modal
+            isOpen={!!deleteMonthlyReportId}
+            onClose={() => setDeleteMonthlyReportId(null)}
+            title="Delete Report"
+            size="sm"
+            footer={
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setDeleteMonthlyReportId(null)}>Cancel</Button>
+                <Button
+                  loading={deletingMonthlyReport}
+                  onClick={async () => {
+                    setDeletingMonthlyReport(true);
+                    try {
+                      await api.delete(`/files/${deleteMonthlyReportId}`);
+                      setMonthlyReports(prev => prev.filter(f => f._id !== deleteMonthlyReportId));
+                      setDeleteMonthlyReportId(null);
+                    } catch {
+                      // silently fail
+                    } finally { setDeletingMonthlyReport(false); }
+                  }}
+                  style={{ background: '#b91c1c', color: '#fff', borderColor: '#b91c1c' }}
+                >
+                  <Trash2 size={13} /> Delete
+                </Button>
+              </div>
+            }
+          >
+            <p className="text-sm" style={{ color: 'var(--fd-ink-2)' }}>
+              Are you sure you want to delete this report? This cannot be undone.
+            </p>
+          </Modal>
+
+          {/* Monthly Report Upload Modal */}
+          <Modal
+            isOpen={showMonthlyReportUploadModal}
+            onClose={() => { setShowMonthlyReportUploadModal(false); setMonthlyReportUploadError(null); }}
+            title="Upload Monthly Report"
+            size="md"
+            footer={
+              <div className="w-full space-y-2">
+                {monthlyReportUploadError && <p className="text-xs text-red-500 text-center">{monthlyReportUploadError}</p>}
+                <div className="flex justify-end gap-2">
+                  <Button variant="secondary" onClick={() => { setShowMonthlyReportUploadModal(false); setMonthlyReportUploadError(null); }}>Cancel</Button>
+                  <Button loading={uploadingMonthlyReport} onClick={async () => {
+                    if (!selectedMonthlyReportFile) return;
+                    setUploadingMonthlyReport(true);
+                    setMonthlyReportUploadError(null);
+                    try {
+                      const fd = new FormData();
+                      fd.append('file', selectedMonthlyReportFile);
+                      fd.append('clientId', id);
+                      fd.append('name', monthlyReportName || selectedMonthlyReportFile.name);
+                      fd.append('category', 'monthly_report');
+                      fd.append('isPublic', true);
+                      await api.post('/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                      setShowMonthlyReportUploadModal(false);
+                      setSelectedMonthlyReportFile(null);
+                      setMonthlyReportName('');
+                      // Refresh monthly reports list
+                      const res = await api.get(`/files?clientId=${id}&category=monthly_report&limit=100`);
+                      setMonthlyReports(res.data.files || []);
+                    } catch (err) {
+                      setMonthlyReportUploadError(err?.response?.data?.message || 'Upload failed. Please use a PDF, Word or Excel file.');
+                    } finally { setUploadingMonthlyReport(false); }
+                  }} disabled={!selectedMonthlyReportFile}>Upload</Button>
+                </div>
+              </div>
+            }
+          >
+            <div className="space-y-4">
+              {/* Drop zone */}
+              <div
+                className="border-2 border-dashed border-[var(--fd-border-strong)] rounded-lg p-6 text-center cursor-pointer hover:border-brand-400 transition-colors"
+                onClick={() => document.getElementById('monthlyReportFileInput').click()}
+              >
+                <input
+                  id="monthlyReportFileInput"
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.csv"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (f) { setSelectedMonthlyReportFile(f); setMonthlyReportName(f.name); }
+                  }}
+                />
+                {selectedMonthlyReportFile ? (
+                  <div className="text-sm font-medium text-[var(--fd-ink-2)]">{selectedMonthlyReportFile.name} ({formatFileSize(selectedMonthlyReportFile.size)})</div>
+                ) : (
+                  <div>
+                    <Upload size={24} className="mx-auto mb-2" style={{ color: 'var(--fd-ink-4)' }} />
+                    <p className="text-sm text-[var(--fd-ink-3)]">Click to choose a file</p>
+                    <p className="text-xs text-[var(--fd-ink-5)] mt-1">PDF, Word (.doc/.docx) or Excel (.xls/.xlsx/.csv)</p>
+                  </div>
+                )}
+              </div>
+              <Input
+                label="Report Name (optional)"
+                value={monthlyReportName}
+                onChange={e => setMonthlyReportName(e.target.value)}
+                placeholder="Defaults to filename"
+              />
+            </div>
+          </Modal>
+        </div>
       )}
 
       {/* Modals */}

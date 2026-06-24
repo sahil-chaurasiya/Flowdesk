@@ -28,7 +28,7 @@ const fileSchema = new mongoose.Schema({
   size: Number,
   category: {
     type: String,
-    enum: ['report', 'creative', 'contract', 'invoice', 'presentation', 'media', 'other'],
+    enum: ['report', 'creative', 'contract', 'invoice', 'presentation', 'media', 'monthly_report', 'other'],
     default: 'other'
   },
   description: String,

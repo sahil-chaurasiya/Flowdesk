@@ -78,6 +78,7 @@ export const getFileIcon = (mimeType = '') => {
   if (mimeType.includes('image')) return '🖼️';
   if (mimeType.includes('zip') || mimeType.includes('archive')) return '📦';
   if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return '📊';
+  if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml')) return '📝';
   if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📑';
   if (mimeType.includes('video')) return '🎬';
   return '📎';

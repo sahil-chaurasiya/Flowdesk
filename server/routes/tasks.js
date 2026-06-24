@@ -12,9 +12,9 @@ const NON_CLIENT_ROLES = [...TEAM_ROLES];
 const MANAGER_ROLES = ['admin', 'manager'];
 
 // Helper: return the set of client IDs a manager/admin is scoped to.
-// Admins get null (= no restriction); managers get only their assigned clients.
+// Admins and managers get null (= no restriction); other roles get restricted.
 async function getScopedClientIds(user) {
-  if (user.role === 'admin') return null; // null = no restriction
+  if (user.role === 'admin' || user.role === 'manager') return null; // no restriction
   const clients = await Client.find({
     $or: [{ accountManager: user._id }, { teamMembers: user._id }],
   }).select('_id');
@@ -77,7 +77,7 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   const {
     status, priority, category, client,
     clientId: clientIdParam,
-    assignedTo, page = 1, limit = 50, search
+    assignedTo, page = 1, search
   } = req.query;
 
   // Accept both ?client=<id> and ?clientId=<id>
@@ -116,17 +116,24 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   if (category) query.category = category;
   if (search)   query.title    = { $regex: search, $options: 'i' };
 
+  const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
   const total = await Task.countDocuments(query);
-  const tasks = await Task.find(query)
+  const rawTasks = await Task.find(query)
     .populate('client', 'name company')
     .populate('assignedTo', 'name avatar role jobTitle')
     .populate('createdBy', 'name')
     .populate('revisions.requestedBy', 'name avatar role')
-    .sort({ priority: -1, deadline: 1, createdAt: -1 })
-    .skip((page - 1) * limit)
-    .limit(Number(limit));
+    .sort({ deadline: 1, createdAt: -1 });
+  const tasks = rawTasks.sort((a, b) => {
+    const pa = PRIORITY_ORDER[a.priority] ?? 99;
+    const pb = PRIORITY_ORDER[b.priority] ?? 99;
+    if (pa !== pb) return pa - pb;
+    const da = a.deadline ? new Date(a.deadline) : Infinity;
+    const db = b.deadline ? new Date(b.deadline) : Infinity;
+    return da - db;
+  });
 
-  res.json({ success: true, tasks, total, page: Number(page), pages: Math.ceil(total / limit) });
+  res.json({ success: true, tasks, total });
 }));
 
 // @route POST /api/tasks

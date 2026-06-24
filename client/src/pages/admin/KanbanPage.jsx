@@ -320,7 +320,7 @@ export default function KanbanPage() {
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: 200 });
+      const params = new URLSearchParams();
       if (filterClient) params.set('client', filterClient);
       if (filterMember) params.set('assignedTo', filterMember);
       // PM filter: we filter client-side since backend scopes by accountManager on Client model

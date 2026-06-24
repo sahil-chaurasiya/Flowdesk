@@ -3726,7 +3726,8 @@ export default function ClientDetailPage() {
               <div className="flex gap-1">
                 {[7, 30, 90].map(d => (
                   <button key={d} onClick={() => setSocialDays(d)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${socialDays === d ? 'bg-brand-600 text-white' : 'bg-[var(--fd-surface)] border border-[var(--fd-border-strong)] text-[var(--fd-ink-2)] hover:bg-[var(--fd-surface-raised)]'}`}>
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${socialDays === d ? 'text-white' : 'bg-[var(--fd-surface)] border border-[var(--fd-border-strong)] text-[var(--fd-ink-2)] hover:bg-[var(--fd-surface-raised)]'}`}
+                    style={socialDays === d ? { background: '#4f6ef0' } : {}}>
                     {d}d
                   </button>
                 ))}
@@ -3739,7 +3740,10 @@ export default function ClientDetailPage() {
                   {isManager && (
                     <button
                       onClick={() => setShowConnectAccountModal(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-colors"
+                      style={{ background: '#4f6ef0' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#3a56d4'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#4f6ef0'}
                     >
                       <Link2 size={12} />
                       Connect Account

@@ -446,7 +446,14 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [managerFilter, setManagerFilter] = useState('');
+  const MANAGER_FILTER_KEY = 'fd_clients_manager_filter';
+  const [managerFilter, setManagerFilter] = useState(() => {
+    try { return localStorage.getItem(MANAGER_FILTER_KEY) || ''; } catch { return ''; }
+  });
+  const updateManagerFilter = (val) => {
+    setManagerFilter(val);
+    try { localStorage.setItem(MANAGER_FILTER_KEY, val); } catch {}
+  };
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const { serviceLabels } = useServices();
@@ -534,7 +541,7 @@ export default function ClientsPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (statusFilter) params.set('status', statusFilter);
-      if (isAdmin && managerFilter) params.set('accountManager', managerFilter);
+      if (managerFilter) params.set('accountManager', managerFilter);
       params.set('limit', LIMIT);
       params.set('page', p);
       params.set('_t', Date.now()); // cache bust
@@ -654,11 +661,11 @@ export default function ClientsPage() {
             </button>
           ))}
         </div>
-        {isAdmin && managers.length > 0 && (
+        {managers.length > 0 && (
           <div className="flex-shrink-0">
             <select
               value={managerFilter}
-              onChange={e => setManagerFilter(e.target.value)}
+              onChange={e => updateManagerFilter(e.target.value)}
               className="fd-input text-[12px]"
               style={{ minWidth: '160px' }}
             >

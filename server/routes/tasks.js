@@ -12,9 +12,11 @@ const NON_CLIENT_ROLES = [...TEAM_ROLES];
 const MANAGER_ROLES = ['admin', 'manager'];
 
 // Helper: return the set of client IDs a manager/admin is scoped to.
-// Admins and managers get null (= no restriction); other roles get restricted.
+// Only admins get null (= no restriction). Managers (PMs) are restricted to
+// the clients they're the accountManager or a teamMember for — matching the
+// scoping used everywhere else in the app (clients.js, dashboard.js, reports.js, etc).
 async function getScopedClientIds(user) {
-  if (user.role === 'admin' || user.role === 'manager') return null; // no restriction
+  if (user.role === 'admin') return null; // no restriction
   const clients = await Client.find({
     $or: [{ accountManager: user._id }, { teamMembers: user._id }],
   }).select('_id');

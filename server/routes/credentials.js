@@ -82,7 +82,18 @@ router.put('/:id', protect, authorize('admin', 'manager', 'client'), asyncHandle
 }));
 
 // @route DELETE /api/credentials/:id
-router.delete('/:id', protect, authorize('admin'), asyncHandler(async (req, res) => {
+router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+  const cred = await Credential.findById(req.params.id);
+  if (!cred) return res.status(404).json({ success: false, message: 'Not found' });
+
+  if (req.user.role === 'manager') {
+    const isOwner = String(cred.addedBy) === String(req.user._id);
+    const isVisible = (cred.visibleTo || []).some((id) => String(id) === String(req.user._id));
+    if (!isOwner && !isVisible) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+  }
+
   await Credential.findByIdAndDelete(req.params.id);
   res.json({ success: true, message: 'Credential deleted' });
 }));

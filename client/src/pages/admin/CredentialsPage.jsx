@@ -394,7 +394,7 @@ export default function CredentialsPage() {
         </div>
       ) : (
         <Card>
-          <CredTable creds={filtered} onEdit={c => { setEditCred(c); setShowModal(true); }} onDelete={isAdmin ? setDeleteId : null} />
+          <CredTable creds={filtered} onEdit={c => { setEditCred(c); setShowModal(true); }} onDelete={(isAdmin || isManager) ? setDeleteId : null} />
         </Card>
       )}
 

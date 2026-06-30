@@ -118,6 +118,13 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   if (category) query.category = category;
   if (search)   query.title    = { $regex: search, $options: 'i' };
 
+  // Personal tasks (admin's own, no client) are never visible to anyone
+  // other than the person who created them — not even other admins.
+  query.$or = [
+    { isPersonal: { $ne: true } },
+    { isPersonal: true, createdBy: req.user._id },
+  ];
+
   const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
   const total = await Task.countDocuments(query);
   const rawTasks = await Task.find(query)
@@ -140,18 +147,35 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
 
 // @route POST /api/tasks
 router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
-  // Managers: validate they have access to the target client
-  if (req.user.role === 'manager' && req.body.client) {
-    const scopedClientIds = await getScopedClientIds(req.user);
-    if (scopedClientIds) {
-      const hasAccess = scopedClientIds.some(id => String(id) === String(req.body.client));
-      if (!hasAccess) {
-        return res.status(403).json({ success: false, message: 'Not authorised to create tasks for this client' });
+  const payload = { ...req.body, createdBy: req.user._id };
+
+  // Empty-string client (e.g. "Select client…" left unselected) would fail
+  // ObjectId casting — treat it the same as "no client".
+  if (payload.client === '') delete payload.client;
+
+  if (payload.isPersonal) {
+    // Personal tasks: admin-only, always private, never tied to a client.
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only admins can create personal tasks' });
+    }
+    delete payload.client;
+    payload.isClientVisible = false;
+  } else {
+    delete payload.isPersonal;
+
+    // Managers: validate they have access to the target client
+    if (req.user.role === 'manager' && payload.client) {
+      const scopedClientIds = await getScopedClientIds(req.user);
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(payload.client));
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, message: 'Not authorised to create tasks for this client' });
+        }
       }
     }
   }
 
-  const task = await Task.create({ ...req.body, createdBy: req.user._id });
+  const task = await Task.create(payload);
   const populated = await Task.findById(task._id)
     .populate('client', 'name company')
     .populate('assignedTo', 'name avatar role jobTitle')
@@ -171,7 +195,7 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
     req,
     action: 'task.created',
     entity: { type: 'task', id: task._id, name: task.title },
-    meta: { client: populated.client?.company, assignedTo: populated.assignedTo?.name },
+    meta: { client: populated.client?.company, assignedTo: populated.assignedTo?.name, isPersonal: !!task.isPersonal },
   });
 
   res.status(201).json({ success: true, task: populated });
@@ -181,6 +205,13 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
 router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
   const existing = await Task.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Task not found' });
+
+  // Personal tasks are invisible to everyone except their creator — treat
+  // any attempt to touch one by someone else as "not found" rather than
+  // leaking that it exists.
+  if (existing.isPersonal && String(existing.createdBy) !== String(req.user._id)) {
+    return res.status(404).json({ success: false, message: 'Task not found' });
+  }
 
   const isManager = MANAGER_ROLES.includes(req.user.role);
 
@@ -200,6 +231,14 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
       }
     }
   }
+
+  // Empty-string client would fail ObjectId casting — treat as "no client".
+  if (req.body.client === '') delete req.body.client;
+
+  // isPersonal can't be flipped after creation via a plain edit — keep the
+  // logic simple and avoid a client task suddenly disappearing, or vice versa.
+  delete req.body.isPersonal;
+  if (existing.isPersonal) delete req.body.client; // personal tasks never get a client
 
   const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
     .populate('client', 'name company')
@@ -254,6 +293,10 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
 router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
   const existing = await Task.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Task not found' });
+
+  if (existing.isPersonal && String(existing.createdBy) !== String(req.user._id)) {
+    return res.status(404).json({ success: false, message: 'Task not found' });
+  }
 
   // Managers: verify they have access to this task's client
   if (req.user.role === 'manager') {

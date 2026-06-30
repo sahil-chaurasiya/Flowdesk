@@ -13,7 +13,7 @@ const taskSchema = new mongoose.Schema({
   client: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',
-    required: true
+    required: function () { return !this.isPersonal; }
   },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
@@ -78,6 +78,13 @@ const taskSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   isClientVisible: {
+    type: Boolean,
+    default: false
+  },
+  // Personal task — created by an admin for themselves, not tied to any
+  // client. Never visible to anyone other than the creator (see tasks.js
+  // route scoping), regardless of role.
+  isPersonal: {
     type: Boolean,
     default: false
   },

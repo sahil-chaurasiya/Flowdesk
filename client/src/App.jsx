@@ -4,6 +4,7 @@ import { SocketProvider } from './context/SocketContext';
 import useAuthStore from './context/authStore';
 import { ToastProvider } from './components/ui/index';
 import { ThemeProvider } from './context/ThemeContext';
+import InstallPrompt from './components/shared/InstallPrompt';
 
 // Layouts
 import AdminLayout from './components/layout/AdminLayout';
@@ -89,6 +90,7 @@ export default function App() {
       <ToastProvider>
         <BrowserRouter>
           <SocketProvider>
+            <InstallPrompt />
             <Routes>
               {/* Landing page */}
               <Route path="/" element={<LandingPage />} />

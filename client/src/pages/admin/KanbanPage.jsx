@@ -71,6 +71,11 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
               <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize" style={ss}>
                 {(COLUMNS.find(c => c.id === task.status)?.label) || task.status.replace('_', ' ')}
               </span>
+              {task.isPersonal && (
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,85,247,0.12)', color: '#a855f7' }}>
+                  🔒 Personal
+                </span>
+              )}
               {isOverdue && <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>}
             </div>
             <h2 className="text-[16px] font-bold leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</h2>
@@ -183,6 +188,7 @@ function TaskCard({ task, onDragStart, onClick }) {
         <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: PRIORITY_COLORS[task.priority] || '#aaa' }} />
         <div className="flex-1 min-w-0">
           <div className="text-[12.5px] font-medium leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</div>
+          {task.isPersonal && <div className="text-[10.5px] mt-0.5 font-medium" style={{ color: '#a855f7' }}>🔒 Personal</div>}
           {task.client?.company && <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{task.client.company}</div>}
           {task.description && <div className="text-[11px] mt-1 line-clamp-2 leading-relaxed" style={{ color: 'var(--fd-ink-4)' }}>{task.description}</div>}
         </div>
@@ -284,7 +290,7 @@ export default function KanbanPage() {
   const [form, setForm] = useState({
     title: '', description: '', client: '', assignedTo: '',
     priority: 'medium', status: 'pending', deadline: '',
-    category: 'other', isClientVisible: false,
+    category: 'other', isClientVisible: false, isPersonal: false,
   });
 
   const dragTask = useRef(null);
@@ -295,7 +301,7 @@ export default function KanbanPage() {
     api.get('/users?limit=100').then(r => {
       const all = r.data.users || [];
       setMembers(all.filter(u => !['admin', 'manager', 'client'].includes(u.role)));
-      setManagers(all.filter(u => u.role === 'manager'));
+      setManagers(all.filter(u => ['admin', 'manager'].includes(u.role)));
     });
     // Fetch active task counts per member
     Promise.all([
@@ -376,15 +382,18 @@ export default function KanbanPage() {
   };
 
   const openAddTask = (defaultStatus) => {
-    setForm({ title: '', description: '', client: filterClient || '', assignedTo: filterMember || '', priority: 'medium', status: defaultStatus, deadline: '', category: 'other', isClientVisible: false });
+    setForm({ title: '', description: '', client: filterClient || '', assignedTo: filterMember || '', priority: 'medium', status: defaultStatus, deadline: '', category: 'other', isClientVisible: false, isPersonal: false });
     setShowAddModal(true);
   };
 
   const handleSave = async () => {
     if (!form.title.trim()) { toast({ type: 'error', title: 'Title is required' }); return; }
+    if (!form.isPersonal && !form.client) { toast({ type: 'error', title: 'Pick a client (or mark it as a personal task)' }); return; }
     setSaving(true);
     try {
-      await api.post('/tasks', form);
+      const payload = { ...form };
+      if (payload.isPersonal) delete payload.client;
+      await api.post('/tasks', payload);
       setShowAddModal(false);
       fetchTasks();
       toast({ type: 'success', title: 'Task created' });
@@ -420,6 +429,7 @@ export default function KanbanPage() {
       deadline: task.deadline ? task.deadline.split('T')[0] : '',
       category: task.category || 'other',
       isClientVisible: task.isClientVisible || false,
+      isPersonal: task.isPersonal || false,
     });
     setShowEditModal(true);
   };
@@ -428,7 +438,9 @@ export default function KanbanPage() {
     if (!editForm.title.trim()) { toast({ type: 'error', title: 'Title is required' }); return; }
     setEditSaving(true);
     try {
-      const { data } = await api.put(`/tasks/${selectedTask._id}`, editForm);
+      const payload = { ...editForm };
+      if (payload.isPersonal) delete payload.client;
+      const { data } = await api.put(`/tasks/${selectedTask._id}`, payload);
       setTasks(prev => prev.map(t => t._id === selectedTask._id ? data.task : t));
       setSelectedTask(data.task);
       setShowEditModal(false);
@@ -502,7 +514,7 @@ export default function KanbanPage() {
         {/* PM filter — admin only */}
         {isAdmin && (
           <div className="flex flex-col gap-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Project Manager</label>
+            <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Manager / Admin</label>
             <select
               value={filterPM}
               onChange={e => setFilterPM(e.target.value)}
@@ -575,9 +587,25 @@ export default function KanbanPage() {
         <div className="space-y-4">
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="What needs to be done?" autoFocus />
           <Textarea label="Description" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} placeholder="Add details, context, or notes…" />
+
+          {isAdmin && (
+            <label className="flex items-center gap-2.5 cursor-pointer p-2.5 rounded-lg" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <input
+                type="checkbox"
+                checked={form.isPersonal}
+                onChange={e => setForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client, assignedTo: e.target.checked ? user._id : p.assignedTo }))}
+                className="rounded"
+                style={{ accentColor: '#4f6ef0' }}
+              />
+              <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>
+                🔒 Personal task — only visible to me, no client needed
+              </span>
+            </label>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Client" value={form.client} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}>
-              <option value="">Select client…</option>
+            <Select label="Client" value={form.client} disabled={form.isPersonal} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}>
+              <option value="">{form.isPersonal ? 'Not applicable' : 'Select client…'}</option>
               {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
             </Select>
             <Select label="Category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
@@ -607,10 +635,12 @@ export default function KanbanPage() {
             </Select>
             <Input label="Deadline" type="date" value={form.deadline} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} />
           </div>
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input type="checkbox" checked={form.isClientVisible} onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
-            <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
-          </label>
+          {!form.isPersonal && (
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={form.isClientVisible} onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
+              <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
+            </label>
+          )}
         </div>
       </Modal>
       {/* Edit task modal */}
@@ -628,9 +658,25 @@ export default function KanbanPage() {
         <div className="space-y-4">
           <Input label="Title *" value={editForm.title || ''} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
           <Textarea label="Description" value={editForm.description || ''} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} />
+
+          {isAdmin && (
+            <label className="flex items-center gap-2.5 cursor-pointer p-2.5 rounded-lg" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <input
+                type="checkbox"
+                checked={editForm.isPersonal || false}
+                onChange={e => setEditForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client }))}
+                className="rounded"
+                style={{ accentColor: '#4f6ef0' }}
+              />
+              <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>
+                🔒 Personal task — only visible to me, no client needed
+              </span>
+            </label>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            <Select label="Client" value={editForm.client || ''} onChange={e => setEditForm(p => ({ ...p, client: e.target.value }))}>
-              <option value="">Select client…</option>
+            <Select label="Client" value={editForm.client || ''} disabled={editForm.isPersonal} onChange={e => setEditForm(p => ({ ...p, client: e.target.value }))}>
+              <option value="">{editForm.isPersonal ? 'Not applicable' : 'Select client…'}</option>
               {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
             </Select>
             <Select label="Category" value={editForm.category || 'other'} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}>
@@ -660,10 +706,12 @@ export default function KanbanPage() {
             </Select>
             <Input label="Deadline" type="date" value={editForm.deadline || ''} onChange={e => setEditForm(p => ({ ...p, deadline: e.target.value }))} />
           </div>
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input type="checkbox" checked={editForm.isClientVisible || false} onChange={e => setEditForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
-            <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
-          </label>
+          {!editForm.isPersonal && (
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox" checked={editForm.isClientVisible || false} onChange={e => setEditForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
+              <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
+            </label>
+          )}
         </div>
       </Modal>
     </div>

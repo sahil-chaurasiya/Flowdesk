@@ -3648,7 +3648,21 @@ export default function ClientDetailPage() {
       {/* MONTHLY REPORTS TAB */}
       {activeTab === 'monthlyReports' && (
         <div className="space-y-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = '/Monthly_Report_Format.docx';
+                link.download = 'Monthly_Report_Format.docx';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+              }}
+            >
+              <Download size={14} /> Download Format
+            </Button>
             <Button size="sm" onClick={() => {
               setShowMonthlyReportUploadModal(true);
               setMonthlyReportUploadError(null);

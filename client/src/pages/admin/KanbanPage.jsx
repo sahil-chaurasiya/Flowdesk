@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag, Trash2, Edit2, Play, ArrowRight } from 'lucide-react';
+import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag, Trash2, Edit2, Play, ArrowRight, ChevronLeft, CalendarDays } from 'lucide-react';
+import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { useToast } from '../../components/ui/index';
@@ -281,6 +282,10 @@ export default function KanbanPage() {
   const [filterMember, setFilterMember]     = useState('');
   const [filterPM, setFilterPM]             = useState('');   // admin only
 
+  // Monthly scoping - defaults to the current month, toggle to see everything
+  const [monthCursor, setMonthCursor] = useState(function () { return new Date(); });
+  const [showAllTime, setShowAllTime] = useState(false);
+
   // Dropdown data
   const [clients, setClients]   = useState([]);
   const [members, setMembers]   = useState([]);   // team members only
@@ -329,6 +334,10 @@ export default function KanbanPage() {
       const params = new URLSearchParams();
       if (filterClient) params.set('client', filterClient);
       if (filterMember) params.set('assignedTo', filterMember);
+      if (!showAllTime) {
+        params.set('dateFrom', startOfMonth(monthCursor).toISOString());
+        params.set('dateTo', endOfMonth(monthCursor).toISOString());
+      }
       // PM filter: we filter client-side since backend scopes by accountManager on Client model
       const { data } = await api.get(`/tasks?${params}`);
       let result = data.tasks || [];
@@ -341,7 +350,7 @@ export default function KanbanPage() {
       setTasks(result);
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, [filterClient, filterMember, filterPM, isAdmin]);
+  }, [filterClient, filterMember, filterPM, isAdmin, showAllTime, monthCursor]);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
@@ -461,7 +470,7 @@ export default function KanbanPage() {
     return acc;
   }, {});
 
-  const activeFilters = [filterClient, filterMember, filterPM].filter(Boolean).length;
+  const activeFilters = [filterClient, filterMember, filterPM].filter(Boolean).length + (showAllTime ? 1 : 0);
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
@@ -479,6 +488,55 @@ export default function KanbanPage() {
           </Button>
           <Button variant="secondary" size="sm" onClick={fetchTasks}>Refresh</Button>
         </div>
+      </div>
+
+      {/* Month navigator */}
+      <div
+        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 flex-wrap"
+        style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
+      >
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setMonthCursor(prev => subMonths(prev, 1))}
+            disabled={showAllTime}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--fd-surface-sunken)] disabled:opacity-30"
+            style={{ color: 'var(--fd-ink-3)' }}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <span className="flex items-center gap-1.5 text-[13px] font-semibold min-w-[110px] justify-center" style={{ color: 'var(--fd-ink-1)' }}>
+            <CalendarDays size={13} style={{ color: 'var(--fd-ink-4)' }} />
+            {showAllTime ? 'All Time' : format(monthCursor, 'MMMM yyyy')}
+          </span>
+          <button
+            onClick={() => setMonthCursor(prev => addMonths(prev, 1))}
+            disabled={showAllTime}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--fd-surface-sunken)] disabled:opacity-30"
+            style={{ color: 'var(--fd-ink-3)' }}
+          >
+            <ChevronRight size={15} />
+          </button>
+          {!showAllTime && (
+            <button
+              onClick={() => setMonthCursor(new Date())}
+              className="text-[11px] font-medium px-2 py-1 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-4)' }}
+            >
+              Today
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setShowAllTime(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
+          style={{
+            background: showAllTime ? 'rgba(79,110,240,0.12)' : 'var(--fd-surface-sunken)',
+            color: showAllTime ? '#4f6ef0' : 'var(--fd-ink-3)',
+            border: `1px solid ${showAllTime ? 'rgba(79,110,240,0.3)' : 'var(--fd-border)'}`,
+          }}
+        >
+          {showAllTime ? '✓ Showing All Time' : 'Show All Time'}
+        </button>
       </div>
 
       {/* Filters */}
@@ -529,7 +587,7 @@ export default function KanbanPage() {
 
         {activeFilters > 0 && (
           <button
-            onClick={() => { setFilterClient(''); setFilterMember(''); setFilterPM(''); }}
+            onClick={() => { setFilterClient(''); setFilterMember(''); setFilterPM(''); setShowAllTime(false); setMonthCursor(new Date()); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors hover:opacity-80"
             style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', alignSelf: 'flex-end' }}
           >

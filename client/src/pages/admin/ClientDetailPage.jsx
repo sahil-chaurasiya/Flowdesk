@@ -2012,11 +2012,11 @@ export default function ClientDetailPage() {
   const [socialPosts, setSocialPosts] = useState([]);
   const [socialDays, setSocialDays] = useState(30);
   const [showConnectAccountModal, setShowConnectAccountModal] = useState(false);
-  const [connectAccountForm, setConnectAccountForm] = useState({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' });
+  const [connectAccountForm, setConnectAccountForm] = useState({ platform: 'instagram', accountName: '', accountUrl: '', followers: '', customPlatform: '' });
   const [savingAccount, setSavingAccount] = useState(false);
   const [disconnectAccountId, setDisconnectAccountId] = useState(null);
   const [disconnectingAccount, setDisconnectingAccount] = useState(false);
-  const [editAccountData, setEditAccountData] = useState(null); // { _id, platform, accountName, accountUrl, followers }
+  const [editAccountData, setEditAccountData] = useState(null); // { _id, platform, accountName, accountUrl, followers, customPlatform }
   const [savingEditAccount, setSavingEditAccount] = useState(false);
   const [calendarEvents, setCalendarEvents] = useState([]);
   const [calendarMonth, setCalendarMonth] = useState(new Date());
@@ -2222,18 +2222,20 @@ export default function ClientDetailPage() {
 
   const handleConnectAccount = async () => {
     if (!connectAccountForm.accountName.trim() || !connectAccountForm.platform) return;
+    if (connectAccountForm.platform === 'other' && !connectAccountForm.customPlatform.trim()) return;
     setSavingAccount(true);
     try {
       await api.post('/social/accounts', {
         client: id,
         platform: connectAccountForm.platform,
+        customPlatform: connectAccountForm.platform === 'other' ? connectAccountForm.customPlatform.trim() : undefined,
         accountName: connectAccountForm.accountName.trim(),
         accountUrl: connectAccountForm.accountUrl.trim() || undefined,
         followers: connectAccountForm.followers ? Number(connectAccountForm.followers) : 0,
         isActive: true,
       });
       setShowConnectAccountModal(false);
-      setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' });
+      setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '', customPlatform: '' });
       const res = await api.get(`/social/accounts?clientId=${id}`);
       setSocialAccounts(res.data.accounts || []);
     } catch (err) {
@@ -2256,10 +2258,12 @@ export default function ClientDetailPage() {
 
   const handleSaveEditAccount = async () => {
     if (!editAccountData) return;
+    if (editAccountData.platform === 'other' && !editAccountData.customPlatform?.trim()) return;
     setSavingEditAccount(true);
     try {
       await api.put(`/social/accounts/${editAccountData._id}`, {
         platform: editAccountData.platform,
+        customPlatform: editAccountData.platform === 'other' ? editAccountData.customPlatform.trim() : undefined,
         accountName: editAccountData.accountName.trim(),
         accountUrl: editAccountData.accountUrl.trim() || undefined,
         followers: editAccountData.followers ? Number(editAccountData.followers) : 0,
@@ -2836,8 +2840,9 @@ export default function ClientDetailPage() {
           youtube: <Youtube size={16} className="text-red-500" />,
           linkedin: <Linkedin size={16} className="text-blue-700" />,
           twitter: <Twitter size={16} className="text-sky-500" />,
-          tiktok: <span className="text-xs font-bold text-[var(--fd-ink-1)]">TT</span>,
+          sharechat: <span className="text-xs font-bold text-emerald-600">SC</span>,
           google_business: <span className="text-xs font-bold text-emerald-600">G</span>,
+          other: <Globe size={16} className="text-[var(--fd-ink-3)]" />,
         };
         const PLATFORM_BG = {
           instagram: 'bg-pink-50 dark:bg-pink-900/20 border-pink-100 dark:border-pink-800/30',
@@ -2845,8 +2850,9 @@ export default function ClientDetailPage() {
           youtube: 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/30',
           linkedin: 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800/30',
           twitter: 'bg-sky-50 dark:bg-sky-900/20 border-sky-100 dark:border-sky-800/30',
-          tiktok: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]',
+          sharechat: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30',
           google_business: 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800/30',
+          other: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)]',
         };
         const totals = socialAnalytics?.totals || {};
         const byPlatform = socialAnalytics?.byPlatform || [];
@@ -2918,7 +2924,7 @@ export default function ClientDetailPage() {
                               <div className="text-xs font-semibold text-[var(--fd-ink-1)] truncate">{acc.accountName}</div>
                               {acc.accountUrl && <Globe size={9} className="text-[var(--fd-ink-4)] flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />}
                             </div>
-                            <div className="text-xs text-[var(--fd-ink-3)] capitalize">{acc.platform.replace('_', ' ')}</div>
+                            <div className="text-xs text-[var(--fd-ink-3)] capitalize">{acc.platform === 'other' && acc.customPlatform ? acc.customPlatform : acc.platform.replace('_', ' ')}</div>
                             {acc.followers > 0 && <div className="text-xs text-[var(--fd-ink-4)]">{acc.followers.toLocaleString()} followers</div>}
                           </div>
                         </a>
@@ -2926,7 +2932,7 @@ export default function ClientDetailPage() {
                         {isManager && (
                           <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
-                              onClick={e => { e.preventDefault(); e.stopPropagation(); setEditAccountData({ _id: acc._id, platform: acc.platform, accountName: acc.accountName, accountUrl: acc.accountUrl || '', followers: acc.followers || '' }); }}
+                              onClick={e => { e.preventDefault(); e.stopPropagation(); setEditAccountData({ _id: acc._id, platform: acc.platform, accountName: acc.accountName, accountUrl: acc.accountUrl || '', followers: acc.followers || '', customPlatform: acc.customPlatform || '' }); }}
                               className="p-1 rounded-md bg-white/70 backdrop-blur-sm hover:bg-brand-100 text-[var(--fd-ink-4)] hover:text-brand-600 transition-colors shadow-sm"
                               title="Edit account"
                             >
@@ -2950,7 +2956,7 @@ export default function ClientDetailPage() {
 
             {/* ── Connect Account Modal ── */}
             {showConnectAccountModal && (
-              <Modal isOpen onClose={() => { setShowConnectAccountModal(false); setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' }); }}>
+              <Modal isOpen onClose={() => { setShowConnectAccountModal(false); setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '', customPlatform: '' }); }}>
                 <div className="p-5 sm:p-6 space-y-5">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-brand-100 flex items-center justify-center flex-shrink-0">
@@ -2969,11 +2975,12 @@ export default function ClientDetailPage() {
                       {[
                         { id: 'instagram', label: 'Instagram', icon: <Instagram size={18} className="text-pink-500" />, bg: 'border-pink-200 bg-pink-50' },
                         { id: 'facebook',  label: 'Facebook',  icon: <Facebook size={18} className="text-blue-600" />,  bg: 'border-blue-200 bg-blue-50' },
-                        { id: 'tiktok',    label: 'TikTok',    icon: <span className="text-sm font-bold text-[var(--fd-ink-1)]">TT</span>, bg: 'border-[var(--fd-border-strong)] bg-[var(--fd-surface-raised)]' },
+                        { id: 'sharechat', label: 'ShareChat', icon: <span className="text-sm font-bold text-emerald-600">SC</span>, bg: 'border-emerald-200 bg-emerald-50' },
                         { id: 'youtube',   label: 'YouTube',   icon: <Youtube size={18} className="text-red-500" />,    bg: 'border-red-200 bg-red-50' },
                         { id: 'linkedin',  label: 'LinkedIn',  icon: <Linkedin size={18} className="text-blue-700" />,  bg: 'border-blue-200 bg-blue-50' },
                         { id: 'twitter',   label: 'Twitter/X', icon: <Twitter size={18} className="text-sky-500" />,   bg: 'border-sky-200 bg-sky-50' },
                         { id: 'google_business', label: 'Google Biz', icon: <span className="text-sm font-bold text-emerald-600">G</span>, bg: 'border-emerald-200 bg-emerald-50' },
+                        { id: 'other',     label: 'Other',     icon: <Globe size={18} className="text-[var(--fd-ink-3)]" />, bg: 'border-[var(--fd-border-strong)] bg-[var(--fd-surface-raised)]' },
                       ].map(p => (
                         <button
                           key={p.id}
@@ -2991,7 +2998,15 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
 
-                  {/* Account name */}
+                  {/* Custom platform name — only shown when "Other" is selected */}
+                  {connectAccountForm.platform === 'other' && (
+                    <Input
+                      label="Platform Name *"
+                      placeholder="e.g. Snapchat, Pinterest, Threads..."
+                      value={connectAccountForm.customPlatform}
+                      onChange={e => setConnectAccountForm(f => ({ ...f, customPlatform: e.target.value }))}
+                    />
+                  )}
                   <Input
                     label="Account Name / Handle *"
                     placeholder={connectAccountForm.platform === 'instagram' ? '@handle' : connectAccountForm.platform === 'facebook' ? 'Page name' : 'Account name'}
@@ -3002,7 +3017,7 @@ export default function ClientDetailPage() {
                   {/* Profile URL */}
                   <Input
                     label="Profile URL"
-                    placeholder={`https://${connectAccountForm.platform}.com/...`}
+                    placeholder={connectAccountForm.platform === 'other' ? `https://${(connectAccountForm.customPlatform || 'example').toLowerCase().replace(/\s+/g, '')}.com/...` : `https://${connectAccountForm.platform}.com/...`}
                     value={connectAccountForm.accountUrl}
                     onChange={e => setConnectAccountForm(f => ({ ...f, accountUrl: e.target.value }))}
                   />
@@ -3017,12 +3032,12 @@ export default function ClientDetailPage() {
                   />
 
                   <div className="flex justify-end gap-2 pt-1">
-                    <Button variant="ghost" onClick={() => { setShowConnectAccountModal(false); setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '' }); }}>
+                    <Button variant="ghost" onClick={() => { setShowConnectAccountModal(false); setConnectAccountForm({ platform: 'instagram', accountName: '', accountUrl: '', followers: '', customPlatform: '' }); }}>
                       Cancel
                     </Button>
                     <Button
                       loading={savingAccount}
-                      disabled={!connectAccountForm.accountName.trim()}
+                      disabled={!connectAccountForm.accountName.trim() || (connectAccountForm.platform === 'other' && !connectAccountForm.customPlatform.trim())}
                       onClick={handleConnectAccount}
                     >
                       Connect Account
@@ -3082,11 +3097,12 @@ export default function ClientDetailPage() {
                       {[
                         { id: 'instagram', label: 'Instagram', icon: <Instagram size={18} className="text-pink-500" />, bg: 'border-pink-200 bg-pink-50' },
                         { id: 'facebook',  label: 'Facebook',  icon: <Facebook size={18} className="text-blue-600" />,  bg: 'border-blue-200 bg-blue-50' },
-                        { id: 'tiktok',    label: 'TikTok',    icon: <span className="text-sm font-bold text-[var(--fd-ink-1)]">TT</span>, bg: 'border-[var(--fd-border-strong)] bg-[var(--fd-surface-raised)]' },
+                        { id: 'sharechat', label: 'ShareChat', icon: <span className="text-sm font-bold text-emerald-600">SC</span>, bg: 'border-emerald-200 bg-emerald-50' },
                         { id: 'youtube',   label: 'YouTube',   icon: <Youtube size={18} className="text-red-500" />,    bg: 'border-red-200 bg-red-50' },
                         { id: 'linkedin',  label: 'LinkedIn',  icon: <Linkedin size={18} className="text-blue-700" />,  bg: 'border-blue-200 bg-blue-50' },
                         { id: 'twitter',   label: 'Twitter/X', icon: <Twitter size={18} className="text-sky-500" />,   bg: 'border-sky-200 bg-sky-50' },
                         { id: 'google_business', label: 'Google Biz', icon: <span className="text-sm font-bold text-emerald-600">G</span>, bg: 'border-emerald-200 bg-emerald-50' },
+                        { id: 'other',     label: 'Other',     icon: <Globe size={18} className="text-[var(--fd-ink-3)]" />, bg: 'border-[var(--fd-border-strong)] bg-[var(--fd-surface-raised)]' },
                       ].map(p => (
                         <button
                           key={p.id}
@@ -3104,6 +3120,16 @@ export default function ClientDetailPage() {
                     </div>
                   </div>
 
+                  {/* Custom platform name — only shown when "Other" is selected */}
+                  {editAccountData.platform === 'other' && (
+                    <Input
+                      label="Platform Name *"
+                      placeholder="e.g. Snapchat, Pinterest, Threads..."
+                      value={editAccountData.customPlatform || ''}
+                      onChange={e => setEditAccountData(d => ({ ...d, customPlatform: e.target.value }))}
+                    />
+                  )}
+
                   <Input
                     label="Account Name / Handle *"
                     placeholder={editAccountData.platform === 'instagram' ? '@handle' : editAccountData.platform === 'facebook' ? 'Page name' : 'Account name'}
@@ -3113,7 +3139,7 @@ export default function ClientDetailPage() {
 
                   <Input
                     label="Profile URL"
-                    placeholder={`https://${editAccountData.platform}.com/...`}
+                    placeholder={editAccountData.platform === 'other' ? `https://${(editAccountData.customPlatform || 'example').toLowerCase().replace(/\s+/g, '')}.com/...` : `https://${editAccountData.platform}.com/...`}
                     value={editAccountData.accountUrl}
                     onChange={e => setEditAccountData(d => ({ ...d, accountUrl: e.target.value }))}
                   />
@@ -3130,7 +3156,7 @@ export default function ClientDetailPage() {
                     <Button variant="ghost" onClick={() => setEditAccountData(null)}>Cancel</Button>
                     <Button
                       loading={savingEditAccount}
-                      disabled={!editAccountData.accountName.trim()}
+                      disabled={!editAccountData.accountName.trim() || (editAccountData.platform === 'other' && !editAccountData.customPlatform?.trim())}
                       onClick={handleSaveEditAccount}
                     >
                       Save Changes

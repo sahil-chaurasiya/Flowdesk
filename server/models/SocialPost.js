@@ -10,9 +10,11 @@ const socialAccountSchema = new mongoose.Schema({
   },
   platform: {
     type: String,
-    enum: ['instagram', 'facebook', 'tiktok', 'youtube', 'linkedin', 'twitter', 'google_business'],
+    enum: ['instagram', 'facebook', 'sharechat', 'youtube', 'linkedin', 'twitter', 'google_business', 'other'],
     required: true
   },
+  // Only used when platform === 'other' — the custom platform name the user typed in
+  customPlatform: { type: String, trim: true },
   accountName: { type: String, required: true, trim: true },
   accountUrl: { type: String, trim: true },
   profilePicture: String,

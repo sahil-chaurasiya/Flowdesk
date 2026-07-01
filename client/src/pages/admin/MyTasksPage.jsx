@@ -1,10 +1,12 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import {
   ListChecks, Clock, CheckCircle, AlertCircle, Play,
   X, Calendar, User, Tag, Flag, Building2, FileText, ChevronRight,
-  ArrowRight, ChevronDown, UserCheck, Send, Zap, RotateCcw, MessageSquarePlus,
+  ArrowRight, ChevronDown, ChevronLeft, UserCheck, Send, Zap, RotateCcw, MessageSquarePlus,
+  CalendarDays, SlidersHorizontal,
 } from 'lucide-react';
+import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { PageHeader, EmptyState, Card, Spinner, StatCard } from '../../components/shared/LoadingScreen';
@@ -541,20 +543,53 @@ export default function MyTasksPage() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
+  const [clientFilter, setClientFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [assignedByFilter, setAssignedByFilter] = useState('');
   const [updating, setUpdating] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+
+  // Monthly scoping - defaults to the current month so we only pull this
+  // month's tasks. Flip to "All time" to see everything.
+  const [monthCursor, setMonthCursor] = useState(function () { return new Date(); });
+  const [showAllTime, setShowAllTime] = useState(false);
+
+  // Dropdown option sources - fetched once, independent of the month filter
+  const [clientOptions, setClientOptions] = useState([]);
+  const [assignerOptions, setAssignerOptions] = useState([]);
+
+  useEffect(function () {
+    api.get('/clients?limit=200').then(function (r) { setClientOptions(r.data.clients || []); }).catch(function () {});
+    api.get('/users?limit=200').then(function (r) {
+      var all = r.data.users || [];
+      setAssignerOptions(all.filter(function (u) { return u._id !== (user && user._id); }));
+    }).catch(function () {});
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: 100 });
       if (statusFilter) params.set('status', statusFilter);
-      const { data } = await api.get(`/tasks?${params}`);
+      if (clientFilter) params.set('client', clientFilter);
+      if (priorityFilter) params.set('priority', priorityFilter);
+      if (assignedByFilter) params.set('createdBy', assignedByFilter);
+      if (!showAllTime) {
+        params.set('dateFrom', startOfMonth(monthCursor).toISOString());
+        params.set('dateTo', endOfMonth(monthCursor).toISOString());
+      }
+      const { data } = await api.get('/tasks?' + params.toString());
       setTasks(data.tasks || []);
     } finally { setLoading(false); }
-  }, [statusFilter]);
+  }, [statusFilter, clientFilter, priorityFilter, assignedByFilter, showAllTime, monthCursor]);
 
   useEffect(() => { load(); }, [load]);
+
+  const activeFilterCount = [statusFilter, clientFilter, priorityFilter, assignedByFilter].filter(Boolean).length + (showAllTime ? 1 : 0);
+  const clearFilters = () => {
+    setStatusFilter(''); setClientFilter(''); setPriorityFilter(''); setAssignedByFilter('');
+    setShowAllTime(false); setMonthCursor(new Date());
+  };
 
   const updateStatus = async (id, status) => {
     setUpdating(id);
@@ -615,15 +650,93 @@ export default function MyTasksPage() {
         <StatCard title="Revisions"   value={totalRevisions} icon={RotateCcw} color="orange" subtitle="Changes requested" />
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-3">
-        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-44">
+      {/* Month navigator */}
+      <div
+        className="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 flex-wrap"
+        style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
+      >
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setMonthCursor(prev => subMonths(prev, 1))}
+            disabled={showAllTime}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--fd-surface-sunken)] disabled:opacity-30"
+            style={{ color: 'var(--fd-ink-3)' }}
+          >
+            <ChevronLeft size={15} />
+          </button>
+          <span className="flex items-center gap-1.5 text-[13px] font-semibold min-w-[110px] justify-center" style={{ color: 'var(--fd-ink-1)' }}>
+            <CalendarDays size={13} style={{ color: 'var(--fd-ink-4)' }} />
+            {showAllTime ? 'All Time' : format(monthCursor, 'MMMM yyyy')}
+          </span>
+          <button
+            onClick={() => setMonthCursor(prev => addMonths(prev, 1))}
+            disabled={showAllTime}
+            className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-[var(--fd-surface-sunken)] disabled:opacity-30"
+            style={{ color: 'var(--fd-ink-3)' }}
+          >
+            <ChevronRight size={15} />
+          </button>
+          {!showAllTime && (
+            <button
+              onClick={() => setMonthCursor(new Date())}
+              className="text-[11px] font-medium px-2 py-1 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ color: 'var(--fd-ink-4)' }}
+            >
+              Today
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => setShowAllTime(v => !v)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
+          style={{
+            background: showAllTime ? 'rgba(79,110,240,0.12)' : 'var(--fd-surface-sunken)',
+            color: showAllTime ? '#4f6ef0' : 'var(--fd-ink-3)',
+            border: `1px solid ${showAllTime ? 'rgba(79,110,240,0.3)' : 'var(--fd-border)'}`,
+          }}
+        >
+          {showAllTime ? '✓ Showing All Time' : 'Show All Time'}
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <SlidersHorizontal size={13} style={{ color: 'var(--fd-ink-5)' }} />
+        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-40">
           <option value="">All Statuses</option>
           {statuses.map(s => (
             <option key={s} value={s}>{STATUS_META[s]?.label || s}</option>
           ))}
         </Select>
-        <span className="text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
+        <Select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className="w-44">
+          <option value="">All Clients</option>
+          {clientOptions.map(c => (
+            <option key={c._id} value={c._id}>{c.company}</option>
+          ))}
+        </Select>
+        <Select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className="w-36">
+          <option value="">All Urgency</option>
+          <option value="urgent">Urgent</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+        </Select>
+        <Select value={assignedByFilter} onChange={e => setAssignedByFilter(e.target.value)} className="w-44">
+          <option value="">Assigned By: Anyone</option>
+          {assignerOptions.map(u => (
+            <option key={u._id} value={u._id}>{u.name}</option>
+          ))}
+        </Select>
+        {activeFilterCount > 0 && (
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors hover:opacity-80"
+            style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }}
+          >
+            <X size={12} /> Clear filters ({activeFilterCount})
+          </button>
+        )}
+        <span className="text-[12px] ml-auto" style={{ color: 'var(--fd-ink-4)' }}>
           Click any task to view details &amp; update status
         </span>
       </div>

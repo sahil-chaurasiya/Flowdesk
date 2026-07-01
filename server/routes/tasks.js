@@ -79,7 +79,8 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   const {
     status, priority, category, client,
     clientId: clientIdParam,
-    assignedTo, page = 1, search
+    assignedTo, page = 1, search,
+    createdBy, dateFrom, dateTo,
   } = req.query;
 
   // Accept both ?client=<id> and ?clientId=<id>
@@ -91,6 +92,8 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   if (!isManager) {
     // Team members only see tasks assigned to them
     query.assignedTo = req.user._id;
+    // Still allow them to narrow down to a specific client among their own tasks
+    if (clientId) query.client = clientId;
   } else {
     // Admins and managers: scope to their assigned clients
     const scopedClientIds = await getScopedClientIds(req.user);
@@ -113,10 +116,20 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     if (assignedTo) query.assignedTo = assignedTo;
   }
 
-  if (status)   query.status   = status;
-  if (priority) query.priority = priority;
-  if (category) query.category = category;
-  if (search)   query.title    = { $regex: search, $options: 'i' };
+  if (status)    query.status    = status;
+  if (priority)  query.priority  = priority;
+  if (category)  query.category  = category;
+  if (search)    query.title     = { $regex: search, $options: 'i' };
+  // "Assigned by" filter — who created/assigned the task
+  if (createdBy) query.createdBy = createdBy;
+
+  // Monthly / date-range filter — scoped to task creation date, so the
+  // person can view "this month's" tasks instead of the entire history.
+  if (dateFrom || dateTo) {
+    query.createdAt = {};
+    if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+    if (dateTo)   query.createdAt.$lte = new Date(dateTo);
+  }
 
   // Personal tasks (admin's own, no client) are never visible to anyone
   // other than the person who created them — not even other admins.

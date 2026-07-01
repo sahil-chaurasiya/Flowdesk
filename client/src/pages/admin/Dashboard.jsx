@@ -1455,7 +1455,7 @@ export default function AdminDashboard() {
           </div>
         </div>
         {isManagerOrAdmin && (
-          <Link to="/admin/tasks" className="btn-primary hidden sm:inline-flex">
+          <Link to="/admin/kanban" className="btn-primary hidden sm:inline-flex">
             <Plus size={14} />
             New Task
           </Link>

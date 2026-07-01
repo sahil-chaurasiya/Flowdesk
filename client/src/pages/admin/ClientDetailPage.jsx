@@ -356,8 +356,8 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
       {/* ── Content KPIs ── */}
       {(() => {
         const contentTypes = ['reel', 'static_post', 'carousel', 'story', 'other'];
-        const contentEvents = events.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done');
-        const overdueCount = events.filter(ev => ev.isOverdue).length;
+        const contentEvents = events.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done' && isSameMonth(parseISO(ev.startDate), month));
+        const overdueCount = events.filter(ev => ev.isOverdue && isSameMonth(parseISO(ev.startDate), month)).length;
         const kpis = [
           { label: 'Total Content', count: contentEvents.length,                                                                            color: '#4f6ef0', bg: '#eef2ff', icon: '📦' },
           { label: 'Posts',         count: contentEvents.filter(ev => ev.type === 'static_post' || ev.type === 'carousel').length,          color: '#8b5cf6', bg: '#f5f3ff', icon: '🖼️' },
@@ -442,7 +442,7 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
                     ))}
                   </div>
                 )}
-                <div className="px-1 pb-1 space-y-[2px]">
+                <div className="px-1 pb-1 space-y-[2px]" style={{ opacity: inMonth ? 1 : 0.35 }}>
                   {dayEvts.slice(0, 2).map(ev => {
                     const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
                     const overdue = ev.isOverdue;

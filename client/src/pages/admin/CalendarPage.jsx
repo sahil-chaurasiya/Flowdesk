@@ -1115,8 +1115,9 @@ export default function CalendarPage() {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
-  // Overdue count (client-side, across loaded events)
-  const overdueCount = events.filter(ev => ev.isOverdue).length;
+  // Overdue count (client-side, across loaded events) — scoped to the month
+  // currently being viewed, not the padding days from adjacent months.
+  const overdueCount = events.filter(ev => ev.isOverdue && isSameMonth(parseISO(ev.startDate), current)).length;
 
   // Client-side overdue filter (only for overdueOnly toggle since it's a UI filter)
   const displayedEvents = filters.overdueOnly
@@ -1300,7 +1301,7 @@ export default function CalendarPage() {
       {/* ── Content KPIs ── */}
       {(() => {
         const contentTypes = ['reel', 'static_post', 'carousel', 'story', 'other'];
-        const contentEvents = displayedEvents.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done');
+        const contentEvents = displayedEvents.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done' && isSameMonth(parseISO(ev.startDate), current));
         const kpis = [
           { label: 'Total Content', count: contentEvents.length, color: '#4f6ef0', bg: '#eef2ff', icon: '📦' },
           { label: 'Posts',         count: contentEvents.filter(ev => ev.type === 'static_post' || ev.type === 'carousel').length, color: '#8b5cf6', bg: '#f5f3ff', icon: '🖼️' },
@@ -1438,7 +1439,7 @@ export default function CalendarPage() {
                       )}
 
                       {/* Mobile: colored dots only */}
-                      <div className="sm:hidden px-1 pb-1 flex flex-wrap gap-[3px]">
+                      <div className="sm:hidden px-1 pb-1 flex flex-wrap gap-[3px]" style={{ opacity: inMonth ? 1 : 0.35 }}>
                         {dayEvts.slice(0, 3).map(ev => {
                           const c = EVENT_COLORS[ev.type] || EVENT_COLORS.other;
                           return (
@@ -1457,7 +1458,7 @@ export default function CalendarPage() {
                       </div>
 
                       {/* Desktop: event chips */}
-                      <div className="hidden sm:block px-1 pb-1">
+                      <div className="hidden sm:block px-1 pb-1" style={{ opacity: inMonth ? 1 : 0.35 }}>
                         {dayEvts.slice(0, 3).map(ev => {
                           const evStart = parseISO(ev.startDate);
                           const evEnd   = ev.endDate ? parseISO(ev.endDate) : evStart;

@@ -96,10 +96,19 @@ export function ClientFilesPage() {
                   <span>{formatFileSize(f.size)}</span>
                   <span>{timeAgo(f.createdAt)}</span>
                 </div>
-                <a href={f.url} target="_blank" rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium py-2 rounded-lg transition-colors">
-                  <Download size={14} />Download
-                </a>
+                {f.available === false ? (
+                  <div
+                    title="This file isn't available right now. Please contact your account manager."
+                    className="w-full flex items-center justify-center gap-2 bg-[var(--fd-surface-sunken)] text-[var(--fd-ink-4)] text-sm font-medium py-2 rounded-lg cursor-not-allowed"
+                  >
+                    File unavailable
+                  </div>
+                ) : (
+                  <a href={f.url} target="_blank" rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium py-2 rounded-lg transition-colors">
+                    <Download size={14} />Download
+                  </a>
+                )}
               </CardContent>
             </Card>
           ))}

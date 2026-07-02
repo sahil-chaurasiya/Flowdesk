@@ -10,6 +10,25 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+const isCloudinaryConfigured = !!(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+// FAIL LOUD instead of silently falling back to local (ephemeral) disk storage.
+// On hosts like Hostinger, the local uploads/ folder gets wiped on every
+// restart/redeploy, so a silent fallback here is exactly how files quietly
+// go missing. Better to crash on boot with a clear message than to lose files.
+if (process.env.FILE_STORAGE === 'cloudinary' && !isCloudinaryConfigured) {
+  throw new Error(
+    '[cloudinary config] FILE_STORAGE=cloudinary is set but CLOUDINARY_CLOUD_NAME / ' +
+    'CLOUDINARY_API_KEY / CLOUDINARY_API_SECRET are missing or empty. ' +
+    'Fix your environment variables (and restart the server) before continuing — ' +
+    'refusing to silently fall back to local disk storage.'
+  );
+}
+
 const getUploader = () => {
   if (process.env.FILE_STORAGE === 'cloudinary') {
     const storage = new CloudinaryStorage({
@@ -53,4 +72,4 @@ const getFileUrl = (req, filename) => {
   return `${req.protocol}://${req.get('host')}/uploads/${filename}`;
 };
 
-module.exports = { cloudinary, getUploader, getFileUrl };
+module.exports = { cloudinary, getUploader, getFileUrl, isCloudinaryConfigured };

@@ -528,6 +528,7 @@ export function FilesAdminPage() {
                           <div>
                             <div className="font-medium text-[var(--fd-ink-1)] truncate max-w-xs">{f.name}</div>
                             {!f.isPublic && <span className="text-xs text-[var(--fd-ink-4)]">Private</span>}
+                            {f.available === false && <span className="text-xs text-red-500 font-medium">File unavailable</span>}
                           </div>
                         </div>
                       </td>
@@ -539,8 +540,12 @@ export function FilesAdminPage() {
                       <td className="px-4 py-3.5 text-[var(--fd-ink-2)]">{f.uploadedBy?.name || '—'}</td>
                       <td className="px-4 py-3.5 text-[var(--fd-ink-3)] text-xs">{formatDate(f.createdAt)}</td>
                       <td className="px-4 py-3.5">
-                        <div className="flex gap-1">
-                          <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline px-2">Download</a>
+                        <div className="flex gap-1 items-center">
+                          {f.available === false ? (
+                            <span className="text-[var(--fd-ink-5)] text-xs font-medium px-2 cursor-not-allowed" title="This file's storage was lost (e.g. a server restart). Re-upload to fix it.">Download</span>
+                          ) : (
+                            <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline px-2">Download</a>
+                          )}
                           <button onClick={() => handleDelete(f._id)} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={13} /></button>
                         </div>
                       </td>
@@ -567,10 +572,17 @@ export function FilesAdminPage() {
                         <span>·</span>
                         <span>{formatFileSize(f.size)}</span>
                       </div>
-                      <div className="text-xs text-[var(--fd-ink-4)] mt-0.5">{f.uploadedBy?.name} · {formatDate(f.createdAt)}</div>
+                      <div className="text-xs text-[var(--fd-ink-4)] mt-0.5">
+                        {f.uploadedBy?.name} · {formatDate(f.createdAt)}
+                        {f.available === false && <span className="text-red-500 font-medium"> · File unavailable</span>}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
+                      {f.available === false ? (
+                        <span className="text-[var(--fd-ink-5)] text-xs font-medium cursor-not-allowed" title="This file's storage was lost (e.g. a server restart). Re-upload to fix it.">Download</span>
+                      ) : (
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
+                      )}
                       <button onClick={() => handleDelete(f._id)} className="text-red-400 hover:text-red-600 p-1 ml-1"><Trash2 size={13} /></button>
                     </div>
                   </div>

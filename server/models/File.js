@@ -46,6 +46,13 @@ const fileSchema = new mongoose.Schema({
     type: String,
     enum: ['local', 'cloudinary'],
     default: 'local'
+  },
+  // Set to true once we detect the underlying file no longer exists on disk
+  // (e.g. wiped by a host restart/redeploy while storageType was 'local').
+  // Lets the UI show "file missing" instead of linking to a dead URL.
+  missing: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true

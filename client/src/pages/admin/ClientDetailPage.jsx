@@ -3320,10 +3320,17 @@ export default function ClientDetailPage() {
                     <div className="text-2xl flex-shrink-0">{f.mimeType?.includes('pdf') ? '📄' : f.mimeType?.includes('image') ? '🖼️' : f.mimeType?.includes('zip') ? '📦' : '📎'}</div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-[var(--fd-ink-1)] text-sm truncate">{f.name}</div>
-                      <div className="text-xs text-[var(--fd-ink-3)]">{f.uploadedBy?.name} · {timeAgo(f.createdAt)} {f.size ? `· ${formatFileSize(f.size)}` : ''}</div>
+                      <div className="text-xs text-[var(--fd-ink-3)]">
+                        {f.uploadedBy?.name} · {timeAgo(f.createdAt)} {f.size ? `· ${formatFileSize(f.size)}` : ''}
+                        {f.available === false && <span className="text-red-500 font-medium"> · File unavailable</span>}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
+                      {f.available === false ? (
+                        <span className="text-[var(--fd-ink-5)] text-xs font-medium cursor-not-allowed" title="This file's storage was lost (e.g. a server restart). Ask an admin to re-upload it.">Download</span>
+                      ) : (
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
+                      )}
                       {isManager && (
                         <button onClick={() => setDeleteFileId(f._id)} className="p-1 rounded hover:bg-red-50 text-[var(--fd-ink-4)] hover:text-red-500 transition-colors" title="Delete file">
                           <Trash2 size={13} />
@@ -3706,31 +3713,54 @@ export default function ClientDetailPage() {
               {monthlyReports.map(f => (
                 <Card key={f._id} className="hover:shadow-md transition-shadow">
                   <CardContent>
-                    <a href={f.url} target="_blank" rel="noopener noreferrer" className="block" title={`Open ${f.name}`}>
+                    {f.available === false ? (
                       <div
                         className="rounded-lg flex items-center justify-center mb-3"
-                        style={{ height: 92, fontSize: 38, background: 'var(--fd-surface-raised)' }}
+                        style={{ height: 92, fontSize: 38, background: 'var(--fd-surface-raised)', opacity: 0.5 }}
+                        title="This file's storage was lost (e.g. a server restart). Ask an admin to re-upload it."
                       >
                         {getFileIcon(f.mimeType)}
                       </div>
-                    </a>
+                    ) : (
+                      <a href={f.url} target="_blank" rel="noopener noreferrer" className="block" title={`Open ${f.name}`}>
+                        <div
+                          className="rounded-lg flex items-center justify-center mb-3"
+                          style={{ height: 92, fontSize: 38, background: 'var(--fd-surface-raised)' }}
+                        >
+                          {getFileIcon(f.mimeType)}
+                        </div>
+                      </a>
+                    )}
                     <div className="font-medium text-[var(--fd-ink-1)] text-[13px] truncate" title={f.name}>{f.name}</div>
-                    <div className="text-[11px] text-[var(--fd-ink-4)] mt-1 truncate">{f.uploadedBy?.name || 'Unknown'} · {timeAgo(f.createdAt)}</div>
+                    <div className="text-[11px] text-[var(--fd-ink-4)] mt-1 truncate">
+                      {f.uploadedBy?.name || 'Unknown'} · {timeAgo(f.createdAt)}
+                      {f.available === false && <span className="text-red-500 font-medium"> · Unavailable</span>}
+                    </div>
                     <div className="flex items-center justify-between mt-2.5">
                       <span className="text-[11px] text-[var(--fd-ink-4)]">{formatFileSize(f.size)}</span>
                       <div className="flex items-center gap-1">
-                        <a
-                          href={f.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Download"
-                          className="p-1.5 rounded-lg transition-colors"
-                          style={{ color: 'var(--fd-ink-3)' }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--fd-surface-raised)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                        >
-                          <Download size={14} />
-                        </a>
+                        {f.available === false ? (
+                          <span
+                            title="This file's storage was lost (e.g. a server restart). Ask an admin to re-upload it."
+                            className="p-1.5 rounded-lg cursor-not-allowed"
+                            style={{ color: 'var(--fd-ink-5)' }}
+                          >
+                            <Download size={14} />
+                          </span>
+                        ) : (
+                          <a
+                            href={f.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Download"
+                            className="p-1.5 rounded-lg transition-colors"
+                            style={{ color: 'var(--fd-ink-3)' }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--fd-surface-raised)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                          >
+                            <Download size={14} />
+                          </a>
+                        )}
                         {isManager && (
                           <button
                             onClick={() => setDeleteMonthlyReportId(f._id)}

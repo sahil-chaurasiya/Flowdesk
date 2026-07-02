@@ -1990,6 +1990,38 @@ export default function ClientDetailPage() {
   const [monthlyReportUploadError, setMonthlyReportUploadError] = useState(null);
   const [deleteMonthlyReportId, setDeleteMonthlyReportId] = useState(null);
   const [deletingMonthlyReport, setDeletingMonthlyReport] = useState(false);
+  // Shared "re-upload" flow for fixing files whose storage was lost (available: false).
+  // Works for both the plain Files tab and the Monthly Reports tab since both use
+  // the same File model / API endpoint.
+  const [replacingFileId, setReplacingFileId] = useState(null);
+  const replaceFileInputRef = useRef(null);
+  const replaceFileTarget = useRef({ id: null, list: null }); // list: 'files' | 'monthlyReports'
+
+  const triggerFileReplace = (fileId, list) => {
+    replaceFileTarget.current = { id: fileId, list };
+    replaceFileInputRef.current?.click();
+  };
+
+  const handleFileReplaceSelected = async (e) => {
+    const picked = e.target.files?.[0];
+    const { id: targetId, list } = replaceFileTarget.current;
+    e.target.value = '';
+    if (!picked || !targetId) return;
+
+    setReplacingFileId(targetId);
+    try {
+      const fd = new FormData();
+      fd.append('file', picked);
+      const res = await api.post(`/files/${targetId}/replace`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const setter = list === 'monthlyReports' ? setMonthlyReports : setFiles;
+      setter(prev => prev.map(f => f._id === targetId ? res.data.file : f));
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Re-upload failed. Check the file type and try again.');
+    } finally {
+      setReplacingFileId(null);
+      replaceFileTarget.current = { id: null, list: null };
+    }
+  };
   const [reports, setReports] = useState([]);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showUploadReportModal, setShowUploadReportModal] = useState(false);
@@ -3307,6 +3339,7 @@ export default function ClientDetailPage() {
       {/* FILES */}
       {activeTab === 'files' && (
         <div className="space-y-4">
+          <input ref={replaceFileInputRef} type="file" className="hidden" onChange={handleFileReplaceSelected} />
           <div className="flex justify-end">
             <Button size="sm" onClick={() => { setShowFileUploadModal(true); setFileUploadError(null); setSelectedUploadFile(null); setFileUploadForm({ name: '', category: 'other', description: '', isPublic: true }); }}>
               <Upload size={14} /> Upload File
@@ -3327,7 +3360,14 @@ export default function ClientDetailPage() {
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {f.available === false ? (
-                        <span className="text-[var(--fd-ink-5)] text-xs font-medium cursor-not-allowed" title="This file's storage was lost (e.g. a server restart). Ask an admin to re-upload it.">Download</span>
+                        <button
+                          onClick={() => triggerFileReplace(f._id, 'files')}
+                          disabled={replacingFileId === f._id}
+                          className="text-amber-600 text-xs font-medium hover:underline disabled:opacity-50"
+                          title="This file's storage was lost (e.g. a server restart). Click to upload a replacement."
+                        >
+                          {replacingFileId === f._id ? 'Uploading…' : 'Re-upload'}
+                        </button>
                       ) : (
                         <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
                       )}
@@ -3740,13 +3780,15 @@ export default function ClientDetailPage() {
                       <span className="text-[11px] text-[var(--fd-ink-4)]">{formatFileSize(f.size)}</span>
                       <div className="flex items-center gap-1">
                         {f.available === false ? (
-                          <span
-                            title="This file's storage was lost (e.g. a server restart). Ask an admin to re-upload it."
-                            className="p-1.5 rounded-lg cursor-not-allowed"
-                            style={{ color: 'var(--fd-ink-5)' }}
+                          <button
+                            onClick={() => triggerFileReplace(f._id, 'monthlyReports')}
+                            disabled={replacingFileId === f._id}
+                            title={replacingFileId === f._id ? 'Uploading…' : "This file's storage was lost. Click to upload a replacement."}
+                            className="p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                            style={{ color: '#b45309' }}
                           >
-                            <Download size={14} />
-                          </span>
+                            <Upload size={14} />
+                          </button>
                         ) : (
                           <a
                             href={f.url}

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Rss, Plus, BarChart3, Upload, Trash2, Building2, X, Filter } from 'lucide-react';
 import api from '../../lib/api';
 import { PageHeader, EmptyState, Avatar, Card, CardContent, Spinner } from '../../components/shared/LoadingScreen';
@@ -398,6 +398,9 @@ export function FilesAdminPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [deleteFileId, setDeleteFileId] = useState(null);
   const [deletingFile, setDeletingFile] = useState(false);
+  const [replacingId, setReplacingId] = useState(null); // file currently being re-uploaded (spinner state)
+  const replaceInputRef = useRef(null);
+  const replaceTargetId = useRef(null);
 
   const CATEGORIES = ['report', 'creative', 'contract', 'invoice', 'presentation', 'media', 'other'];
 
@@ -451,6 +454,31 @@ export function FilesAdminPage() {
 
   const hasFilters = filterClient || filterCategory;
 
+  const triggerReplace = (fileId) => {
+    replaceTargetId.current = fileId;
+    replaceInputRef.current?.click();
+  };
+
+  const handleReplaceFileSelected = async (e) => {
+    const picked = e.target.files?.[0];
+    const targetId = replaceTargetId.current;
+    e.target.value = ''; // allow re-selecting the same filename later
+    if (!picked || !targetId) return;
+
+    setReplacingId(targetId);
+    try {
+      const fd = new FormData();
+      fd.append('file', picked);
+      const res = await api.post(`/files/${targetId}/replace`, fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setFiles(prev => prev.map(f => f._id === targetId ? res.data.file : f));
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Re-upload failed. Check the file type and try again.');
+    } finally {
+      setReplacingId(null);
+      replaceTargetId.current = null;
+    }
+  };
+
   return (
     <div className="space-y-5 animate-fade-in">
       <PageHeader
@@ -458,6 +486,7 @@ export function FilesAdminPage() {
         subtitle="All uploaded files"
         actions={<Button onClick={() => setShowModal(true)}><Plus size={16} />Upload File</Button>}
       />
+      <input ref={replaceInputRef} type="file" className="hidden" onChange={handleReplaceFileSelected} />
 
       {/* Filter bar */}
       <div className="flex flex-wrap items-center gap-2">
@@ -542,7 +571,14 @@ export function FilesAdminPage() {
                       <td className="px-4 py-3.5">
                         <div className="flex gap-1 items-center">
                           {f.available === false ? (
-                            <span className="text-[var(--fd-ink-5)] text-xs font-medium px-2 cursor-not-allowed" title="This file's storage was lost (e.g. a server restart). Re-upload to fix it.">Download</span>
+                            <button
+                              onClick={() => triggerReplace(f._id)}
+                              disabled={replacingId === f._id}
+                              className="text-amber-600 text-xs font-medium hover:underline px-2 disabled:opacity-50"
+                              title="This file's storage was lost (e.g. a server restart). Click to upload a replacement."
+                            >
+                              {replacingId === f._id ? 'Uploading…' : 'Re-upload'}
+                            </button>
                           ) : (
                             <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline px-2">Download</a>
                           )}
@@ -579,7 +615,14 @@ export function FilesAdminPage() {
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {f.available === false ? (
-                        <span className="text-[var(--fd-ink-5)] text-xs font-medium cursor-not-allowed" title="This file's storage was lost (e.g. a server restart). Re-upload to fix it.">Download</span>
+                        <button
+                          onClick={() => triggerReplace(f._id)}
+                          disabled={replacingId === f._id}
+                          className="text-amber-600 text-xs font-medium hover:underline disabled:opacity-50"
+                          title="This file's storage was lost. Click to upload a replacement."
+                        >
+                          {replacingId === f._id ? 'Uploading…' : 'Re-upload'}
+                        </button>
                       ) : (
                         <a href={f.url} target="_blank" rel="noopener noreferrer" className="text-brand-600 text-xs font-medium hover:underline">Download</a>
                       )}

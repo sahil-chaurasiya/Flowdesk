@@ -155,7 +155,9 @@ userSchema.statics.roleLabel = function (role) {
   return labels[role] || role;
 };
 
-userSchema.index({ email: 1 });
+// NOTE: email already gets a unique index from `unique: true` above —
+// the explicit index below was a duplicate and caused the Mongoose
+// "Duplicate schema index on {email:1}" warning on every boot.
 userSchema.index({ role: 1 });
 
 module.exports = mongoose.model('User', userSchema);

@@ -146,6 +146,18 @@ app.use((req, res) => {
 // Global Error Handler
 app.use(errorHandler);
 
+// ── Global crash guards ────────────────────────────────────────────────────
+// Without these, ANY unhandled promise rejection or thrown error anywhere in
+// the app (not just Mongo) takes down the entire server for every user.
+// We log it instead of exiting so one bad request doesn't kill everyone else.
+process.on('unhandledRejection', (reason) => {
+  console.error('🔥 Unhandled Rejection:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('🔥 Uncaught Exception:', err);
+});
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 FlowDesk Server running on port ${PORT}`);

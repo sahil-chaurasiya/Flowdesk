@@ -289,7 +289,20 @@ export default function TasksPage() {
                         )}
                       </td>
                       <td className="text-[12.5px]" style={{ color: 'var(--fd-ink-2)' }}>
-                        {task.client?.company || '—'}
+                        {task.client?.company || (
+                          task.clientDeleted ? (
+                            <span className="inline-flex items-center gap-1">
+                              {task.deletedClientName || 'Unknown'}
+                              <span
+                                className="text-[9px] font-semibold px-1 py-0.5 rounded"
+                                style={{ background: 'rgba(107,114,128,0.15)', color: 'var(--fd-ink-3)' }}
+                                title="This client has been deleted"
+                              >
+                                Deleted Client
+                              </span>
+                            </span>
+                          ) : '—'
+                        )}
                       </td>
                       <td className="text-[12.5px]" style={{ color: 'var(--fd-ink-3)' }}>
                         {CATEGORY_LABELS[task.category] || task.category}
@@ -382,7 +395,7 @@ export default function TasksPage() {
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-[13px]" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</div>
                       <div className="text-[11.5px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
-                        {task.client?.company} · {timeAgo(task.createdAt)}
+                        {task.client?.company || (task.clientDeleted ? `${task.deletedClientName || 'Unknown'} (Deleted Client)` : '')} · {timeAgo(task.createdAt)}
                       </div>
                     </div>
                     <div className="flex items-center gap-1"><Button size="xs" variant="ghost" onClick={() => openEdit(task)}>Edit</Button>{isManager && (<button onClick={() => handleDelete(task._id)} className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" style={{ color: '#ef4444' }} title="Delete task"><Trash2 size={13} /></button>)}</div>

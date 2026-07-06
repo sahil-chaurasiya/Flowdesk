@@ -276,8 +276,12 @@ router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async
   const id = req.params.id;
 
   // ── Cascade delete all related data ─────────────────────────────────────────
+  // Tasks are intentionally NOT deleted — the team's work history on a client
+  // should persist even after the client is removed. Instead, tag them as
+  // belonging to a deleted client and snapshot the client's name for display,
+  // since the `client` ref will no longer resolve once the Client doc is gone.
   await Promise.all([
-    Task.deleteMany({ client: id }),
+    Task.updateMany({ client: id }, { clientDeleted: true, deletedClientName: client.company || client.name }),
     Update.deleteMany({ client: id }),
     Report.deleteMany({ client: id }),
     File.deleteMany({ client: id }),

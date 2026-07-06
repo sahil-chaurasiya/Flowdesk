@@ -92,6 +92,17 @@ const taskSchema = new mongoose.Schema({
   isClientRequest: {
     type: Boolean,
     default: false
+  },
+  // Set when the client this task belonged to has been deleted. The task
+  // itself is kept (work history/audit trail), but the `client` ref will no
+  // longer resolve, so we snapshot the client's name here for display.
+  clientDeleted: {
+    type: Boolean,
+    default: false
+  },
+  deletedClientName: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true

@@ -1012,7 +1012,8 @@ export default function ClientsPage() {
             ? This action cannot be undone.
           </p>
           <p className="text-[12px] px-3 py-2 rounded-lg" style={{ background: '#fef2f2', color: '#b91c1c' }}>
-            All associated data (tasks, updates, files, reports) may be affected.
+            Associated updates, files, reports, and other records will be permanently removed.
+            Tasks will be kept as work history and marked with a "Deleted Client" tag.
           </p>
         </div>
       </Modal>

@@ -398,6 +398,9 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLo
             {task.client?.company && (
               <InfoTile icon={Building2} label="Client" value={task.client.company} />
             )}
+            {!task.client?.company && task.clientDeleted && (
+              <InfoTile icon={Building2} label="Client" value={`${task.deletedClientName || 'Unknown'} (Deleted)`} />
+            )}
             {task.category && (
               <InfoTile icon={Tag} label="Category" value={CATEGORY_LABELS[task.category] || task.category} />
             )}
@@ -796,6 +799,9 @@ export default function MyTasksPage() {
                 <div className="flex flex-wrap items-center gap-2 text-xs mb-3" style={{ color: 'var(--fd-ink-4)' }}>
                   {task.client?.company && (
                     <span className="font-medium" style={{ color: 'var(--fd-ink-2)' }}>{task.client.company}</span>
+                  )}
+                  {!task.client?.company && task.clientDeleted && (
+                    <span className="font-medium" style={{ color: 'var(--fd-ink-2)' }}>{task.deletedClientName || 'Unknown'} (Deleted)</span>
                   )}
                   <span>{CATEGORY_LABELS[task.category] || task.category}</span>
                   <span

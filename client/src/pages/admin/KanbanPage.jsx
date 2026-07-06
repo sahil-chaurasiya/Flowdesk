@@ -110,10 +110,15 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            {task.client?.company && (
+            {(task.client?.company || task.clientDeleted) && (
               <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
                 <div className="flex items-center gap-1.5 mb-1"><Building2 size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Client</span></div>
-                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{task.client.company}</div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{task.client?.company || task.deletedClientName || 'Unknown'}</div>
+                {task.clientDeleted && (
+                  <div className="text-[10px] font-semibold mt-1 inline-block px-1.5 py-0.5 rounded" style={{ background: 'rgba(107,114,128,0.15)', color: 'var(--fd-ink-3)' }}>
+                    Deleted Client
+                  </div>
+                )}
               </div>
             )}
             {task.assignedTo && (
@@ -191,6 +196,9 @@ function TaskCard({ task, onDragStart, onClick }) {
           <div className="text-[12.5px] font-medium leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</div>
           {task.isPersonal && <div className="text-[10.5px] mt-0.5 font-medium" style={{ color: '#a855f7' }}>🔒 Personal</div>}
           {task.client?.company && <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{task.client.company}</div>}
+          {!task.client?.company && task.clientDeleted && (
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{task.deletedClientName || 'Unknown'} · Deleted Client</div>
+          )}
           {task.description && <div className="text-[11px] mt-1 line-clamp-2 leading-relaxed" style={{ color: 'var(--fd-ink-4)' }}>{task.description}</div>}
         </div>
       </div>

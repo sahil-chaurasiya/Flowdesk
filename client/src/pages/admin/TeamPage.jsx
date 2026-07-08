@@ -137,13 +137,29 @@ export default function TeamPage() {
     loadTodayAttendance();
   }, []);
 
+  const [createError, setCreateError] = useState('');
+
   const handleCreate = async () => {
+    setCreateError('');
+    if (!form.name.trim() || !form.email.trim()) {
+      setCreateError('Name and email are required.');
+      return;
+    }
+    if (form.password && form.password.length < 8) {
+      setCreateError('Password must be at least 8 characters (or leave it blank to use the default).');
+      return;
+    }
     setSaving(true);
     try {
       await api.post('/users', form);
       setShowModal(false);
+      setForm({ name: '', email: '', password: '', role: 'copywriter', jobTitle: '', department: '', phone: '' });
       load();
-    } finally { setSaving(false); }
+    } catch (err) {
+      setCreateError(err?.response?.data?.message || 'Failed to create team member. Please check the fields and try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleActive = async (e, id, isActive) => {
@@ -399,16 +415,21 @@ export default function TeamPage() {
 
       <Modal
         isOpen={showModal}
-        onClose={() => setShowModal(false)}
+        onClose={() => { setShowModal(false); setCreateError(''); }}
         title="Add Team Member"
         footer={
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => { setShowModal(false); setCreateError(''); }}>Cancel</Button>
             <Button loading={saving} onClick={handleCreate}>Create Member</Button>
           </div>
         }
       >
         <div className="space-y-4">
+          {createError && (
+            <div className="text-[12.5px] px-3 py-2 rounded-lg" style={{ background: '#fef2f2', color: '#b91c1c' }}>
+              {createError}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Input label="Full Name *" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
             <Input label="Email *" type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} />

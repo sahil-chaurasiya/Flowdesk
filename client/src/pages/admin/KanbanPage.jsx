@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag, Trash2, Edit2, Play, ArrowRight, ChevronLeft, CalendarDays } from 'lucide-react';
+import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag, Trash2, Edit2, Play, ArrowRight, ChevronLeft, CalendarDays, RotateCcw, MessageSquarePlus } from 'lucide-react';
 import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { useToast } from '../../components/ui/index';
 import { Button, Modal, Input, Textarea, Select } from '../../components/ui/index';
 import { Spinner, EmptyState } from '../../components/shared/LoadingScreen';
-import { formatDate } from '../../lib/utils';
+import { formatDate, timeAgo } from '../../lib/utils';
 
 const COLUMNS = [
   { id: 'today',       label: 'Today',        color: '#f59e0b', icon: AlertCircle },
@@ -53,8 +53,156 @@ function linkifyText(text) {
   );
 }
 
+// Whether the most recently logged revision on a task was raised by a
+// PM/admin directly, rather than self-reported by the assignee.
+function isLatestRevisionByPM(task) {
+  const latest = task.revisions?.[task.revisions.length - 1];
+  return !!latest && ['admin', 'manager'].includes(latest.requestedBy?.role);
+}
+
+// ── Revision Badge ────────────────────────────────────────────────────────────
+// Mirrors the badge used on the team members' panel so revision counts read
+// the same everywhere in the app. When the most recent revision was logged
+// by a PM/admin (e.g. from this very board) it renders in indigo with a
+// "PM" chip so it's clear at a glance who raised it.
+function RevisionBadge({ count, size = 'sm', pmFlagged = false }) {
+  if (!count) return null;
+  const isLg = size === 'lg';
+  const palette = pmFlagged
+    ? { bg: 'rgba(79,110,240,0.12)', color: '#4f6ef0', border: 'rgba(79,110,240,0.3)' }
+    : { bg: 'rgba(245,158,11,0.12)', color: '#b45309', border: 'rgba(245,158,11,0.3)' };
+  return (
+    <span
+      className={`inline-flex items-center gap-1 font-semibold rounded-full ${isLg ? 'text-[12px] px-2.5 py-1' : 'text-[11px] px-2 py-0.5'}`}
+      style={{
+        background: palette.bg,
+        color: palette.color,
+        border: `1px solid ${palette.border}`,
+      }}
+      title={pmFlagged
+        ? `A project manager requested changes — sent back ${count} time${count > 1 ? 's' : ''}`
+        : `This task has been sent back for changes ${count} time${count > 1 ? 's' : ''}`}
+    >
+      <RotateCcw size={isLg ? 11 : 9} />
+      {count} revision{count > 1 ? 's' : ''}
+      {pmFlagged && (
+        <span
+          className="text-[9px] font-bold px-1 py-0 rounded-full uppercase tracking-wide"
+          style={{ background: 'rgba(79,110,240,0.18)' }}
+        >
+          PM
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ── Request Changes Button ──────────────────────────────────────────────────
+// PM/admin-side counterpart to the team member's "PM Asked for Changes"
+// button on My Tasks. Lets a manager log a change request directly from the
+// Kanban board — bumps the same revisionCount/revisions the team member view
+// reads from, so the KPI stays in sync everywhere.
+function RequestChangesButton({ task, onLogged, size = 'md' }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+  const [saving, setSaving] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const { data } = await api.post(`/tasks/${task._id}/revisions`, { note });
+      onLogged(data.task);
+      setNote('');
+      setOpen(false);
+    } finally { setSaving(false); }
+  };
+
+  const px = size === 'lg' ? 'px-4 py-3' : 'px-3 py-1.5';
+  const textSize = size === 'lg' ? 'text-[13.5px]' : 'text-[12px]';
+
+  return (
+    <div ref={ref} className="relative" style={{ display: 'inline-block' }}>
+      <button
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o); }}
+        className={`flex items-center gap-1.5 ${px} rounded-xl ${textSize} font-semibold transition-all hover:scale-[1.02] active:scale-[0.98] select-none`}
+        style={{
+          background: 'rgba(245,158,11,0.1)',
+          color: '#b45309',
+          border: '1px solid rgba(245,158,11,0.3)',
+        }}
+      >
+        <MessageSquarePlus size={size === 'lg' ? 14 : 11} />
+        Request Changes
+      </button>
+
+      {open && (
+        <div
+          className="absolute z-50 animate-fade-in"
+          style={{
+            bottom: 'calc(100% + 8px)',
+            left: 0,
+            minWidth: 260,
+            background: 'var(--fd-surface)',
+            border: '1.5px solid rgba(245,158,11,0.3)',
+            borderRadius: 14,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(245,158,11,0.2)',
+            overflow: 'hidden',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="px-4 py-3" style={{ background: 'rgba(245,158,11,0.1)', borderBottom: '1px solid rgba(245,158,11,0.2)' }}>
+            <div className="flex items-center gap-2 text-[12.5px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>
+              <RotateCcw size={13} style={{ color: '#b45309' }} />
+              Request a change
+            </div>
+            <p className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>
+              This bumps the revision counter so it's clear changes were requested.
+            </p>
+          </div>
+          <div className="p-3 space-y-2">
+            <textarea
+              autoFocus
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              placeholder="What needs to change? (optional)"
+              rows={3}
+              className="w-full rounded-lg p-2 text-[12.5px] resize-none outline-none"
+              style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', color: 'var(--fd-ink-1)' }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={submit}
+                disabled={saving}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12.5px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', opacity: saving ? 0.7 : 1 }}
+              >
+                {saving ? <Spinner size="xs" /> : <><RotateCcw size={12} /> Confirm</>}
+              </button>
+              <button
+                onClick={() => setOpen(false)}
+                className="flex items-center justify-center px-3 py-2.5 rounded-xl text-[12.5px] font-semibold transition-all hover:scale-[1.02]"
+                style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Task Detail Drawer ────────────────────────────────────────────────────────
-function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit, isManager }) {
+function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit, isManager, onRevisionLogged }) {
   if (!task) return null;
   const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
   const ss = STATUS_STYLE[task.status] || STATUS_STYLE.pending;
@@ -78,6 +226,7 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
                 </span>
               )}
               {isOverdue && <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>}
+              <RevisionBadge count={task.revisionCount} pmFlagged={isLatestRevisionByPM(task)} />
             </div>
             <h2 className="text-[16px] font-bold leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</h2>
           </div>
@@ -173,6 +322,68 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
               })}
             </div>
           </div>
+
+          {/* Request changes — managers/admins only. Same revisionCount the
+              team members' panel reads from, so logging it here keeps that
+              KPI in sync no matter which side of the board it's raised from. */}
+          {isManager && (task.status === 'in_progress' || task.status === 'review' || task.status === 'completed') && (
+            <div className="flex">
+              <RequestChangesButton task={task} onLogged={onRevisionLogged} size="md" />
+            </div>
+          )}
+
+          {/* Revision history */}
+          {task.revisions?.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 mb-2">
+                <RotateCcw size={13} style={{ color: 'var(--fd-ink-4)' }} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>
+                  Change History ({task.revisions.length})
+                </span>
+              </div>
+              <div className="space-y-2">
+                {[...task.revisions].reverse().map((rev, i) => {
+                  const loggedByPM = ['admin', 'manager'].includes(rev.requestedBy?.role);
+                  return (
+                    <div
+                      key={rev._id || i}
+                      className="rounded-lg p-2.5"
+                      style={loggedByPM
+                        ? { background: 'rgba(79,110,240,0.07)', border: '1px solid rgba(79,110,240,0.25)' }
+                        : { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[11.5px] font-semibold truncate" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                            {rev.requestedBy?.name || 'Team member'}
+                          </span>
+                          {loggedByPM && (
+                            <span
+                              className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0"
+                              style={{ background: 'rgba(79,110,240,0.15)', color: '#4f6ef0' }}
+                            >
+                              PM
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[10.5px] flex-shrink-0" style={{ color: 'var(--fd-ink-5)' }}>
+                          {timeAgo(rev.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] font-medium mb-1" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                        {loggedByPM ? 'Change requested by project manager' : 'Self-reported change'}
+                      </p>
+                      {rev.note ? (
+                        <p className="text-[12px]" style={{ color: 'var(--fd-ink-2)' }}>{rev.note}</p>
+                      ) : (
+                        <p className="text-[12px] italic" style={{ color: 'var(--fd-ink-5)' }}>No note added.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </>
@@ -215,9 +426,25 @@ function TaskCard({ task, onDragStart, onClick }) {
             </span>
           )}
         </div>
-        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: `${PRIORITY_COLORS[task.priority]}18`, color: PRIORITY_COLORS[task.priority] }}>
-          {task.priority}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {task.revisionCount > 0 && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[9.5px] font-semibold px-1.5 py-0.5 rounded"
+              style={isLatestRevisionByPM(task)
+                ? { background: 'rgba(79,110,240,0.16)', color: '#4f6ef0' }
+                : { background: 'rgba(245,158,11,0.14)', color: '#b45309' }}
+              title={isLatestRevisionByPM(task)
+                ? `${task.revisionCount} revision${task.revisionCount > 1 ? 's' : ''} — PM requested changes`
+                : `${task.revisionCount} revision${task.revisionCount > 1 ? 's' : ''} requested`}
+            >
+              <RotateCcw size={8} />
+              {task.revisionCount}
+            </span>
+          )}
+          <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ background: `${PRIORITY_COLORS[task.priority]}18`, color: PRIORITY_COLORS[task.priority] }}>
+            {task.priority}
+          </span>
+        </div>
       </div>
 
     </div>
@@ -467,6 +694,15 @@ export default function KanbanPage() {
     } finally { setEditSaving(false); }
   };
 
+  // Called after a manager logs a "Request Changes" revision from the drawer.
+  // The API returns the fully updated task (with new revisionCount/revisions),
+  // so we just swap it into both the board list and the open drawer.
+  const handleRevisionLogged = (updatedTask) => {
+    setTasks(prev => prev.map(t => t._id === updatedTask._id ? updatedTask : t));
+    setSelectedTask(prev => prev?._id === updatedTask._id ? updatedTask : prev);
+    toast({ type: 'success', title: 'Change request logged' });
+  };
+
   const isManager = ['admin', 'manager'].includes(user?.role);
 
   const byStatus = (status) => tasks.filter(t => t.status === status);
@@ -635,6 +871,7 @@ export default function KanbanPage() {
           onDelete={handleDelete}
           onEdit={openEdit}
           isManager={isManager}
+          onRevisionLogged={handleRevisionLogged}
         />
       )}
 

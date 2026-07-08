@@ -14,6 +14,13 @@ import { Button, Select } from '../../components/ui/index';
 import { formatDate, getTaskStatusColor, getPriorityColor, timeAgo } from '../../lib/utils';
 
 
+// Whether the most recently logged revision on a task was raised by a
+// PM/admin directly, rather than self-reported by the assignee.
+function isLatestRevisionByPM(task) {
+  const latest = task.revisions?.[task.revisions.length - 1];
+  return !!latest && ['admin', 'manager'].includes(latest.requestedBy?.role);
+}
+
 // Converts URLs in text to clickable anchor elements
 function linkifyText(text) {
   if (!text) return null;
@@ -192,22 +199,38 @@ function AssignedByBadge({ createdBy, isClientRequest, style }) {
 
 // ── Revision Badge ────────────────────────────────────────────────────────────
 // Shows the "changes requested" counter wherever a task is rendered.
-function RevisionBadge({ count, size = 'sm', onClick }) {
+// When the most recent revision was logged by a PM/admin (rather than
+// self-reported by the assignee), it's rendered in a distinct indigo tone
+// with a "PM" chip so it doesn't blend in with self-reported revisions.
+function RevisionBadge({ count, size = 'sm', onClick, pmFlagged = false }) {
   if (!count) return null;
   const isLg = size === 'lg';
+  const palette = pmFlagged
+    ? { bg: 'rgba(79,110,240,0.12)', color: '#4f6ef0', border: 'rgba(79,110,240,0.3)' }
+    : { bg: 'rgba(245,158,11,0.12)', color: '#b45309', border: 'rgba(245,158,11,0.3)' };
   return (
     <span
       onClick={onClick}
       className={`inline-flex items-center gap-1 font-semibold rounded-full ${isLg ? 'text-[12px] px-2.5 py-1' : 'text-[11px] px-2 py-0.5'} ${onClick ? 'cursor-pointer hover:scale-[1.04]' : ''} transition-transform`}
       style={{
-        background: 'rgba(245,158,11,0.12)',
-        color: '#b45309',
-        border: '1px solid rgba(245,158,11,0.3)',
+        background: palette.bg,
+        color: palette.color,
+        border: `1px solid ${palette.border}`,
       }}
-      title={`This task has been sent back for changes ${count} time${count > 1 ? 's' : ''}`}
+      title={pmFlagged
+        ? `Your project manager requested changes — sent back ${count} time${count > 1 ? 's' : ''}`
+        : `This task has been sent back for changes ${count} time${count > 1 ? 's' : ''}`}
     >
       <RotateCcw size={isLg ? 11 : 9} />
       {count} revision{count > 1 ? 's' : ''}
+      {pmFlagged && (
+        <span
+          className="text-[9px] font-bold px-1 py-0 rounded-full uppercase tracking-wide"
+          style={{ background: 'rgba(79,110,240,0.18)' }}
+        >
+          PM
+        </span>
+      )}
     </span>
   );
 }
@@ -361,7 +384,7 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLo
               {/* Assigned by — prominent in modal */}
               <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
                 <AssignedByBadge createdBy={task.createdBy} isClientRequest={task.isClientRequest} />
-                <RevisionBadge count={task.revisionCount} />
+                <RevisionBadge count={task.revisionCount} pmFlagged={isLatestRevisionByPM(task)} />
               </div>
             </div>
             <button
@@ -463,27 +486,49 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLo
                 </span>
               </div>
               <div className="space-y-2">
-                {[...task.revisions].reverse().map((rev, i) => (
-                  <div
-                    key={rev._id || i}
-                    className="rounded-lg p-2.5"
-                    style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[11.5px] font-semibold" style={{ color: '#b45309' }}>
-                        {rev.requestedBy?.name || 'Team member'}
-                      </span>
-                      <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-5)' }}>
-                        {timeAgo(rev.createdAt)}
-                      </span>
+                {[...task.revisions].reverse().map((rev, i) => {
+                  // A revision logged by an admin/manager was raised by the PM
+                  // directly (e.g. from the Kanban board) rather than
+                  // self-reported by the assignee — flag it distinctly so
+                  // it doesn't blend in with the team member's own entries.
+                  const loggedByPM = ['admin', 'manager'].includes(rev.requestedBy?.role);
+                  return (
+                    <div
+                      key={rev._id || i}
+                      className="rounded-lg p-2.5"
+                      style={loggedByPM
+                        ? { background: 'rgba(79,110,240,0.07)', border: '1px solid rgba(79,110,240,0.25)' }
+                        : { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[11.5px] font-semibold truncate" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                            {rev.requestedBy?.name || 'Team member'}
+                          </span>
+                          {loggedByPM && (
+                            <span
+                              className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0"
+                              style={{ background: 'rgba(79,110,240,0.15)', color: '#4f6ef0' }}
+                            >
+                              PM
+                            </span>
+                          )}
+                        </span>
+                        <span className="text-[10.5px] flex-shrink-0" style={{ color: 'var(--fd-ink-5)' }}>
+                          {timeAgo(rev.createdAt)}
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] font-medium mb-1" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                        {loggedByPM ? 'Change requested by project manager' : 'Self-reported change'}
+                      </p>
+                      {rev.note ? (
+                        <p className="text-[12px]" style={{ color: 'var(--fd-ink-2)' }}>{rev.note}</p>
+                      ) : (
+                        <p className="text-[12px] italic" style={{ color: 'var(--fd-ink-5)' }}>No note added.</p>
+                      )}
                     </div>
-                    {rev.note ? (
-                      <p className="text-[12px]" style={{ color: 'var(--fd-ink-2)' }}>{rev.note}</p>
-                    ) : (
-                      <p className="text-[12px] italic" style={{ color: 'var(--fd-ink-5)' }}>No note added.</p>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -778,7 +823,7 @@ export default function MyTasksPage() {
                       {isOverdue && (
                         <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>
                       )}
-                      <RevisionBadge count={task.revisionCount} />
+                      <RevisionBadge count={task.revisionCount} pmFlagged={isLatestRevisionByPM(task)} />
                     </div>
                     {/* Assigned by — visible on card */}
                     <AssignedByBadge createdBy={task.createdBy} isClientRequest={task.isClientRequest} />

@@ -7,7 +7,7 @@ import {
   ListChecks, Instagram, Sun, Moon, Search,
   Kanban, Calendar, Activity, Settings, Briefcase,
   FileSearch, Key, BookUser, CreditCard, PhoneCall,
-  ClipboardList,
+  ClipboardList, Code2,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -22,6 +22,7 @@ import AIAssistant from '../ai/AIAssistant';
 const ROLE_LABELS = {
   admin: 'Admin',
   manager: 'Project Manager',
+  developer: 'Software Developer',
   performance_marketer: 'Performance Marketer',
   social_media_manager: 'Social Media Manager',
   video_editor: 'Video Editor',
@@ -33,6 +34,7 @@ const navItems = [
   { to: '/admin/dashboard',        icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/admin/clients',          icon: Building2,       label: 'Clients',           managerOnly: true },
   { to: '/admin/kanban',           icon: Kanban,          label: 'Kanban',             managerOnly: true },
+  { to: '/admin/website-work',     icon: Code2,           label: 'Website Work',      websiteWorkOnly: true },
   { to: '/admin/my-tasks',         icon: ListChecks,      label: 'My Tasks',           teamOnly: true },
   { to: '/admin/my-day',           icon: ClipboardList,   label: 'My Day',             myDayOnly: true },
   { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       managerOnly: true },
@@ -56,7 +58,7 @@ const navItems = [
 const NAV_SECTIONS = [
   {
     label: 'Workspace',
-    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/my-tasks', '/admin/my-day', '/admin/leads', '/admin/internal-leads', '/admin/call-tracker'],
+    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/website-work', '/admin/my-tasks', '/admin/my-day', '/admin/leads', '/admin/internal-leads', '/admin/call-tracker'],
   },
   {
     label: 'Delivery',
@@ -73,6 +75,11 @@ const NAV_SECTIONS = [
 ];
 
 const TEAM_ROLES = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
+// Roles that should see the personal "My Tasks" page. This used to be just
+// TEAM_ROLES, which meant project managers (and developers) never saw the
+// nav link even though they can be assigned tasks directly — every internal
+// role should have a "My Tasks" view.
+const MY_TASKS_ROLES = ['manager', 'developer', ...TEAM_ROLES];
 
 export default function AdminLayout() {
   const { user, logout, updateUser } = useAuthStore();
@@ -122,19 +129,21 @@ export default function AdminLayout() {
   const handleLogout = async () => { await logout(); navigate('/login'); };
   const unread = user?.notifications?.filter(n => !n.read).length || 0;
 
-  const isManager  = ['admin', 'manager'].includes(user?.role);
+  const isManager  = ['admin', 'manager', 'developer'].includes(user?.role);
   const isAdmin    = user?.role === 'admin';
   const isPM       = user?.role === 'performance_marketer';
-  const isTeamOnly = TEAM_ROLES.includes(user?.role);
+  const isTeamOnly = MY_TASKS_ROLES.includes(user?.role);
   const isInternalLeads = ['admin', 'performance_marketer'].includes(user?.role);
   const isCallTracker   = ['admin', 'performance_marketer'].includes(user?.role);
   const isMyDay         = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter', 'manager'].includes(user?.role);
   const isAdminManager  = ['admin', 'manager'].includes(user?.role);
+  const isWebsiteWork   = ['admin', 'developer'].includes(user?.role);
 
   const filteredNavItems = navItems.filter(item => {
     if (item.adminOnly         && !isAdmin)         return false;
     if (item.managerOnly       && !isManager)       return false;
     if (item.teamOnly          && !isTeamOnly)      return false;
+    if (item.websiteWorkOnly   && !isWebsiteWork)   return false;
     if (item.internalLeadsOnly && !isInternalLeads) return false;
     if (item.callTrackerOnly   && !isCallTracker)   return false;
     if (item.hideForPM         && isPM)             return false;

@@ -21,7 +21,7 @@ const Update       = require('../models/Update');
 const { Conversation, Message } = require('../models/Message');
 
 const MANAGER_ROLES = ['admin', 'manager'];
-const TEAM_ROLES    = ['admin', 'manager', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
+const TEAM_ROLES    = ['admin', 'manager', 'developer', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 const WORKER_ROLES  = TEAM_ROLES.filter(r => !['admin', 'manager'].includes(r));
 
 // ─────────────────────────────────────────────────────────────────────────────

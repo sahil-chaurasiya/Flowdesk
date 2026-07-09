@@ -9,11 +9,11 @@ import { formatDate, timeAgo } from '../../lib/utils';
 const CATEGORY_LABELS = {
   paid_ads: 'Paid Ads', social_media: 'Social Media', video_editing: 'Video Editing',
   graphic_design: 'Graphic Design', copywriting: 'Copywriting', reporting: 'Reporting',
-  strategy: 'Strategy', client_request: 'Client Request', other: 'Other',
+  strategy: 'Strategy', client_request: 'Client Request', website_dev: 'Website Dev', other: 'Other',
 };
 
 const ROLE_LABELS = {
-  admin: 'Admin', manager: 'Project Manager',
+  admin: 'Admin', manager: 'Project Manager', developer: 'Software Developer',
   performance_marketer: 'Performance Marketer', social_media_manager: 'Social Media Manager',
   video_editor: 'Video Editor', graphic_designer: 'Graphic Designer', copywriter: 'Copywriter',
 };

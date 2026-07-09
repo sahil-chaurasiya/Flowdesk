@@ -42,6 +42,7 @@ const CATEGORY_LABELS = {
   reporting: '📋 Reporting',
   strategy: '🧠 Strategy',
   client_request: '💬 Client Request',
+  website_dev: '🖥️ Website Dev',
   other: '📌 Other',
 };
 
@@ -51,6 +52,8 @@ const ROLE_WELCOME = {
   video_editor: { greeting: 'Your Edit Queue', icon: '🎬', tip: 'Urgent edits are highlighted. Check the Files section for raw footage.' },
   graphic_designer: { greeting: 'Your Design Queue', icon: '🎨', tip: 'Check the brief in each task description before starting. Ask PM if anything is unclear.' },
   copywriter: { greeting: 'Your Writing Queue', icon: '✍️', tip: "Reference the client's brand voice in the Files section for any copy tasks." },
+  developer: { greeting: 'Your Dev Queue', icon: '🖥️', tip: 'Check the Website Work section for full project context on any task here.' },
+  manager: { greeting: 'Your Tasks', icon: '📋', tip: 'Tasks assigned directly to you — separate from the client tasks you manage.' },
 };
 
 const PRIORITY_COLORS = {
@@ -626,7 +629,7 @@ export default function MyTasksPage() {
         params.set('dateFrom', startOfMonth(monthCursor).toISOString());
         params.set('dateTo', endOfMonth(monthCursor).toISOString());
       }
-      const { data } = await api.get('/tasks?' + params.toString());
+      const { data } = await api.get('/tasks/mine?' + params.toString());
       setTasks(data.tasks || []);
     } finally { setLoading(false); }
   }, [statusFilter, clientFilter, priorityFilter, assignedByFilter, showAllTime, monthCursor]);

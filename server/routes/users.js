@@ -7,7 +7,7 @@ const { asyncHandler } = require('../middleware/error');
 const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
 const { logActivity } = require('../utils/activityLog');
 
-const TEAM_ONLY_ROLES = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
+const TEAM_ONLY_ROLES = ['developer', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 
 // ─── Attendance DB lazy connection ───────────────────────────────────────────
 let _attendanceDb = null;

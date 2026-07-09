@@ -6,12 +6,18 @@ const { asyncHandler } = require('./error');
 const TEAM_ROLES = [
   'admin',
   'manager',
+  'developer',
   'performance_marketer',
   'social_media_manager',
   'video_editor',
   'graphic_designer',
   'copywriter',
 ];
+
+// Roles with near-admin, cross-client oversight (admin, manager, developer).
+// 'developer' is granted almost every permission 'admin' has, per the
+// Website Work feature — see routes/websiteWork.js and routes/tasks.js.
+const ELEVATED_ROLES = ['admin', 'manager', 'developer'];
 
 // Protect route — verify JWT
 const protect = asyncHandler(async (req, res, next) => {
@@ -61,4 +67,4 @@ const authorize = (...roles) => {
 // Helper: check if user is any kind of team member (not client)
 const isTeamMember = (user) => TEAM_ROLES.includes(user?.role);
 
-module.exports = { protect, authorize, isTeamMember, TEAM_ROLES };
+module.exports = { protect, authorize, isTeamMember, TEAM_ROLES, ELEVATED_ROLES };

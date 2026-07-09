@@ -15,6 +15,7 @@ import { formatDate, getTaskStatusColor, getPriorityColor, timeAgo, getStatusCol
 
 const ROLE_LABELS = {
   admin: 'Admin', manager: 'Project Manager',
+  developer: 'Software Developer',
   performance_marketer: 'Performance Marketer',
   social_media_manager: 'Social Media Manager',
   video_editor: 'Video Editor', graphic_designer: 'Graphic Designer',
@@ -23,6 +24,7 @@ const ROLE_LABELS = {
 
 const ROLE_COLORS = {
   admin: 'bg-red-100 text-red-700', manager: 'bg-purple-100 text-purple-700',
+  developer: 'bg-cyan-100 text-cyan-700',
   performance_marketer: 'bg-blue-100 text-blue-700',
   social_media_manager: 'bg-pink-100 text-pink-700',
   video_editor: 'bg-orange-100 text-orange-700',

@@ -16,6 +16,7 @@ const WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const ROLE_LIMITS = {
   admin:                 40,
   manager:               40,
+  developer:             40,
   performance_marketer:  25,
   social_media_manager:  25,
   video_editor:          25,

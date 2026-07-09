@@ -9,14 +9,17 @@ const { createNotification } = require('../utils/notifications');
 const { logActivity } = require('../utils/activityLog');
 
 const NON_CLIENT_ROLES = [...TEAM_ROLES];
-const MANAGER_ROLES = ['admin', 'manager'];
+// 'developer' gets near-admin oversight of tasks (assign to anyone, edit/
+// delete across clients) — see getScopedClientIds below.
+const MANAGER_ROLES = ['admin', 'manager', 'developer'];
 
 // Helper: return the set of client IDs a manager/admin is scoped to.
-// Only admins get null (= no restriction). Managers (PMs) are restricted to
-// the clients they're the accountManager or a teamMember for — matching the
-// scoping used everywhere else in the app (clients.js, dashboard.js, reports.js, etc).
+// Admins and developers get null (= no restriction). Managers (PMs) are
+// restricted to the clients they're the accountManager or a teamMember for —
+// matching the scoping used everywhere else in the app (clients.js,
+// dashboard.js, reports.js, etc).
 async function getScopedClientIds(user) {
-  if (user.role === 'admin') return null; // no restriction
+  if (user.role === 'admin' || user.role === 'developer') return null; // no restriction
   const clients = await Client.find({
     $or: [{ accountManager: user._id }, { teamMembers: user._id }],
   }).select('_id');
@@ -74,6 +77,48 @@ router.post('/my-requests', protect, authorize('client'), asyncHandler(async (re
   res.status(201).json({ success: true, task: populated });
 }));
 
+// @route GET /api/tasks/mine
+// @desc  "My Tasks" feed — tasks assigned to the current user, regardless of
+//        role. Unlike GET /api/tasks (which scopes admins/managers/developers
+//        to all client tasks), this always filters to `assignedTo: me`, so
+//        project managers, developers, and admins see the same personal
+//        "My Tasks" experience as any other team member.
+// @access Any team role (not client)
+router.get('/mine', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
+  const { status, priority, client: clientId, createdBy, dateFrom, dateTo } = req.query;
+
+  const query = { assignedTo: req.user._id };
+  if (status)    query.status   = status;
+  if (priority)  query.priority = priority;
+  if (clientId)  query.client   = clientId;
+  if (createdBy) query.createdBy = createdBy;
+  if (dateFrom || dateTo) {
+    query.createdAt = {};
+    if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
+    if (dateTo)   query.createdAt.$lte = new Date(dateTo);
+  }
+
+  const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
+  const rawTasks = await Task.find(query)
+    .populate('client', 'name company')
+    .populate('assignedTo', 'name avatar role jobTitle')
+    .populate('createdBy', 'name')
+    .populate('websiteProject', 'name status')
+    .populate('revisions.requestedBy', 'name avatar role')
+    .sort({ deadline: 1, createdAt: -1 });
+
+  const tasks = rawTasks.sort((a, b) => {
+    const pa = PRIORITY_ORDER[a.priority] ?? 99;
+    const pb = PRIORITY_ORDER[b.priority] ?? 99;
+    if (pa !== pb) return pa - pb;
+    const da = a.deadline ? new Date(a.deadline) : Infinity;
+    const db = b.deadline ? new Date(b.deadline) : Infinity;
+    return da - db;
+  });
+
+  res.json({ success: true, tasks, total: tasks.length });
+}));
+
 // @route GET /api/tasks
 router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
   const {
@@ -88,6 +133,10 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
 
   const isManager = MANAGER_ROLES.includes(req.user.role);
   const query = {};
+  // Website Work tasks (admin/developer-only section) live in their own
+  // view (see routes/websiteWork.js) and shouldn't clutter the regular
+  // client-facing Tasks list — they still show up in GET /api/tasks/mine.
+  query.isWebsiteWork = { $ne: true };
 
   if (!isManager) {
     // Team members only see tasks assigned to them
@@ -165,6 +214,12 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
   // Empty-string client (e.g. "Select client…" left unselected) would fail
   // ObjectId casting — treat it the same as "no client".
   if (payload.client === '') delete payload.client;
+
+  // Website Work tasks are only ever created via routes/websiteWork.js —
+  // strip these fields here so they can't be spoofed through the generic
+  // task creation endpoint.
+  delete payload.isWebsiteWork;
+  delete payload.websiteProject;
 
   if (payload.isPersonal) {
     // Personal tasks: admin-only, always private, never tied to a client.
@@ -303,7 +358,7 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
 }));
 
 // @route DELETE /api/tasks/:id
-router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+router.delete('/:id', protect, authorize('admin', 'manager', 'developer'), asyncHandler(async (req, res) => {
   const existing = await Task.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Task not found' });
 
@@ -334,21 +389,21 @@ router.delete('/:id', protect, authorize('admin', 'manager'), asyncHandler(async
 }));
 
 // @route GET /api/tasks/stats
-router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'manager', 'developer'), asyncHandler(async (req, res) => {
   const { clientId } = req.query;
 
   const scopedClientIds = await getScopedClientIds(req.user);
 
-  let match = {};
+  let match = { isWebsiteWork: { $ne: true } };
   if (clientId) {
     // Verify manager has access to requested client
     if (scopedClientIds) {
       const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));
       if (!hasAccess) return res.json({ success: true, byStatus: [], byPriority: [], byCategory: [], overdue: 0 });
     }
-    match = { client: require('mongoose').Types.ObjectId.createFromHexString(clientId) };
+    match = { client: require('mongoose').Types.ObjectId.createFromHexString(clientId), isWebsiteWork: { $ne: true } };
   } else if (scopedClientIds) {
-    match = { client: { $in: scopedClientIds } };
+    match = { client: { $in: scopedClientIds }, isWebsiteWork: { $ne: true } };
   }
 
   const [byStatus, byPriority, byCategory, overdue, revisionAgg] = await Promise.all([

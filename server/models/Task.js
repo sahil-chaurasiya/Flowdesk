@@ -13,7 +13,7 @@ const taskSchema = new mongoose.Schema({
   client: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',
-    required: function () { return !this.isPersonal; }
+    required: function () { return !this.isPersonal && !this.isWebsiteWork; }
   },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
@@ -46,6 +46,7 @@ const taskSchema = new mongoose.Schema({
       'reporting',          // Any team member
       'strategy',           // Manager / Admin
       'client_request',     // Created by client
+      'website_dev',        // Website Work (admin + developer section)
       'other'
     ],
     default: 'other'
@@ -87,6 +88,19 @@ const taskSchema = new mongoose.Schema({
   isPersonal: {
     type: Boolean,
     default: false
+  },
+  // Website Work task — created from the admin/developer-only Website Work
+  // section (see routes/websiteWork.js). Not tied to a client. Still shows
+  // up in the assignee's regular "My Tasks" feed via GET /api/tasks/mine,
+  // but is excluded from the normal client-scoped Tasks list.
+  isWebsiteWork: {
+    type: Boolean,
+    default: false
+  },
+  websiteProject: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WebsiteProject',
+    default: null
   },
   // Client-created request
   isClientRequest: {

@@ -48,6 +48,7 @@ const targetsRouter       = require('./routes/targets');
 const documentsRouter     = require('./routes/documents');
 const paymentsRouter      = require('./routes/payments');
 const dailyLogsRouter     = require('./routes/dailyLogs');
+const websiteWorkRouter   = require('./routes/websiteWork');
 
 const app    = express();
 const server = http.createServer(app);
@@ -132,6 +133,7 @@ app.use('/api/targets',        targetsRouter);
 app.use('/api/documents',      documentsRouter);
 app.use('/api/payments',       paymentsRouter);
 app.use('/api/daily-logs',     dailyLogsRouter);
+app.use('/api/website-work',   websiteWorkRouter);
 
 // Health Check
 app.get('/api/health', (req, res) => {

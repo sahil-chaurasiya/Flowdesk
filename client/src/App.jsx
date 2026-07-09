@@ -45,6 +45,7 @@ import ContactsPage         from './pages/admin/ContactsPage';
 import CredentialsPage      from './pages/admin/CredentialsPage';
 import MyDayPage            from './pages/admin/MyDayPage';
 import TeamDailyLogPage     from './pages/admin/TeamDailyLogPage';
+import WebsiteWorkPage      from './pages/admin/WebsiteWorkPage';
 
 // Client Pages
 import ClientDashboard    from './pages/client/Dashboard';
@@ -63,7 +64,7 @@ import ClientPaymentPage   from './pages/client/PaymentPage';
 import NotFoundPage  from './pages/NotFoundPage';
 import LoadingScreen from './components/shared/LoadingScreen';
 
-const TEAM_ROLES = ['admin', 'manager', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
+const TEAM_ROLES = ['admin', 'manager', 'developer', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 
 const ProtectedRoute = ({ children, roles }) => {
   const { user, isAuthenticated, isLoading } = useAuthStore();
@@ -134,12 +135,12 @@ export default function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="files"      element={
-                  <ProtectedRoute roles={['admin', 'manager', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter']}>
+                  <ProtectedRoute roles={['admin', 'manager', 'developer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter']}>
                     <FilesAdminPage />
                   </ProtectedRoute>
                 } />
                 <Route path="social"     element={
-                  <ProtectedRoute roles={['admin', 'manager']}>
+                  <ProtectedRoute roles={['admin', 'manager', 'developer']}>
                     <SocialAdminPage />
                   </ProtectedRoute>
                 } />
@@ -151,9 +152,9 @@ export default function App() {
                 <Route path="settings"   element={<SettingsPage />} />
                 <Route path="activity"   element={<ActivityPage />} />
 
-                {/* ── Credentials Vault (admin + manager + client) ─────── */}
+                {/* ── Credentials Vault (admin + manager + developer + client) ─ */}
                 <Route path="credentials" element={
-                  <ProtectedRoute roles={['admin', 'manager', 'client']}>
+                  <ProtectedRoute roles={['admin', 'manager', 'developer', 'client']}>
                     <CredentialsPage />
                   </ProtectedRoute>
                 } />
@@ -195,6 +196,13 @@ export default function App() {
                 <Route path="team-log" element={
                   <ProtectedRoute roles={['admin', 'manager']}>
                     <TeamDailyLogPage />
+                  </ProtectedRoute>
+                } />
+
+                {/* ── Website Work (admin + developer only) ─────────────── */}
+                <Route path="website-work" element={
+                  <ProtectedRoute roles={['admin', 'developer']}>
+                    <WebsiteWorkPage />
                   </ProtectedRoute>
                 } />
               </Route>

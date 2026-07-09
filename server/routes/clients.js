@@ -57,10 +57,10 @@ router.get('/', protect, asyncHandler(async (req, res) => {
 
   if (req.user.role === 'client') {
     query._id = req.user.clientId;
-  } else if (req.user.role === 'admin') {
-    // Admin sees all clients, but can filter by a specific manager
+  } else if (req.user.role === 'admin' || req.user.role === 'developer') {
+    // Admins and developers see all clients, but can filter by a specific manager
     if (accountManager) query.accountManager = accountManager;
-  } else if (!['admin', 'manager', 'client'].includes(req.user.role)) {
+  } else if (!['admin', 'manager', 'developer', 'client'].includes(req.user.role)) {
     query.$or = [{ accountManager: req.user._id }, { teamMembers: req.user._id }];
   } else if (req.user.role === 'manager') {
     // Managers see only clients they're accountManager or teamMember of.

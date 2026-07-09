@@ -27,13 +27,14 @@ const userSchema = new mongoose.Schema({
     // To Fly Media roles:
     // admin            — full access, manages team & agency settings
     // manager          — project manager, assigns tasks, manages clients
+    // developer        — software developer, near-admin access + Website Work section
     // performance_marketer — runs paid ad campaigns (Meta, Google, TikTok)
     // social_media_manager — manages social content & scheduling
     // video_editor     — edits video content (Reels, TikTok, YT ads)
     // graphic_designer — designs creatives, branding, templates
     // copywriter       — ad copy, captions, email & landing page copy
     // client           — client portal access only
-    enum: ['admin', 'manager', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter', 'client'],
+    enum: ['admin', 'manager', 'developer', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter', 'client'],
     default: 'copywriter'
   },
   avatar: {
@@ -145,6 +146,7 @@ userSchema.statics.roleLabel = function (role) {
   const labels = {
     admin: 'Admin',
     manager: 'Project Manager',
+    developer: 'Software Developer',
     performance_marketer: 'Performance Marketer',
     social_media_manager: 'Social Media Manager',
     video_editor: 'Video Editor',

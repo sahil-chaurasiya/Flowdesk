@@ -25,7 +25,7 @@ import {
 import PerformanceMarketerDashboard from './PerformanceMarketerDashboard';
 
 const ROLE_LABELS = {
-  admin: 'Admin', manager: 'Project Manager',
+  admin: 'Admin', manager: 'Project Manager', developer: 'Software Developer',
   performance_marketer: 'Performance Marketer',
   social_media_manager: 'Social Media Manager',
   video_editor: 'Video Editor', graphic_designer: 'Graphic Designer',
@@ -1409,7 +1409,7 @@ function FollowUpsWidget() {
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { user } = useAuthStore();
-  const isManagerOrAdmin = ['admin', 'manager'].includes(user?.role);
+  const isManagerOrAdmin = ['admin', 'manager', 'developer'].includes(user?.role);
   const showFollowUps    = ['admin', 'performance_marketer'].includes(user?.role);
   const isPM             = user?.role === 'performance_marketer';
 

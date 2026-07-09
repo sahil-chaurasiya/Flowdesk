@@ -10,7 +10,7 @@ import useAuthStore from '../../context/authStore';
 const TEAM_ORDER_KEY = 'flowdesk_team_order';
 
 const ROLE_LABELS = {
-  admin: 'Admin', manager: 'Project Manager',
+  admin: 'Admin', manager: 'Project Manager', developer: 'Software Developer',
   performance_marketer: 'Performance Marketer',
   social_media_manager: 'Social Media Manager',
   video_editor: 'Video Editor', graphic_designer: 'Graphic Designer',
@@ -20,6 +20,7 @@ const ROLE_LABELS = {
 const ROLE_STYLE_LIGHT = {
   admin:                { background: '#fef2f2', color: '#b91c1c' },
   manager:              { background: '#fdf2ff', color: '#7e22ce' },
+  developer:            { background: '#ecfeff', color: '#0e7490' },
   performance_marketer: { background: '#eff0fe', color: '#3a56d4' },
   social_media_manager: { background: '#fff0f8', color: '#9d174d' },
   video_editor:         { background: '#fef7ea', color: '#92600a' },
@@ -30,6 +31,7 @@ const ROLE_STYLE_LIGHT = {
 const ROLE_STYLE_DARK = {
   admin:                { background: 'rgba(185,28,28,0.18)', color: '#f87171' },
   manager:              { background: 'rgba(126,34,206,0.18)', color: '#c084fc' },
+  developer:            { background: 'rgba(14,116,144,0.2)',  color: '#22d3ee' },
   performance_marketer: { background: 'rgba(79,110,240,0.2)',  color: '#7896f3' },
   social_media_manager: { background: 'rgba(157,23,77,0.18)',  color: '#f472b6' },
   video_editor:         { background: 'rgba(146,96,10,0.18)',  color: '#fbbf24' },

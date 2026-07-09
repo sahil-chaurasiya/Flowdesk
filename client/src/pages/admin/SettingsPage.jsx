@@ -13,6 +13,7 @@ import { useServices, bustServicesCache } from '../../hooks/useServices';
 
 const ROLE_LABELS = {
   admin: 'Admin', manager: 'Project Manager',
+  developer: 'Software Developer',
   performance_marketer: 'Performance Marketer',
   social_media_manager: 'Social Media Manager',
   video_editor: 'Video Editor', graphic_designer: 'Graphic Designer',

@@ -8,7 +8,7 @@ import { Avatar, Spinner } from '../../components/shared/LoadingScreen';
 import { timeAgo } from '../../lib/utils';
 
 const ROLE_LABELS = {
-  admin: 'Admin', manager: 'Project Manager',
+  admin: 'Admin', manager: 'Project Manager', developer: 'Developer',
   performance_marketer: 'Perf. Marketer', social_media_manager: 'Social Manager',
   video_editor: 'Video Editor', graphic_designer: 'Graphic Designer',
   copywriter: 'Copywriter', client: 'Client',

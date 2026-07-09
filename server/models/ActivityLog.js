@@ -28,6 +28,8 @@ const activityLogSchema = new mongoose.Schema({
       // Tasks
       'task.created', 'task.updated', 'task.status_changed',
       'task.assigned', 'task.deleted', 'task.commented',
+      // Website Work (admin + developer only)
+      'website_project.created', 'website_project.updated', 'website_project.deleted',
       // Leads
       'lead.uploaded', 'lead.status_changed', 'lead.deleted', 'lead.batch_deleted',
       // Files

@@ -9,12 +9,14 @@ const mongoose = require('mongoose');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 
-const TEAM_ROLES_ALL = ['admin', 'manager', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
+const TEAM_ROLES_ALL = ['admin', 'manager', 'developer', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 const TEAM_ROLES     = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 
 // Helper: return the set of client IDs a manager/admin is scoped to.
+// Admins and developers see everything (null = no restriction), matching
+// the "almost every access as admin" scope granted to the developer role.
 async function getScopedClientIds(user) {
-  if (user.role === 'admin') return null;
+  if (user.role === 'admin' || user.role === 'developer') return null;
   const clients = await Client.find({
     $or: [{ accountManager: user._id }, { teamMembers: user._id }],
   }).select('_id');
@@ -22,7 +24,7 @@ async function getScopedClientIds(user) {
 }
 
 // @route GET /api/dashboard/stats
-router.get('/stats', protect, authorize('admin', 'manager'), asyncHandler(async (req, res) => {
+router.get('/stats', protect, authorize('admin', 'manager', 'developer'), asyncHandler(async (req, res) => {
   const scopedClientIds = await getScopedClientIds(req.user);
   const clientMatch = scopedClientIds ? { client: { $in: scopedClientIds } } : {};
 

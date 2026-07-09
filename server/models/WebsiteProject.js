@@ -34,6 +34,24 @@ const websiteProjectSchema = new mongoose.Schema({
     ref: 'Client',
     default: null,
   },
+  // Freeform tagging — e.g. "office_project" (internal/company site) vs
+  // "client_project" (built for a paying client). A project can carry more
+  // than one tag.
+  categories: {
+    type: [String],
+    enum: ['office_project', 'client_project'],
+    default: [],
+  },
+  // ── Pinning ───────────────────────────────────────────────────────────────
+  pinned: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  pinOrder: {
+    type: Number,
+    default: 0,
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -45,5 +63,6 @@ const websiteProjectSchema = new mongoose.Schema({
 
 websiteProjectSchema.index({ status: 1 });
 websiteProjectSchema.index({ createdAt: -1 });
+websiteProjectSchema.index({ pinned: 1, pinOrder: 1 });
 
 module.exports = mongoose.model('WebsiteProject', websiteProjectSchema);

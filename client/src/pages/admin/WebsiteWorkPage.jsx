@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   Code2, Plus, X, Trash2, Pencil, ChevronRight, ChevronLeft, ListChecks,
-  Clock, AlertCircle, Calendar,
+  Clock, AlertCircle, Calendar, Pin, GripVertical,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -28,6 +28,11 @@ const TASK_STATUS = {
 };
 
 const PRIORITY_COLORS = { low: '#a8a49e', medium: '#4f6ef0', high: '#f59e0b', urgent: '#ef4444' };
+
+const PROJECT_CATEGORIES = {
+  office_project:  { label: 'Office Project',  icon: '🏢', color: '#4f6ef0', bg: 'rgba(79,110,240,0.12)' },
+  client_project:  { label: 'Client Project',  icon: '💼', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+};
 
 // ── Status progress bar ──────────────────────────────────────────────────────
 function ProjectProgressBar({ stats }) {
@@ -72,7 +77,7 @@ function ProjectProgressBar({ stats }) {
 // ── Project form modal ───────────────────────────────────────────────────────
 function ProjectModal({ isOpen, onClose, onSaved, editing }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '' });
+  const [form, setForm] = useState({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '', categories: [] });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -83,11 +88,21 @@ function ProjectModal({ isOpen, onClose, onSaved, editing }) {
         status: editing.status || 'planning',
         priority: editing.priority || 'medium',
         deadline: editing.deadline ? editing.deadline.split('T')[0] : '',
+        categories: editing.categories || [],
       });
     } else {
-      setForm({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '' });
+      setForm({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '', categories: [] });
     }
   }, [editing, isOpen]);
+
+  const toggleCategory = (value) => {
+    setForm(p => ({
+      ...p,
+      categories: p.categories.includes(value)
+        ? p.categories.filter(c => c !== value)
+        : [...p.categories, value],
+    }));
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -126,6 +141,29 @@ function ProjectModal({ isOpen, onClose, onSaved, editing }) {
           onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
           placeholder="What's this project about?"
         />
+        <div>
+          <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>
+            Category <span style={{ color: 'var(--fd-ink-5)', fontWeight: 400 }}>(pick one or more)</span>
+          </label>
+          <div className="flex gap-2 flex-wrap">
+            {Object.entries(PROJECT_CATEGORIES).map(([value, cat]) => {
+              const selected = form.categories.includes(value);
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => toggleCategory(value)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all hover:scale-[1.03] active:scale-[0.97]"
+                  style={selected
+                    ? { background: cat.bg, color: cat.color, borderColor: cat.color }
+                    : { background: 'transparent', color: 'var(--fd-ink-4)', borderColor: 'var(--fd-border)' }}
+                >
+                  <span>{cat.icon}</span>{cat.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <Select label="Status" value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}>
             {Object.entries(PROJECT_STATUS).map(([v, s]) => <option key={v} value={v}>{s.label}</option>)}
@@ -321,10 +359,19 @@ function ProjectDetail({ project, members, onBack, onProjectChanged, user }) {
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="flex items-center gap-2 mb-1.5">
+          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: sm.bg, color: sm.color }}>
               {sm.label}
             </span>
+            {project.categories?.map(cat => {
+              const meta = PROJECT_CATEGORIES[cat];
+              if (!meta) return null;
+              return (
+                <span key={cat} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: meta.bg, color: meta.color }}>
+                  {meta.icon} {meta.label}
+                </span>
+              );
+            })}
           </div>
           <h1 className="text-xl font-bold" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h1>
           {project.description && (
@@ -455,6 +502,169 @@ function ProjectDetail({ project, members, onBack, onProjectChanged, user }) {
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
+// ── Project card ──────────────────────────────────────────────────────────────
+function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging, style }) {
+  const sm = PROJECT_STATUS[project.status] || PROJECT_STATUS.planning;
+  const canManage = user?.role === 'admin' || String(project.createdBy?._id || project.createdBy) === String(user?._id);
+
+  return (
+    <div
+      className={`group relative rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${dragging ? 'opacity-40 scale-95' : ''}`}
+      style={{
+        background: 'var(--fd-surface)',
+        border: `1px solid ${project.pinned ? 'rgba(245,158,11,0.35)' : 'var(--fd-border)'}`,
+        boxShadow: project.pinned ? '0 0 0 1px rgba(245,158,11,0.08)' : undefined,
+        ...style,
+      }}
+      onClick={() => onView(project)}
+    >
+      {/* Top accent strip in status colour */}
+      <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: sm.color, opacity: 0.7 }} />
+
+      <div className="flex items-start justify-between gap-2 mb-2 pt-1">
+        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: sm.bg, color: sm.color }}>
+          {sm.label}
+        </span>
+        <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => onPin(project)}
+            className={`p-1.5 rounded-lg transition-all ${project.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} hover:scale-110`}
+            style={{ color: project.pinned ? '#f59e0b' : 'var(--fd-ink-5)' }}
+            title={project.pinned ? 'Unpin project' : 'Pin to top'}
+          >
+            <Pin size={13} fill={project.pinned ? '#f59e0b' : 'none'} />
+          </button>
+          {canManage && (
+            <>
+              <button
+                onClick={() => onEdit(project)}
+                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-[var(--fd-surface-sunken)] transition-all"
+                title="Edit project"
+              >
+                <Pencil size={13} style={{ color: 'var(--fd-ink-4)' }} />
+              </button>
+              <button
+                onClick={() => onDelete(project)}
+                className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-500/10 transition-all"
+                title="Delete project"
+              >
+                <Trash2 size={13} style={{ color: '#ef4444' }} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-1">
+        <h3 className="font-bold text-[15px] truncate" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h3>
+        {project.pinned && (
+          <span className="text-[9px] font-bold uppercase tracking-wider flex-shrink-0" style={{ color: '#f59e0b' }}>pinned</span>
+        )}
+      </div>
+
+      {project.description && (
+        <p className="text-[12.5px] mb-2.5 line-clamp-2" style={{ color: 'var(--fd-ink-4)' }}>{project.description}</p>
+      )}
+
+      {project.categories?.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-3">
+          {project.categories.map(cat => {
+            const meta = PROJECT_CATEGORIES[cat];
+            if (!meta) return null;
+            return (
+              <span
+                key={cat}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                style={{ background: meta.bg, color: meta.color }}
+              >
+                {meta.icon} {meta.label}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      <ProjectProgressBar stats={project.taskStats} />
+
+      <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--fd-border)' }}>
+        <span className="text-[11px] truncate" style={{ color: 'var(--fd-ink-5)' }}>
+          {project.createdBy?.name ? `Started by ${project.createdBy.name}` : ''}
+        </span>
+        <span className="flex items-center gap-1 text-[11.5px] font-medium flex-shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: '#4f6ef0' }}>
+          View tasks <ChevronRight size={12} />
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ── Pinned section — drag & drop to reorder ─────────────────────────────────
+function PinnedSection({ pinned, user, onView, onEdit, onDelete, onPin, onReorder }) {
+  const [draggingIdx, setDraggingIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+
+  if (pinned.length === 0) return null;
+
+  const handleDragStart = (e, idx) => {
+    setDraggingIdx(idx);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+  const handleDragOver = (e, idx) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (overIdx !== idx) setOverIdx(idx);
+  };
+  const handleDrop = (e, toIdx) => {
+    e.preventDefault();
+    const fromIdx = draggingIdx;
+    setDraggingIdx(null);
+    setOverIdx(null);
+    if (fromIdx === null || fromIdx === toIdx) return;
+    const reordered = [...pinned];
+    const [moved] = reordered.splice(fromIdx, 1);
+    reordered.splice(toIdx, 0, moved);
+    onReorder(reordered.map(p => p._id));
+  };
+  const handleDragEnd = () => { setDraggingIdx(null); setOverIdx(null); };
+
+  return (
+    <div className="animate-fade-up">
+      <div className="flex items-center gap-2 mb-3">
+        <Pin size={13} style={{ color: '#f59e0b' }} fill="#f59e0b" />
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: '#f59e0b' }}>Pinned</p>
+        {pinned.length > 1 && (
+          <p className="text-[11px] ml-auto flex items-center gap-1" style={{ color: 'var(--fd-ink-5)' }}>
+            <GripVertical size={11} /> drag to reorder
+          </p>
+        )}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {pinned.map((p, idx) => (
+          <div
+            key={p._id}
+            draggable
+            onDragStart={e => handleDragStart(e, idx)}
+            onDragOver={e => handleDragOver(e, idx)}
+            onDrop={e => handleDrop(e, idx)}
+            onDragEnd={handleDragEnd}
+            className={`transition-all rounded-2xl ${overIdx === idx && draggingIdx !== idx ? 'ring-2 ring-amber-400/50' : ''}`}
+          >
+            <ProjectCard
+              project={p}
+              user={user}
+              onView={onView}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onPin={onPin}
+              dragging={draggingIdx === idx}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function WebsiteWorkPage() {
   const { user } = useAuthStore();
   const toast = useToast();
@@ -465,6 +675,7 @@ export default function WebsiteWorkPage() {
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [activeCategory, setActiveCategory] = useState(null);
 
   const loadProjects = useCallback(async () => {
     try {
@@ -505,12 +716,54 @@ export default function WebsiteWorkPage() {
     }
   };
 
+  const handlePin = useCallback(async (project) => {
+    try {
+      const { data } = await api.patch(`/website-work/projects/${project._id}/pin`);
+      setProjects(prev => {
+        const updated = prev.map(p => p._id === project._id ? { ...p, ...data.project } : p);
+        return updated.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          if (a.pinned && b.pinned) return a.pinOrder - b.pinOrder;
+          return new Date(b.createdAt) - new Date(a.createdAt);
+        });
+      });
+    } catch {
+      toast({ type: 'error', title: 'Failed to update pin' });
+    }
+  }, [toast]);
+
+  const handleReorder = useCallback(async (orderedIds) => {
+    setProjects(prev => {
+      const orderMap = {};
+      orderedIds.forEach((id, idx) => { orderMap[id] = idx; });
+      return [...prev].sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        if (a.pinned && b.pinned) return (orderMap[a._id] ?? 99) - (orderMap[b._id] ?? 99);
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    });
+    try {
+      await api.patch('/website-work/projects/reorder-pins', { orderedIds });
+    } catch {
+      toast({ type: 'error', title: 'Failed to save new order' });
+      loadProjects();
+    }
+  }, [toast, loadProjects]);
+
   const overallStats = useMemo(() => {
     const total = projects.reduce((s, p) => s + (p.taskStats?.total || 0), 0);
     const completed = projects.reduce((s, p) => s + (p.taskStats?.completed || 0), 0);
     const active = projects.filter(p => !['completed', 'cancelled'].includes(p.status)).length;
     return { total, completed, active, projects: projects.length };
   }, [projects]);
+
+  const filteredProjects = activeCategory
+    ? projects.filter(p => p.categories?.includes(activeCategory))
+    : projects;
+  const pinnedProjects = filteredProjects.filter(p => p.pinned);
+  const restProjects = filteredProjects.filter(p => !p.pinned);
 
   if (activeProject) {
     return (
@@ -555,67 +808,77 @@ export default function WebsiteWorkPage() {
         </Card>
       </div>
 
+      {/* Category filter tabs */}
+      {projects.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setActiveCategory(null)}
+            className="px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all hover:scale-[1.03] active:scale-[0.97]"
+            style={activeCategory === null
+              ? { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-1)', borderColor: 'var(--fd-ink-4)' }
+              : { background: 'transparent', color: 'var(--fd-ink-4)', borderColor: 'var(--fd-border)' }}
+          >
+            All
+          </button>
+          {Object.entries(PROJECT_CATEGORIES).map(([value, cat]) => (
+            <button
+              key={value}
+              onClick={() => setActiveCategory(prev => prev === value ? null : value)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all hover:scale-[1.03] active:scale-[0.97]"
+              style={activeCategory === value
+                ? { background: cat.bg, color: cat.color, borderColor: cat.color }
+                : { background: 'transparent', color: 'var(--fd-ink-4)', borderColor: 'var(--fd-border)' }}
+            >
+              {cat.icon} {cat.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-16"><Spinner /></div>
-      ) : projects.length === 0 ? (
+      ) : filteredProjects.length === 0 ? (
         <EmptyState
           icon={Code2}
-          title="No website projects yet"
+          title={activeCategory ? 'No projects in this category yet' : 'No website projects yet'}
           description="Create a project to start assigning and tracking website work between developers and the team."
           action={<Button onClick={() => { setEditingProject(null); setProjectModalOpen(true); }}><Plus size={14} /> New Project</Button>}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {projects.map(project => {
-            const sm = PROJECT_STATUS[project.status] || PROJECT_STATUS.planning;
-            return (
-              <div
-                key={project._id}
-                className="rounded-xl p-4 cursor-pointer transition-all hover:shadow-md hover:scale-[1.01]"
-                style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border)' }}
-                onClick={() => setActiveProject(project)}
-              >
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: sm.bg, color: sm.color }}>
-                    {sm.label}
-                  </span>
-                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                    {(user?.role === 'admin' || String(project.createdBy?._id || project.createdBy) === String(user?._id)) && (
-                      <>
-                        <button
-                          onClick={() => { setEditingProject(project); setProjectModalOpen(true); }}
-                          className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                          title="Edit project"
-                        >
-                          <Pencil size={13} style={{ color: 'var(--fd-ink-4)' }} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(project)}
-                          className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                          title="Delete project"
-                        >
-                          <Trash2 size={13} style={{ color: '#ef4444' }} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <h3 className="font-bold text-[15px] mb-1" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h3>
-                {project.description && (
-                  <p className="text-[12.5px] mb-3 line-clamp-2" style={{ color: 'var(--fd-ink-4)' }}>{project.description}</p>
-                )}
-                <ProjectProgressBar stats={project.taskStats} />
-                <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--fd-border)' }}>
-                  <span className="text-[11px]" style={{ color: 'var(--fd-ink-5)' }}>
-                    {project.createdBy?.name ? `Started by ${project.createdBy.name}` : ''}
-                  </span>
-                  <span className="flex items-center gap-1 text-[11.5px] font-medium" style={{ color: '#4f6ef0' }}>
-                    View tasks <ChevronRight size={12} />
-                  </span>
-                </div>
+        <div className="space-y-6">
+          {pinnedProjects.length > 0 && (
+            <PinnedSection
+              pinned={pinnedProjects}
+              user={user}
+              onView={setActiveProject}
+              onEdit={p => { setEditingProject(p); setProjectModalOpen(true); }}
+              onDelete={setDeleteTarget}
+              onPin={handlePin}
+              onReorder={handleReorder}
+            />
+          )}
+
+          {restProjects.length > 0 && (
+            <div>
+              {pinnedProjects.length > 0 && (
+                <p className="text-[11px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--fd-ink-5)' }}>Other Projects</p>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {restProjects.map((project, idx) => (
+                  <ProjectCard
+                    key={project._id}
+                    project={project}
+                    user={user}
+                    onView={setActiveProject}
+                    onEdit={p => { setEditingProject(p); setProjectModalOpen(true); }}
+                    onDelete={setDeleteTarget}
+                    onPin={handlePin}
+                    style={{ animation: `fade-up 0.3s ease-out both`, animationDelay: `${Math.min(idx * 40, 240)}ms` }}
+                  />
+                ))}
               </div>
-            );
-          })}
+            </div>
+          )}
         </div>
       )}
 

@@ -16,12 +16,17 @@ router.use(protect, authorize('admin', 'developer'));
 // ── Projects ────────────────────────────────────────────────────────────────
 
 // @route GET /api/website-work/projects
-// @desc  List all Website Work projects with rolled-up task/status-bar stats
+// @desc  List all Website Work projects with rolled-up task/status-bar stats.
+//        Pinned projects sort first (by pinOrder), then the rest by newest.
 router.get('/projects', asyncHandler(async (req, res) => {
-  const projects = await WebsiteProject.find()
+  const { category } = req.query;
+  const query = {};
+  if (category) query.categories = category;
+
+  const projects = await WebsiteProject.find(query)
     .populate('createdBy', 'name avatar role')
     .populate('client', 'name company')
-    .sort({ createdAt: -1 })
+    .sort({ pinned: -1, pinOrder: 1, createdAt: -1 })
     .lean();
 
   const statusAgg = await Task.aggregate([
@@ -60,7 +65,7 @@ router.get('/projects', asyncHandler(async (req, res) => {
 
 // @route POST /api/website-work/projects
 router.post('/projects', asyncHandler(async (req, res) => {
-  const { name, description, status, priority, deadline, client } = req.body;
+  const { name, description, status, priority, deadline, client, categories } = req.body;
   if (!name?.trim()) return res.status(400).json({ success: false, message: 'Project name is required' });
 
   const project = await WebsiteProject.create({
@@ -70,6 +75,7 @@ router.post('/projects', asyncHandler(async (req, res) => {
     priority,
     deadline: deadline || undefined,
     client: client || undefined,
+    categories: Array.isArray(categories) ? categories : [],
     createdBy: req.user._id,
   });
 
@@ -97,7 +103,7 @@ router.put('/projects/:id', asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'You can only edit website projects you created' });
   }
 
-  const allowed = ['name', 'description', 'status', 'priority', 'deadline', 'client'];
+  const allowed = ['name', 'description', 'status', 'priority', 'deadline', 'client', 'categories'];
   const updates = {};
   allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
   if (updates.client === '') updates.client = null;
@@ -141,6 +147,56 @@ router.delete('/projects/:id', asyncHandler(async (req, res) => {
   });
 
   res.json({ success: true, message: 'Project and its tasks deleted' });
+}));
+
+// @route PATCH /api/website-work/projects/:id/pin
+// @desc  Toggle a project's pinned state. Newly pinned projects land at the
+//        end of the pinned list; unpinning just resets its order.
+router.patch('/projects/:id/pin', asyncHandler(async (req, res) => {
+  const project = await WebsiteProject.findById(req.params.id);
+  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+  project.pinned = !project.pinned;
+
+  if (project.pinned) {
+    const highestPinned = await WebsiteProject.findOne({
+      pinned: true,
+      _id: { $ne: project._id },
+    }).sort({ pinOrder: -1 }).lean();
+    project.pinOrder = highestPinned ? highestPinned.pinOrder + 1 : 0;
+  } else {
+    project.pinOrder = 0;
+  }
+
+  await project.save();
+
+  const populated = await WebsiteProject.findById(project._id)
+    .populate('createdBy', 'name avatar role')
+    .populate('client', 'name company');
+
+  logActivity({
+    req,
+    action: 'website_project.updated',
+    entity: { type: 'website_project', id: project._id, name: project.name },
+    meta: { pinned: project.pinned },
+  });
+
+  res.json({ success: true, project: populated });
+}));
+
+// @route PATCH /api/website-work/projects/reorder-pins
+// @desc  Persist a new drag-and-drop order for the pinned projects.
+router.patch('/projects/reorder-pins', asyncHandler(async (req, res) => {
+  const { orderedIds } = req.body;
+  if (!Array.isArray(orderedIds)) {
+    return res.status(400).json({ success: false, message: 'orderedIds must be an array' });
+  }
+
+  await Promise.all(
+    orderedIds.map((id, idx) => WebsiteProject.updateOne({ _id: id, pinned: true }, { pinOrder: idx }))
+  );
+
+  res.json({ success: true });
 }));
 
 // ── Tasks ───────────────────────────────────────────────────────────────────

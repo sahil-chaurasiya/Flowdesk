@@ -525,9 +525,10 @@ export default function KanbanPage() {
   // Anyone with Kanban access (admin, manager, developer) can create
   // personal tasks — not just admins.
   const canPersonalTask = ['admin', 'manager', 'developer'].includes(user?.role);
-  // Only admins and software developers get to tag a task with a Website
-  // Work project — everyone else's task modal stays exactly as it was.
-  const canLinkWebsiteProject = ['admin', 'developer'].includes(user?.role);
+  // Anyone who can create/edit tasks (admin, manager, developer) can tag a
+  // task with a Website Work project — e.g. a "Need updates" task filed
+  // under category Website Dev should show which project it belongs to.
+  const canLinkWebsiteProject = ['admin', 'manager', 'developer'].includes(user?.role);
 
   const [tasks, setTasks]             = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -550,7 +551,7 @@ export default function KanbanPage() {
   const [clients, setClients]   = useState([]);
   const [members, setMembers]   = useState([]);   // team members only
   const [managers, setManagers] = useState([]);   // PMs — admin only
-  const [websiteProjects, setWebsiteProjects] = useState([]); // admin + developer only
+  const [websiteProjects, setWebsiteProjects] = useState([]); // admin, manager + developer
 
   // Add task form
   const [form, setForm] = useState({
@@ -571,7 +572,9 @@ export default function KanbanPage() {
       setManagers(all.filter(u => ['admin', 'manager'].includes(u.role)));
     });
     if (canLinkWebsiteProject) {
-      api.get('/website-work/projects').then(r => setWebsiteProjects(r.data.projects || [])).catch(() => {});
+      // Lightweight name-only list (available to any task-creating role) —
+      // not the full admin/developer-only /website-work/projects endpoint.
+      api.get('/tasks/website-projects').then(r => setWebsiteProjects(r.data.projects || [])).catch(() => {});
     }
     // Fetch active task counts per member
     Promise.all([

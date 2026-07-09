@@ -3,6 +3,7 @@ const router = express.Router();
 const Task = require('../models/Task');
 const Client = require('../models/Client');
 const User = require('../models/User');
+const WebsiteProject = require('../models/WebsiteProject');
 const { protect, authorize, TEAM_ROLES } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { createNotification } = require('../utils/notifications');
@@ -117,6 +118,19 @@ router.get('/mine', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async 
   });
 
   res.json({ success: true, tasks, total: tasks.length });
+}));
+
+// @route GET /api/tasks/website-projects
+// @desc  Lightweight name-only list of Website Work projects, so any task
+//        creator can tag a task with the project it belongs to (e.g. when
+//        logging a "Need updates" task with category Website Dev). This is
+//        intentionally separate from the full /api/website-work section
+//        (which stays admin/developer-only) — it only exposes id + name,
+//        nothing else about the project.
+// @access Any team role (not client)
+router.get('/website-projects', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req, res) => {
+  const projects = await WebsiteProject.find().select('name status').sort({ name: 1 }).lean();
+  res.json({ success: true, projects });
 }));
 
 // @route GET /api/tasks
@@ -265,11 +279,12 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
   // The dedicated isWebsiteWork flag is only ever set via routes/websiteWork.js
   // — strip it here so it can't be spoofed through the generic task creation
   // endpoint. The websiteProject *reference*, however, can optionally be
-  // attached to a regular task by an admin or developer (e.g. tagging which
-  // website project a task relates to, alongside or instead of a client) —
-  // everyone else has that field stripped.
+  // attached to a regular task by anyone who can create tasks (e.g. tagging
+  // which website project a task relates to, alongside or instead of a
+  // client) — this is just a tag, not access to the Website Work section
+  // itself, which stays admin/developer-only.
   delete payload.isWebsiteWork;
-  if (!['admin', 'developer'].includes(req.user.role) || !payload.websiteProject) {
+  if (!payload.websiteProject) {
     delete payload.websiteProject;
   }
 
@@ -374,12 +389,10 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
   if (existing.isPersonal) delete req.body.client; // personal tasks never get a client
 
   // The isWebsiteWork flag stays exclusively controlled by routes/websiteWork.js.
-  // The websiteProject reference can be edited on a regular task, but only by
-  // an admin or developer — same rule as task creation above.
+  // The websiteProject reference can be edited on a regular task by anyone
+  // who can edit the task (same tagging rule as task creation above).
   delete req.body.isWebsiteWork;
-  if (!['admin', 'developer'].includes(req.user.role)) {
-    delete req.body.websiteProject;
-  } else if (req.body.websiteProject === '') {
+  if (req.body.websiteProject === '') {
     req.body.websiteProject = null;
   }
 

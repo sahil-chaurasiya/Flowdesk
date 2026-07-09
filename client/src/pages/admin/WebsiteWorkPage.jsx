@@ -247,7 +247,7 @@ function TaskModal({ isOpen, onClose, onSaved, editing, project, members }) {
 }
 
 // ── Project detail (task list) ───────────────────────────────────────────────
-function ProjectDetail({ project, members, onBack, onProjectChanged }) {
+function ProjectDetail({ project, members, onBack, onProjectChanged, user }) {
   const toast = useToast();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -266,6 +266,18 @@ function ProjectDetail({ project, members, onBack, onProjectChanged }) {
   }, [project._id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Admins can manage any task. Developers can only edit/delete tasks they
+  // created or are assigned to — not another developer's task.
+  const canManageTask = (task) => {
+    if (user?.role === 'admin') return true;
+    if (user?.role === 'developer') {
+      const uid = String(user._id);
+      return String(task.createdBy?._id || task.createdBy) === uid ||
+        String(task.assignedTo?._id || task.assignedTo) === uid;
+    }
+    return false;
+  };
 
   const handleTaskSaved = (task, isNew) => {
     setTasks(prev => isNew ? [task, ...prev] : prev.map(t => t._id === task._id ? task : t));
@@ -384,27 +396,35 @@ function ProjectDetail({ project, members, onBack, onProjectChanged }) {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                  <Select
-                    value={task.status}
-                    onChange={e => quickStatusChange(task, e.target.value)}
-                    className="!w-auto text-[12px] py-1.5"
-                  >
-                    {Object.entries(TASK_STATUS).map(([v, s]) => <option key={v} value={v}>{s.label}</option>)}
-                  </Select>
-                  <button
-                    onClick={() => { setEditingTask(task); setTaskModalOpen(true); }}
-                    className="p-2 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                    title="Edit task"
-                  >
-                    <Pencil size={14} style={{ color: 'var(--fd-ink-4)' }} />
-                  </button>
-                  <button
-                    onClick={() => setDeleteTarget(task)}
-                    className="p-2 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                    title="Delete task"
-                  >
-                    <Trash2 size={14} style={{ color: '#ef4444' }} />
-                  </button>
+                  {canManageTask(task) ? (
+                    <>
+                      <Select
+                        value={task.status}
+                        onChange={e => quickStatusChange(task, e.target.value)}
+                        className="!w-auto text-[12px] py-1.5"
+                      >
+                        {Object.entries(TASK_STATUS).map(([v, s]) => <option key={v} value={v}>{s.label}</option>)}
+                      </Select>
+                      <button
+                        onClick={() => { setEditingTask(task); setTaskModalOpen(true); }}
+                        className="p-2 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
+                        title="Edit task"
+                      >
+                        <Pencil size={14} style={{ color: 'var(--fd-ink-4)' }} />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(task)}
+                        className="p-2 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
+                        title="Delete task"
+                      >
+                        <Trash2 size={14} style={{ color: '#ef4444' }} />
+                      </button>
+                    </>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: ts.bg, color: ts.color }}>
+                      {ts.label}
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -499,6 +519,7 @@ export default function WebsiteWorkPage() {
         members={members}
         onBack={() => setActiveProject(null)}
         onProjectChanged={loadProjects}
+        user={user}
       />
     );
   }
@@ -559,20 +580,24 @@ export default function WebsiteWorkPage() {
                     {sm.label}
                   </span>
                   <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={() => { setEditingProject(project); setProjectModalOpen(true); }}
-                      className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                      title="Edit project"
-                    >
-                      <Pencil size={13} style={{ color: 'var(--fd-ink-4)' }} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(project)}
-                      className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                      title="Delete project"
-                    >
-                      <Trash2 size={13} style={{ color: '#ef4444' }} />
-                    </button>
+                    {(user?.role === 'admin' || String(project.createdBy?._id || project.createdBy) === String(user?._id)) && (
+                      <>
+                        <button
+                          onClick={() => { setEditingProject(project); setProjectModalOpen(true); }}
+                          className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
+                          title="Edit project"
+                        >
+                          <Pencil size={13} style={{ color: 'var(--fd-ink-4)' }} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget(project)}
+                          className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
+                          title="Delete project"
+                        >
+                          <Trash2 size={13} style={{ color: '#ef4444' }} />
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
                 <h3 className="font-bold text-[15px] mb-1" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h3>

@@ -87,9 +87,16 @@ router.post('/projects', asyncHandler(async (req, res) => {
 }));
 
 // @route PUT /api/website-work/projects/:id
-// @desc  Any admin or developer can edit any project (including ones
-//        created by another developer) — this section is shared/collaborative.
+// @desc  Admins can edit any project. Developers can only edit projects
+//        they created themselves — not another developer's project.
 router.put('/projects/:id', asyncHandler(async (req, res) => {
+  const existing = await WebsiteProject.findById(req.params.id);
+  if (!existing) return res.status(404).json({ success: false, message: 'Project not found' });
+
+  if (req.user.role === 'developer' && String(existing.createdBy) !== String(req.user._id)) {
+    return res.status(403).json({ success: false, message: 'You can only edit website projects you created' });
+  }
+
   const allowed = ['name', 'description', 'status', 'priority', 'deadline', 'client'];
   const updates = {};
   allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
@@ -114,10 +121,15 @@ router.put('/projects/:id', asyncHandler(async (req, res) => {
 }));
 
 // @route DELETE /api/website-work/projects/:id
-// @desc  Deletes the project and all of its Website Work tasks.
+// @desc  Deletes the project and all of its Website Work tasks. Admins can
+//        delete any project; developers only ones they created themselves.
 router.delete('/projects/:id', asyncHandler(async (req, res) => {
   const project = await WebsiteProject.findById(req.params.id);
   if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+  if (req.user.role === 'developer' && String(project.createdBy) !== String(req.user._id)) {
+    return res.status(403).json({ success: false, message: 'You can only delete website projects you created' });
+  }
 
   await Task.deleteMany({ websiteProject: project._id, isWebsiteWork: true });
   await WebsiteProject.findByIdAndDelete(req.params.id);
@@ -198,12 +210,21 @@ router.post('/tasks', asyncHandler(async (req, res) => {
 }));
 
 // @route PUT /api/website-work/tasks/:id
-// @desc  Any admin or developer can edit or reassign any Website Work task —
-//        including tasks created by, or assigned to, a different developer.
+// @desc  Admins can edit or reassign any Website Work task. Developers can
+//        only edit tasks they created or are assigned to — not another
+//        developer's task.
 router.put('/tasks/:id', asyncHandler(async (req, res) => {
   const existing = await Task.findById(req.params.id);
   if (!existing || !existing.isWebsiteWork) {
     return res.status(404).json({ success: false, message: 'Task not found' });
+  }
+
+  if (req.user.role === 'developer') {
+    const isOwner = String(existing.createdBy) === String(req.user._id) ||
+      (existing.assignedTo && String(existing.assignedTo) === String(req.user._id));
+    if (!isOwner) {
+      return res.status(403).json({ success: false, message: 'You can only edit website work tasks you created or are assigned to' });
+    }
   }
 
   const allowed = ['title', 'description', 'status', 'priority', 'deadline', 'assignedTo', 'websiteProject'];
@@ -241,10 +262,20 @@ router.put('/tasks/:id', asyncHandler(async (req, res) => {
 }));
 
 // @route DELETE /api/website-work/tasks/:id
+// @desc  Admins can delete any Website Work task. Developers can only
+//        delete tasks they created or are assigned to.
 router.delete('/tasks/:id', asyncHandler(async (req, res) => {
   const existing = await Task.findById(req.params.id);
   if (!existing || !existing.isWebsiteWork) {
     return res.status(404).json({ success: false, message: 'Task not found' });
+  }
+
+  if (req.user.role === 'developer') {
+    const isOwner = String(existing.createdBy) === String(req.user._id) ||
+      (existing.assignedTo && String(existing.assignedTo) === String(req.user._id));
+    if (!isOwner) {
+      return res.status(403).json({ success: false, message: 'You can only delete website work tasks you created or are assigned to' });
+    }
   }
 
   await Task.findByIdAndDelete(req.params.id);

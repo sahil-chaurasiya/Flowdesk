@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import { Plus, AlertCircle, Clock, CheckCircle, Target, X, Calendar, Flag, Building2, FileText, ChevronRight, User, Tag, Trash2, Edit2, Play, ArrowRight, ChevronLeft, CalendarDays, RotateCcw, MessageSquarePlus } from 'lucide-react';
 import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
 import api from '../../lib/api';
@@ -202,12 +203,20 @@ function RequestChangesButton({ task, onLogged, size = 'md' }) {
 }
 
 // ── Task Detail Drawer ────────────────────────────────────────────────────────
-function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit, isManager, onRevisionLogged }) {
+function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit, isManager, canEditDelete, onRevisionLogged }) {
   if (!task) return null;
   const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
   const ss = STATUS_STYLE[task.status] || STATUS_STYLE.pending;
 
-  return (
+  // Rendered via a portal straight into <body>. The page wrapper further
+  // down this file carries the `animate-fade-in` class, whose keyframes
+  // leave a lingering `transform: translateY(0)` on it (fill-mode "both").
+  // Any element with a transform — even a no-op one — becomes a new
+  // containing block for `position: fixed` descendants, so without the
+  // portal this drawer ends up positioned relative to that scrolled page
+  // wrapper instead of the actual viewport. Modal (components/ui) already
+  // sidesteps this the same way.
+  return ReactDOM.createPortal(
     <>
       <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]" onClick={onClose} />
       <div
@@ -231,7 +240,7 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
             <h2 className="text-[16px] font-bold leading-snug" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</h2>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
-            {isManager && (
+            {canEditDelete && (
               <>
                 <button onClick={() => onEdit(task)} className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" style={{ color: 'var(--fd-ink-4)' }} title="Edit task">
                   <Edit2 size={15} />
@@ -392,7 +401,8 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
@@ -728,6 +738,20 @@ export default function KanbanPage() {
 
   const isManager = ['admin', 'manager'].includes(user?.role);
 
+  // Admins/managers can edit or delete any task. Developers can edit/delete
+  // tasks they created or are assigned to — but not another developer's (or
+  // team member's) task. Mirrors the ownership check enforced server-side.
+  const canManageTask = (task) => {
+    if (!task) return false;
+    if (isManager) return true;
+    if (user?.role === 'developer') {
+      const uid = String(user._id);
+      return String(task.createdBy?._id || task.createdBy) === uid ||
+        String(task.assignedTo?._id || task.assignedTo) === uid;
+    }
+    return false;
+  };
+
   const byStatus = (status) => tasks.filter(t => t.status === status);
 
   const membersByRole = [...members, ...managers].reduce((acc, m) => {
@@ -895,6 +919,7 @@ export default function KanbanPage() {
           onDelete={handleDelete}
           onEdit={openEdit}
           isManager={isManager}
+          canEditDelete={canManageTask(selectedTask)}
           onRevisionLogged={handleRevisionLogged}
         />
       )}

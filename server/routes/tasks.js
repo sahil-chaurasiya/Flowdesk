@@ -137,10 +137,11 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
 
   const isManager = MANAGER_ROLES.includes(req.user.role);
   const query = {};
-  // Website Work tasks (admin/developer-only section) live in their own
-  // view (see routes/websiteWork.js) and shouldn't clutter the regular
-  // client-facing Tasks list — they still show up in GET /api/tasks/mine.
-  query.isWebsiteWork = { $ne: true };
+  // Website Work tasks used to be excluded from this list entirely. They're
+  // now included, but only the ones tied to the current user (created by
+  // them or assigned to them) — see the ownership $or pushed into
+  // andConditions below. The full Website Work backlog still lives in its
+  // own dedicated view (see routes/websiteWork.js).
 
   if (!isManager) {
     // Team members only see tasks assigned to them
@@ -166,16 +167,20 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
         if (!hasAccess) return res.json({ success: true, tasks: [], total: 0, page: 1, pages: 0 });
       }
       query.client = clientId;
-    } else {
-      // No specific client requested — scope to managed clients
-      if (scopedClientIds) {
-        query.client = { $in: scopedClientIds };
-      }
-      // Admin with no filter: no restriction (scopedClientIds === null)
+    } else if (scopedClientIds) {
+      // No specific client requested — scope to managed clients. Website
+      // Work tasks have no client, so they're exempted from this clause;
+      // their visibility is governed separately below (owned-by-me only).
+      query.$or = [
+        { client: { $in: scopedClientIds } },
+        { isWebsiteWork: true },
+      ];
     }
+    // Admin with no filter: no restriction (scopedClientIds === null)
 
     if (assignedTo) query.assignedTo = assignedTo;
   }
+
 
   if (status)    query.status    = status;
   if (priority)  query.priority  = priority;
@@ -200,6 +205,18 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
       { isPersonal: true, createdBy: req.user._id },
     ],
   }];
+
+  // Website Work tasks now show up on this board too, but logically scoped:
+  // only the ones *you* created or are assigned to — everyone else's
+  // Website Work tasks stay out of your Kanban, same as before. Applies to
+  // every role, including admins/managers.
+  andConditions.push({
+    $or: [
+      { isWebsiteWork: { $ne: true } },
+      { isWebsiteWork: true, createdBy: req.user._id },
+      { isWebsiteWork: true, assignedTo: req.user._id },
+    ],
+  });
 
   // Developers get client-scoping like admins/managers (see getScopedClientIds
   // above), but unlike admins/managers they shouldn't see the whole team's
@@ -336,7 +353,17 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
         return res.status(403).json({ success: false, message: 'Not authorised to edit this task' });
       }
     }
+  } else if (req.user.role === 'developer') {
+    // Developers can fully edit tasks they created or are assigned to, but
+    // NOT another developer's (or team member's) task just because they can
+    // see the whole board — ownership is required.
+    const isOwner = String(existing.createdBy) === String(req.user._id) ||
+      (existing.assignedTo && String(existing.assignedTo) === String(req.user._id));
+    if (!isOwner) {
+      return res.status(403).json({ success: false, message: 'You can only edit tasks you created or are assigned to' });
+    }
   }
+
 
   // Empty-string client would fail ObjectId casting — treat as "no client".
   if (req.body.client === '') delete req.body.client;
@@ -423,6 +450,16 @@ router.delete('/:id', protect, authorize('admin', 'manager', 'developer'), async
       if (!hasAccess) {
         return res.status(403).json({ success: false, message: 'Not authorised to delete this task' });
       }
+    }
+  }
+
+  // Developers: only allowed to delete tasks they created or are assigned
+  // to — not another developer's (or team member's) task.
+  if (req.user.role === 'developer') {
+    const isOwner = String(existing.createdBy) === String(req.user._id) ||
+      (existing.assignedTo && String(existing.assignedTo) === String(req.user._id));
+    if (!isOwner) {
+      return res.status(403).json({ success: false, message: 'You can only delete tasks you created or are assigned to' });
     }
   }
 

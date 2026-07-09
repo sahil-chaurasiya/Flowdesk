@@ -542,6 +542,11 @@ export default function KanbanPage() {
   const [filterClient, setFilterClient]     = useState('');
   const [filterMember, setFilterMember]     = useState('');
   const [filterPM, setFilterPM]             = useState('');   // admin only
+  // "Assigned to me" — independent of the Team Member dropdown, since that
+  // dropdown deliberately excludes admins/managers (it only lists individual
+  // contributors). Without this, an admin/manager has no way to see just the
+  // tasks assigned to themselves.
+  const [filterAssignedToMe, setFilterAssignedToMe] = useState(false);
 
   // Monthly scoping - defaults to the current month, toggle to see everything
   const [monthCursor, setMonthCursor] = useState(function () { return new Date(); });
@@ -601,7 +606,11 @@ export default function KanbanPage() {
     try {
       const params = new URLSearchParams();
       if (filterClient) params.set('client', filterClient);
-      if (filterMember) params.set('assignedTo', filterMember);
+      // "Assigned to me" takes priority over the Team Member dropdown — it's
+      // how an admin/manager (who won't appear in that dropdown) can filter
+      // down to just their own tasks, regardless of client or who created it.
+      if (filterAssignedToMe) params.set('assignedTo', user._id);
+      else if (filterMember) params.set('assignedTo', filterMember);
       if (!showAllTime) {
         params.set('dateFrom', startOfMonth(monthCursor).toISOString());
         params.set('dateTo', endOfMonth(monthCursor).toISOString());
@@ -618,7 +627,7 @@ export default function KanbanPage() {
       setTasks(result);
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, [filterClient, filterMember, filterPM, isAdmin, showAllTime, monthCursor]);
+  }, [filterClient, filterMember, filterPM, filterAssignedToMe, user?._id, isAdmin, showAllTime, monthCursor]);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
@@ -764,7 +773,7 @@ export default function KanbanPage() {
     return acc;
   }, {});
 
-  const activeFilters = [filterClient, filterMember, filterPM].filter(Boolean).length + (showAllTime ? 1 : 0);
+  const activeFilters = [filterClient, filterMember, filterPM].filter(Boolean).length + (showAllTime ? 1 : 0) + (filterAssignedToMe ? 1 : 0);
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
@@ -855,13 +864,35 @@ export default function KanbanPage() {
           <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Team Member</label>
           <select
             value={filterMember}
+            disabled={filterAssignedToMe}
             onChange={e => setFilterMember(e.target.value)}
             className="fd-input text-[12.5px]"
-            style={{ minWidth: 170 }}
+            style={{ minWidth: 170, opacity: filterAssignedToMe ? 0.5 : 1 }}
           >
             <option value="">All Members</option>
             {members.map(m => <option key={m._id} value={m._id}>{m.name} · {ROLE_LABELS[m.role] || m.role}</option>)}
           </select>
+        </div>
+
+        {/* Assigned to me — works for everyone, including admins/managers,
+            who deliberately aren't in the Team Member dropdown above. Filters
+            down to tasks assigned to the current user, regardless of client
+            or who created the task. */}
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>&nbsp;</label>
+          <button
+            onClick={() => { setFilterAssignedToMe(v => !v); if (!filterAssignedToMe) setFilterMember(''); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all whitespace-nowrap"
+            style={{
+              background: filterAssignedToMe ? 'rgba(79,110,240,0.12)' : 'var(--fd-surface-sunken)',
+              color: filterAssignedToMe ? '#4f6ef0' : 'var(--fd-ink-3)',
+              border: `1px solid ${filterAssignedToMe ? 'rgba(79,110,240,0.3)' : 'var(--fd-border)'}`,
+              height: 34.5,
+            }}
+          >
+            <User size={12} />
+            {filterAssignedToMe ? '✓ Assigned to Me' : 'Assigned to Me'}
+          </button>
         </div>
 
         {/* PM filter — admin only */}
@@ -882,7 +913,7 @@ export default function KanbanPage() {
 
         {activeFilters > 0 && (
           <button
-            onClick={() => { setFilterClient(''); setFilterMember(''); setFilterPM(''); setShowAllTime(false); setMonthCursor(new Date()); }}
+            onClick={() => { setFilterClient(''); setFilterMember(''); setFilterPM(''); setFilterAssignedToMe(false); setShowAllTime(false); setMonthCursor(new Date()); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors hover:opacity-80"
             style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', alignSelf: 'flex-end' }}
           >

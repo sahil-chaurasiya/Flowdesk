@@ -263,7 +263,7 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
                 <FileText size={12} style={{ color: 'var(--fd-ink-4)' }} />
                 <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Description</span>
               </div>
-              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)' }}>{linkifyText(task.description)}</p>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)', whiteSpace: 'pre-wrap' }}>{linkifyText(task.description)}</p>
             </div>
           )}
 

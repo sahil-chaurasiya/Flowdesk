@@ -130,6 +130,10 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
 
   // Accept both ?client=<id> and ?clientId=<id>
   const clientId = client || clientIdParam;
+  // "Other" is a synthetic filter value (not a real client id) meaning
+  // tasks that aren't tied to any client — excludes personal tasks, which
+  // also have no client but are a separate concept.
+  const isOtherFilter = clientId === 'other';
 
   const isManager = MANAGER_ROLES.includes(req.user.role);
   const query = {};
@@ -142,12 +146,20 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     // Team members only see tasks assigned to them
     query.assignedTo = req.user._id;
     // Still allow them to narrow down to a specific client among their own tasks
-    if (clientId) query.client = clientId;
+    if (isOtherFilter) {
+      query.client = null;
+      query.isPersonal = { $ne: true };
+    } else if (clientId) {
+      query.client = clientId;
+    }
   } else {
     // Admins and managers: scope to their assigned clients
     const scopedClientIds = await getScopedClientIds(req.user);
 
-    if (clientId) {
+    if (isOtherFilter) {
+      query.client = null;
+      query.isPersonal = { $ne: true };
+    } else if (clientId) {
       // Verify manager has access to the requested client
       if (scopedClientIds) {
         const hasAccess = scopedClientIds.some(id => String(id) === String(clientId));

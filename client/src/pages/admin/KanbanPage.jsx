@@ -637,6 +637,7 @@ export default function KanbanPage() {
     try {
       const payload = { ...form };
       if (payload.isPersonal) delete payload.client;
+      else if (payload.client === 'other') payload.client = null;
       await api.post('/tasks', payload);
       setShowAddModal(false);
       fetchTasks();
@@ -666,7 +667,7 @@ export default function KanbanPage() {
     setEditForm({
       title: task.title,
       description: task.description || '',
-      client: task.client?._id || '',
+      client: task.client?._id || (task.isPersonal ? '' : 'other'),
       assignedTo: task.assignedTo?._id || '',
       priority: task.priority,
       status: task.status,
@@ -684,6 +685,7 @@ export default function KanbanPage() {
     try {
       const payload = { ...editForm };
       if (payload.isPersonal) delete payload.client;
+      else if (payload.client === 'other') payload.client = null;
       const { data } = await api.put(`/tasks/${selectedTask._id}`, payload);
       setTasks(prev => prev.map(t => t._id === selectedTask._id ? data.task : t));
       setSelectedTask(data.task);
@@ -795,6 +797,7 @@ export default function KanbanPage() {
             style={{ minWidth: 160 }}
           >
             <option value="">All Clients</option>
+            <option value="other">Other (no client)</option>
             {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
           </select>
         </div>
@@ -909,6 +912,7 @@ export default function KanbanPage() {
           <div className="grid grid-cols-2 gap-3">
             <Select label="Client" value={form.client} disabled={form.isPersonal} onChange={e => setForm(p => ({ ...p, client: e.target.value }))}>
               <option value="">{form.isPersonal ? 'Not applicable' : 'Select client…'}</option>
+              <option value="other">Other (no client)</option>
               {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
             </Select>
             <Select label="Category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
@@ -980,6 +984,7 @@ export default function KanbanPage() {
           <div className="grid grid-cols-2 gap-3">
             <Select label="Client" value={editForm.client || ''} disabled={editForm.isPersonal} onChange={e => setEditForm(p => ({ ...p, client: e.target.value }))}>
               <option value="">{editForm.isPersonal ? 'Not applicable' : 'Select client…'}</option>
+              <option value="other">Other (no client)</option>
               {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
             </Select>
             <Select label="Category" value={editForm.category || 'other'} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}>

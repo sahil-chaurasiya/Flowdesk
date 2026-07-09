@@ -13,7 +13,8 @@ const taskSchema = new mongoose.Schema({
   client: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Client',
-    required: function () { return !this.isPersonal && !this.isWebsiteWork; }
+    // Not required: personal tasks, website-work tasks, and now "Other"
+    // tasks (explicitly not tied to any client) all leave this unset.
   },
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,

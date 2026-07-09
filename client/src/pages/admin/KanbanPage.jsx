@@ -270,6 +270,12 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
                 )}
               </div>
             )}
+            {task.websiteProject?.name && (
+              <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><FileText size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Website Project</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{task.websiteProject.name}</div>
+              </div>
+            )}
             {task.assignedTo && (
               <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
                 <div className="flex items-center gap-1.5 mb-1"><User size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Assigned To</span></div>
@@ -410,6 +416,9 @@ function TaskCard({ task, onDragStart, onClick }) {
           {!task.client?.company && task.clientDeleted && (
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{task.deletedClientName || 'Unknown'} · Deleted Client</div>
           )}
+          {task.websiteProject?.name && (
+            <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>🖥️ {task.websiteProject.name}</div>
+          )}
           {task.description && <div className="text-[11px] mt-1 line-clamp-2 leading-relaxed" style={{ color: 'var(--fd-ink-4)' }}>{task.description}</div>}
         </div>
       </div>
@@ -506,6 +515,9 @@ export default function KanbanPage() {
   // Anyone with Kanban access (admin, manager, developer) can create
   // personal tasks — not just admins.
   const canPersonalTask = ['admin', 'manager', 'developer'].includes(user?.role);
+  // Only admins and software developers get to tag a task with a Website
+  // Work project — everyone else's task modal stays exactly as it was.
+  const canLinkWebsiteProject = ['admin', 'developer'].includes(user?.role);
 
   const [tasks, setTasks]             = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -528,12 +540,14 @@ export default function KanbanPage() {
   const [clients, setClients]   = useState([]);
   const [members, setMembers]   = useState([]);   // team members only
   const [managers, setManagers] = useState([]);   // PMs — admin only
+  const [websiteProjects, setWebsiteProjects] = useState([]); // admin + developer only
 
   // Add task form
   const [form, setForm] = useState({
     title: '', description: '', client: '', assignedTo: '',
     priority: 'medium', status: 'pending', deadline: '',
     category: 'other', isClientVisible: false, isPersonal: false,
+    websiteProject: '',
   });
 
   const dragTask = useRef(null);
@@ -546,6 +560,9 @@ export default function KanbanPage() {
       setMembers(all.filter(u => !['admin', 'manager', 'client'].includes(u.role)));
       setManagers(all.filter(u => ['admin', 'manager'].includes(u.role)));
     });
+    if (canLinkWebsiteProject) {
+      api.get('/website-work/projects').then(r => setWebsiteProjects(r.data.projects || [])).catch(() => {});
+    }
     // Fetch active task counts per member
     Promise.all([
       api.get('/tasks?status=pending&limit=500'),
@@ -629,7 +646,7 @@ export default function KanbanPage() {
   };
 
   const openAddTask = (defaultStatus) => {
-    setForm({ title: '', description: '', client: filterClient || '', assignedTo: filterMember || '', priority: 'medium', status: defaultStatus, deadline: '', category: 'other', isClientVisible: false, isPersonal: false });
+    setForm({ title: '', description: '', client: filterClient || '', assignedTo: filterMember || '', priority: 'medium', status: defaultStatus, deadline: '', category: 'other', isClientVisible: false, isPersonal: false, websiteProject: '' });
     setShowAddModal(true);
   };
 
@@ -678,6 +695,7 @@ export default function KanbanPage() {
       category: task.category || 'other',
       isClientVisible: task.isClientVisible || false,
       isPersonal: task.isPersonal || false,
+      websiteProject: task.websiteProject?._id || '',
     });
     setShowEditModal(true);
   };
@@ -902,7 +920,7 @@ export default function KanbanPage() {
               <input
                 type="checkbox"
                 checked={form.isPersonal}
-                onChange={e => setForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client, assignedTo: e.target.checked ? user._id : p.assignedTo }))}
+                onChange={e => setForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client, websiteProject: e.target.checked ? '' : p.websiteProject, assignedTo: e.target.checked ? user._id : p.assignedTo }))}
                 className="rounded"
                 style={{ accentColor: '#4f6ef0' }}
               />
@@ -922,6 +940,17 @@ export default function KanbanPage() {
               {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </Select>
           </div>
+          {canLinkWebsiteProject && (
+            <div>
+              <Select label="Website Project (optional)" value={form.websiteProject} disabled={form.isPersonal} onChange={e => setForm(p => ({ ...p, websiteProject: e.target.value }))}>
+                <option value="">{form.isPersonal ? 'Not applicable' : 'No website project'}</option>
+                {websiteProjects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+              </Select>
+              <p className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>
+                Tag this task to a client, a website project, both, or neither.
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Assign To</label>
             <select value={form.assignedTo} onChange={e => setForm(p => ({ ...p, assignedTo: e.target.value }))} className="fd-input">
@@ -974,7 +1003,7 @@ export default function KanbanPage() {
               <input
                 type="checkbox"
                 checked={editForm.isPersonal || false}
-                onChange={e => setEditForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client }))}
+                onChange={e => setEditForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client, websiteProject: e.target.checked ? '' : p.websiteProject }))}
                 className="rounded"
                 style={{ accentColor: '#4f6ef0' }}
               />
@@ -994,6 +1023,17 @@ export default function KanbanPage() {
               {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </Select>
           </div>
+          {canLinkWebsiteProject && (
+            <div>
+              <Select label="Website Project (optional)" value={editForm.websiteProject || ''} disabled={editForm.isPersonal} onChange={e => setEditForm(p => ({ ...p, websiteProject: e.target.value }))}>
+                <option value="">{editForm.isPersonal ? 'Not applicable' : 'No website project'}</option>
+                {websiteProjects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+              </Select>
+              <p className="text-[11px] mt-1" style={{ color: 'var(--fd-ink-4)' }}>
+                Tag this task to a client, a website project, both, or neither.
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Assign To</label>
             <select value={editForm.assignedTo || ''} onChange={e => setEditForm(p => ({ ...p, assignedTo: e.target.value }))} className="fd-input">

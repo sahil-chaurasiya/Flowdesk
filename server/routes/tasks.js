@@ -222,6 +222,7 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     .populate('client', 'name company')
     .populate('assignedTo', 'name avatar role jobTitle')
     .populate('createdBy', 'name')
+    .populate('websiteProject', 'name status')
     .populate('revisions.requestedBy', 'name avatar role')
     .sort({ deadline: 1, createdAt: -1 });
   const tasks = rawTasks.sort((a, b) => {
@@ -244,11 +245,16 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
   // ObjectId casting — treat it the same as "no client".
   if (payload.client === '') delete payload.client;
 
-  // Website Work tasks are only ever created via routes/websiteWork.js —
-  // strip these fields here so they can't be spoofed through the generic
-  // task creation endpoint.
+  // The dedicated isWebsiteWork flag is only ever set via routes/websiteWork.js
+  // — strip it here so it can't be spoofed through the generic task creation
+  // endpoint. The websiteProject *reference*, however, can optionally be
+  // attached to a regular task by an admin or developer (e.g. tagging which
+  // website project a task relates to, alongside or instead of a client) —
+  // everyone else has that field stripped.
   delete payload.isWebsiteWork;
-  delete payload.websiteProject;
+  if (!['admin', 'developer'].includes(req.user.role) || !payload.websiteProject) {
+    delete payload.websiteProject;
+  }
 
   if (payload.isPersonal) {
     // Personal tasks: always private, never tied to a client. Available to
@@ -278,7 +284,8 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
   const populated = await Task.findById(task._id)
     .populate('client', 'name company')
     .populate('assignedTo', 'name avatar role jobTitle')
-    .populate('createdBy', 'name');
+    .populate('createdBy', 'name')
+    .populate('websiteProject', 'name status');
 
   // Notify assignee
   if (task.assignedTo && String(task.assignedTo) !== String(req.user._id)) {
@@ -339,10 +346,21 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
   delete req.body.isPersonal;
   if (existing.isPersonal) delete req.body.client; // personal tasks never get a client
 
+  // The isWebsiteWork flag stays exclusively controlled by routes/websiteWork.js.
+  // The websiteProject reference can be edited on a regular task, but only by
+  // an admin or developer — same rule as task creation above.
+  delete req.body.isWebsiteWork;
+  if (!['admin', 'developer'].includes(req.user.role)) {
+    delete req.body.websiteProject;
+  } else if (req.body.websiteProject === '') {
+    req.body.websiteProject = null;
+  }
+
   const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
     .populate('client', 'name company')
     .populate('assignedTo', 'name avatar role jobTitle')
-    .populate('createdBy', 'name');
+    .populate('createdBy', 'name')
+    .populate('websiteProject', 'name status');
 
   // Log status change
   if (req.body.status && req.body.status !== existing.status) {

@@ -574,7 +574,9 @@ export default function KanbanPage() {
     api.get('/users?limit=100').then(r => {
       const all = r.data.users || [];
       setMembers(all.filter(u => !['admin', 'manager', 'client'].includes(u.role)));
-      setManagers(all.filter(u => ['admin', 'manager'].includes(u.role)));
+      // Developers can create tasks without restriction (same as admins — see
+      // server/routes/tasks.js), so they show up here too, not just PMs/admins.
+      setManagers(all.filter(u => ['admin', 'manager', 'developer'].includes(u.role)));
     });
     if (canLinkWebsiteProject) {
       // Lightweight name-only list (available to any task-creating role) —
@@ -766,12 +768,14 @@ export default function KanbanPage() {
 
   const byStatus = (status) => tasks.filter(t => t.status === status);
 
-  const membersByRole = [...members, ...managers].reduce((acc, m) => {
-    const label = ROLE_LABELS[m.role] || m.role;
-    if (!acc[label]) acc[label] = [];
-    acc[label].push(m);
-    return acc;
-  }, {});
+  const membersByRole = [...members, ...managers]
+    .filter((m, i, arr) => arr.findIndex(x => x._id === m._id) === i) // dedupe (developers are now in both lists)
+    .reduce((acc, m) => {
+      const label = ROLE_LABELS[m.role] || m.role;
+      if (!acc[label]) acc[label] = [];
+      acc[label].push(m);
+      return acc;
+    }, {});
 
   const activeFilters = [filterClient, filterMember, filterPM].filter(Boolean).length + (showAllTime ? 1 : 0) + (filterAssignedToMe ? 1 : 0);
 

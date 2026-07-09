@@ -164,10 +164,12 @@ function ChartTooltip({ active, payload, label }) {
 
 // ── Analytics Panel ───────────────────────────────────────────────────────────
 function AnalyticsPanel() {
+  const { user } = useAuthStore();
+  const isDeveloper = user?.role === 'developer';
   const [taskAnalytics, setTaskAnalytics] = useState(null);
   const [leadAnalytics, setLeadAnalytics] = useState(null);
   const [loadingT, setLoadingT] = useState(true);
-  const [loadingL, setLoadingL] = useState(true);
+  const [loadingL, setLoadingL] = useState(!isDeveloper);
 
   useEffect(() => {
     api.get('/dashboard/analytics/tasks?days=14')
@@ -175,11 +177,14 @@ function AnalyticsPanel() {
       .catch(() => {})
       .finally(() => setLoadingT(false));
 
+    // Developers don't have access to Client Leads — skip fetching/showing
+    // the lead pipeline funnel for that role.
+    if (isDeveloper) return;
     api.get('/dashboard/analytics/leads')
       .then(r => setLeadAnalytics(r.data))
       .catch(() => {})
       .finally(() => setLoadingL(false));
-  }, []);
+  }, [isDeveloper]);
 
   const trendData = taskAnalytics?.trend?.map(d => ({
     date:      d.date.slice(5), // MM-DD
@@ -191,7 +196,7 @@ function AnalyticsPanel() {
   const maxFunnelCount = Math.max(...funnelData.map(f => f.count), 1);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+    <div className={`grid grid-cols-1 ${isDeveloper ? '' : 'lg:grid-cols-2'} gap-5`}>
       {/* Task trend */}
       <Card>
         <CardHeader>
@@ -226,7 +231,8 @@ function AnalyticsPanel() {
         </CardContent>
       </Card>
 
-      {/* Lead funnel */}
+      {/* Lead funnel — hidden for developers, who don't have Client Leads access */}
+      {!isDeveloper && (
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -267,6 +273,7 @@ function AnalyticsPanel() {
           )}
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }
@@ -358,6 +365,7 @@ function ProductivityPanel() {
 function ManagerKPIs({ stats, loading }) {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
+  const isDeveloper = user?.role === 'developer';
 
   if (loading) return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -368,7 +376,8 @@ function ManagerKPIs({ stats, loading }) {
   );
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-      <StatCard title="Active Clients" value={stats?.activeClients ?? 0} icon={Building2}    color="blue"   linkTo="/admin/clients?status=active" />
+      {/* Clients page isn't available to developers — show the count without a link */}
+      <StatCard title="Active Clients" value={stats?.activeClients ?? 0} icon={Building2}    color="blue"   linkTo={isDeveloper ? undefined : '/admin/clients?status=active'} />
       <StatCard title="Open Tasks"     value={stats?.openTasks    ?? 0} icon={CheckSquare}   color="orange" subtitle="Pending + In Progress" linkTo="/admin/tasks?status=pending" />
       <StatCard title="In Review"      value={stats?.reviewTasks  ?? 0} icon={Clock}         color="purple" subtitle="Awaiting approval"     linkTo="/admin/tasks?status=in_review" />
       {/* Team page is admin-only — managers shouldn't get a clickable card pointing there */}
@@ -399,12 +408,16 @@ function ManagerPendingTasks({ tasks, loading }) {
 
 // ── Manager Dashboard (Analytics + Clients + Productivity) ───────────────────
 function ManagerDashboard({ clients, loadingClients }) {
+  const { user } = useAuthStore();
+  const isDeveloper = user?.role === 'developer';
+
   return (
     <div className="space-y-5">
       {/* Analytics charts */}
       <AnalyticsPanel />
 
-      {/* Clients row */}
+      {/* Clients row — developers don't have access to the Clients page */}
+      {!isDeveloper && (
       <Card>
         <CardHeader>
           <SectionHeading title="Active Clients" linkTo="/admin/clients" />
@@ -438,6 +451,7 @@ function ManagerDashboard({ clients, loadingClients }) {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Productivity */}
       <ProductivityPanel />

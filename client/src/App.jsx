@@ -112,11 +112,23 @@ export default function App() {
               }>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard"  element={<AdminDashboard />} />
-                <Route path="clients"    element={<ClientsPage />} />
-                <Route path="clients/:id" element={<ClientDetailPage />} />
+                <Route path="clients"    element={
+                  <ProtectedRoute roles={['admin', 'manager']}>
+                    <ClientsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="clients/:id" element={
+                  <ProtectedRoute roles={['admin', 'manager']}>
+                    <ClientDetailPage />
+                  </ProtectedRoute>
+                } />
                 <Route path="tasks"      element={<TasksPage />} />
                 <Route path="my-tasks"   element={<MyTasksPage />} />
-                <Route path="leads"      element={<LeadsAdminPage />} />
+                <Route path="leads"      element={
+                  <ProtectedRoute roles={['admin', 'manager']}>
+                    <LeadsAdminPage />
+                  </ProtectedRoute>
+                } />
                 <Route path="team"       element={
                   <ProtectedRoute roles={['admin']}>
                     <TeamPage />
@@ -140,7 +152,7 @@ export default function App() {
                   </ProtectedRoute>
                 } />
                 <Route path="social"     element={
-                  <ProtectedRoute roles={['admin', 'manager', 'developer']}>
+                  <ProtectedRoute roles={['admin', 'manager']}>
                     <SocialAdminPage />
                   </ProtectedRoute>
                 } />

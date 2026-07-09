@@ -32,18 +32,18 @@ const ROLE_LABELS = {
 
 const navItems = [
   { to: '/admin/dashboard',        icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/clients',          icon: Building2,       label: 'Clients',           managerOnly: true },
+  { to: '/admin/clients',          icon: Building2,       label: 'Clients',           roles: ['admin', 'manager'] },
   { to: '/admin/kanban',           icon: Kanban,          label: 'Kanban',             managerOnly: true },
   { to: '/admin/website-work',     icon: Code2,           label: 'Website Work',      websiteWorkOnly: true },
   { to: '/admin/my-tasks',         icon: ListChecks,      label: 'My Tasks',           teamOnly: true },
   { to: '/admin/my-day',           icon: ClipboardList,   label: 'My Day',             myDayOnly: true },
-  { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       managerOnly: true },
+  { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       roles: ['admin', 'manager'] },
   { to: '/admin/internal-leads',   icon: Briefcase,       label: 'Internal Leads',     internalLeadsOnly: true },
   { to: '/admin/call-tracker',     icon: PhoneCall,       label: 'Call Tracker',       callTrackerOnly: true },
   { to: '/admin/calendar',         icon: Calendar,        label: 'Calendar' },
   { to: '/admin/updates',    icon: Rss,             label: 'Updates',          hideForPM: true },
-  { to: '/admin/social',     icon: Instagram,       label: 'Social Media', managerOnly: true },
-  { to: '/admin/reports',    icon: BarChart3,       label: 'Reports',          hideForPM: true },
+  { to: '/admin/social',     icon: Instagram,       label: 'Social Media', roles: ['admin', 'manager'] },
+  { to: '/admin/reports',    icon: BarChart3,       label: 'Reports',          roles: ['admin', 'manager', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'] },
   { to: '/admin/files',      icon: Upload,          label: 'Files',            hideForPM: true },
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
   { to: '/admin/team-log',   icon: ClipboardList,   label: 'Team Log',     adminManagerOnly: true },
@@ -140,6 +140,7 @@ export default function AdminLayout() {
   const isWebsiteWork   = ['admin', 'developer'].includes(user?.role);
 
   const filteredNavItems = navItems.filter(item => {
+    if (item.roles             && !item.roles.includes(user?.role)) return false;
     if (item.adminOnly         && !isAdmin)         return false;
     if (item.managerOnly       && !isManager)       return false;
     if (item.teamOnly          && !isTeamOnly)      return false;

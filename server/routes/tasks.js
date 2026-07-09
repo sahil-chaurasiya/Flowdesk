@@ -192,12 +192,29 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     if (dateTo)   query.createdAt.$lte = new Date(dateTo);
   }
 
-  // Personal tasks (admin's own, no client) are never visible to anyone
+  // Personal tasks (own tasks, no client) are never visible to anyone
   // other than the person who created them — not even other admins.
-  query.$or = [
-    { isPersonal: { $ne: true } },
-    { isPersonal: true, createdBy: req.user._id },
-  ];
+  const andConditions = [{
+    $or: [
+      { isPersonal: { $ne: true } },
+      { isPersonal: true, createdBy: req.user._id },
+    ],
+  }];
+
+  // Developers get client-scoping like admins/managers (see getScopedClientIds
+  // above), but unlike admins/managers they shouldn't see the whole team's
+  // workload on the Kanban board — only tasks they're assigned to, or tasks
+  // they assigned to someone else.
+  if (req.user.role === 'developer') {
+    andConditions.push({
+      $or: [
+        { assignedTo: req.user._id },
+        { createdBy: req.user._id },
+      ],
+    });
+  }
+
+  query.$and = andConditions;
 
   const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
   const total = await Task.countDocuments(query);
@@ -234,9 +251,11 @@ router.post('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (re
   delete payload.websiteProject;
 
   if (payload.isPersonal) {
-    // Personal tasks: admin-only, always private, never tied to a client.
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Only admins can create personal tasks' });
+    // Personal tasks: always private, never tied to a client. Available to
+    // everyone who has Kanban access (admin, manager, developer) — not just
+    // admins.
+    if (!MANAGER_ROLES.includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Only admins, project managers, and developers can create personal tasks' });
     }
     delete payload.client;
     payload.isClientVisible = false;

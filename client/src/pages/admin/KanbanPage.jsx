@@ -503,6 +503,9 @@ export default function KanbanPage() {
   const { user } = useAuthStore();
   const toast = useToast();
   const isAdmin = user?.role === 'admin';
+  // Anyone with Kanban access (admin, manager, developer) can create
+  // personal tasks — not just admins.
+  const canPersonalTask = ['admin', 'manager', 'developer'].includes(user?.role);
 
   const [tasks, setTasks]             = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -894,7 +897,7 @@ export default function KanbanPage() {
           <Input label="Title *" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="What needs to be done?" autoFocus />
           <Textarea label="Description" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} rows={3} placeholder="Add details, context, or notes…" />
 
-          {isAdmin && (
+          {canPersonalTask && (
             <label className="flex items-center gap-2.5 cursor-pointer p-2.5 rounded-lg" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
               <input
                 type="checkbox"
@@ -966,7 +969,7 @@ export default function KanbanPage() {
           <Input label="Title *" value={editForm.title || ''} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} />
           <Textarea label="Description" value={editForm.description || ''} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} />
 
-          {isAdmin && (
+          {canPersonalTask && (
             <label className="flex items-center gap-2.5 cursor-pointer p-2.5 rounded-lg" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
               <input
                 type="checkbox"

@@ -522,6 +522,7 @@ export default function KanbanPage() {
   const { user } = useAuthStore();
   const toast = useToast();
   const isAdmin = user?.role === 'admin';
+  const canFilterByPM = isAdmin || user?.role === 'developer';
   // Anyone with Kanban access (admin, manager, developer) can create
   // personal tasks — not just admins.
   const canPersonalTask = ['admin', 'manager', 'developer'].includes(user?.role);
@@ -622,14 +623,14 @@ export default function KanbanPage() {
       let result = data.tasks || [];
 
       // Admin filtering by PM: keep tasks whose createdBy matches selected PM
-      if (isAdmin && filterPM) {
+      if (canFilterByPM && filterPM) {
         result = result.filter(t => t.createdBy?._id === filterPM || String(t.createdBy?._id) === filterPM);
       }
 
       setTasks(result);
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, [filterClient, filterMember, filterPM, filterAssignedToMe, user?._id, isAdmin, showAllTime, monthCursor]);
+  }, [filterClient, filterMember, filterPM, filterAssignedToMe, user?._id, canFilterByPM, showAllTime, monthCursor]);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
@@ -899,8 +900,8 @@ export default function KanbanPage() {
           </button>
         </div>
 
-        {/* PM filter — admin only */}
-        {isAdmin && (
+        {/* PM filter — admin + developer */}
+        {canFilterByPM && (
           <div className="flex flex-col gap-1">
             <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Manager / Admin</label>
             <select

@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import {
-  Code2, Plus, X, Trash2, Pencil, ChevronRight, ChevronLeft, ListChecks,
-  Clock, AlertCircle, Calendar, Pin, GripVertical,
+  Code2, Plus, X, Trash2, Pencil, ChevronRight,
+  AlertCircle, Calendar, Pin, GripVertical, Target, BarChart3,
+  ChevronDown, ChevronUp, Loader2,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -33,6 +35,30 @@ const PROJECT_CATEGORIES = {
   office_project:  { label: 'Office Project',  icon: '🏢', color: '#4f6ef0', bg: 'rgba(79,110,240,0.12)' },
   client_project:  { label: 'Client Project',  icon: '💼', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
+
+// ── Radial progress ring ──────────────────────────────────────────────────────
+function ProgressRing({ value = 0, color = '#4f6ef0', size = 72 }) {
+  const r = (size - 8) / 2;
+  const circ = 2 * Math.PI * r;
+  const dash = (value / 100) * circ;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--fd-surface-sunken)" strokeWidth={5} />
+      <circle
+        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={5}
+        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+        style={{ transition: 'stroke-dasharray 0.6s ease' }}
+      />
+      <text
+        x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central"
+        transform={`rotate(90, ${size / 2}, ${size / 2})`}
+        fill="var(--fd-ink-1)" fontSize={size * 0.2} fontWeight={700}
+      >
+        {value}%
+      </text>
+    </svg>
+  );
+}
 
 // ── Status progress bar ──────────────────────────────────────────────────────
 function ProjectProgressBar({ stats }) {
@@ -284,14 +310,15 @@ function TaskModal({ isOpen, onClose, onSaved, editing, project, members }) {
   );
 }
 
-// ── Project detail (task list) ───────────────────────────────────────────────
-function ProjectDetail({ project, members, onBack, onProjectChanged, user }) {
+// ── Project detail drawer ────────────────────────────────────────────────────
+function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, onDelete, user }) {
   const toast = useToast();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [tasksExpanded, setTasksExpanded] = useState(true);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -317,6 +344,8 @@ function ProjectDetail({ project, members, onBack, onProjectChanged, user }) {
     return false;
   };
 
+  const canManageProject = user?.role === 'admin' || String(project.createdBy?._id || project.createdBy) === String(user?._id);
+
   const handleTaskSaved = (task, isNew) => {
     setTasks(prev => isNew ? [task, ...prev] : prev.map(t => t._id === task._id ? task : t));
     onProjectChanged();
@@ -327,157 +356,242 @@ function ProjectDetail({ project, members, onBack, onProjectChanged, user }) {
       const { data } = await api.put(`/website-work/tasks/${task._id}`, { status });
       setTasks(prev => prev.map(t => t._id === task._id ? data.task : t));
       onProjectChanged();
-    } catch (err) {
+    } catch {
       toast({ type: 'error', title: 'Could not update status' });
     }
   };
 
-  const confirmDelete = async () => {
+  const confirmDeleteTask = async () => {
     try {
-      await api.delete(`/website-work/tasks/${deleteTarget._id}`);
-      setTasks(prev => prev.filter(t => t._id !== deleteTarget._id));
+      await api.delete(`/website-work/tasks/${deleteTaskTarget._id}`);
+      setTasks(prev => prev.filter(t => t._id !== deleteTaskTarget._id));
       onProjectChanged();
       toast({ type: 'success', title: 'Task deleted' });
     } catch {
       toast({ type: 'error', title: 'Failed to delete task' });
     } finally {
-      setDeleteTarget(null);
+      setDeleteTaskTarget(null);
     }
   };
 
+  const handleEditProject = () => {
+    onClose();
+    setTimeout(() => onEdit(project), 100);
+  };
+
+  const handleDeleteProject = () => {
+    onClose();
+    onDelete(project);
+  };
+
   const sm = PROJECT_STATUS[project.status] || PROJECT_STATUS.planning;
+  const done = tasks.filter(t => t.status === 'completed').length;
+  const stats = project.taskStats || {};
 
-  return (
-    <div className="space-y-5 animate-fade-in">
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-[12.5px] font-medium hover:opacity-70 transition-opacity"
-        style={{ color: 'var(--fd-ink-3)' }}
+  return ReactDOM.createPortal(
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
+      <div
+        className="fixed right-0 top-0 bottom-0 z-50 flex flex-col shadow-2xl animate-slide-in-right"
+        style={{ width: 'min(480px, 100vw)', background: 'var(--fd-surface)', borderLeft: '1px solid var(--fd-border)' }}
       >
-        <ChevronLeft size={14} /> All Projects
-      </button>
-
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: sm.bg, color: sm.color }}>
-              {sm.label}
-            </span>
-            {project.categories?.map(cat => {
-              const meta = PROJECT_CATEGORIES[cat];
-              if (!meta) return null;
-              return (
-                <span key={cat} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: meta.bg, color: meta.color }}>
-                  {meta.icon} {meta.label}
+        {/* Header */}
+        <div className="flex items-start gap-3 px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--fd-border)' }}>
+          <div className="h-3 w-3 rounded-full mt-1.5 flex-shrink-0" style={{ background: sm.color }} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: sm.bg, color: sm.color }}>
+                {sm.label}
+              </span>
+              {project.pinned && (
+                <span className="inline-flex items-center gap-1 text-[10.5px] font-bold uppercase tracking-wider" style={{ color: '#f59e0b' }}>
+                  <Pin size={10} fill="#f59e0b" /> Pinned
                 </span>
-              );
-            })}
+              )}
+            </div>
+            <h2 className="text-[17px] font-bold leading-snug break-words" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h2>
           </div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h1>
-          {project.description && (
-            <p className="text-sm mt-1 max-w-2xl" style={{ color: 'var(--fd-ink-3)' }}>{project.description}</p>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {canManageProject && (
+              <>
+                <button onClick={handleEditProject} className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" title="Edit project">
+                  <Pencil size={15} style={{ color: 'var(--fd-ink-4)' }} />
+                </button>
+                <button onClick={handleDeleteProject} className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors" title="Delete project">
+                  <Trash2 size={15} style={{ color: '#ef4444' }} />
+                </button>
+              </>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors" title="Close">
+              <X size={16} style={{ color: 'var(--fd-ink-4)' }} />
+            </button>
+          </div>
         </div>
-        <Button onClick={() => { setEditingTask(null); setTaskModalOpen(true); }}>
-          <Plus size={14} /> New Task
-        </Button>
-      </div>
 
-      <Card className="p-4">
-        <ProjectProgressBar stats={project.taskStats} />
-      </Card>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl p-3 flex flex-col items-center justify-center gap-1" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <ProgressRing value={stats.progress || 0} color={sm.color} size={64} />
+              <p className="text-[10.5px]" style={{ color: 'var(--fd-ink-5)' }}>progress</p>
+            </div>
+            <div className="rounded-xl p-3 flex flex-col justify-center" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <p className="text-xl font-bold" style={{ color: 'var(--fd-ink-1)' }}>
+                {stats.completed || 0}<span className="text-[13px] font-normal" style={{ color: 'var(--fd-ink-5)' }}>/{stats.total || 0}</span>
+              </p>
+              <p className="text-[10.5px] mt-0.5 flex items-center gap-1" style={{ color: 'var(--fd-ink-5)' }}>
+                <Target size={10} /> Completed
+              </p>
+            </div>
+            <div className="rounded-xl p-3 flex flex-col justify-center" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <p className="text-xl font-bold" style={{ color: 'var(--fd-ink-1)' }}>{stats.total || 0}</p>
+              <p className="text-[10.5px] mt-0.5 flex items-center gap-1" style={{ color: 'var(--fd-ink-5)' }}>
+                <BarChart3 size={10} /> Total tasks
+              </p>
+            </div>
+          </div>
 
-      {loading ? (
-        <div className="flex justify-center py-16"><Spinner /></div>
-      ) : tasks.length === 0 ? (
-        <EmptyState
-          icon={ListChecks}
-          title="No tasks yet"
-          description="Add the first task for this project and assign it to a developer or any team member."
-          action={<Button onClick={() => { setEditingTask(null); setTaskModalOpen(true); }}><Plus size={14} /> New Task</Button>}
-        />
-      ) : (
-        <div className="space-y-2.5">
-          {tasks.map(task => {
-            const ts = TASK_STATUS[task.status] || TASK_STATUS.pending;
-            const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
-            return (
-              <div
-                key={task._id}
-                className="rounded-xl p-4 flex items-start gap-3 flex-wrap sm:flex-nowrap"
-                style={{ background: 'var(--fd-surface)', border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--fd-border)'}` }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-semibold text-[14px]" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</span>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: ts.bg, color: ts.color }}>
-                      {ts.label}
+          {/* Categories */}
+          {project.categories?.length > 0 && (
+            <section>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--fd-ink-5)' }}>Category</p>
+              <div className="flex gap-2 flex-wrap">
+                {project.categories.map(cat => {
+                  const meta = PROJECT_CATEGORIES[cat];
+                  if (!meta) return null;
+                  return (
+                    <span key={cat} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11.5px] font-semibold" style={{ background: meta.bg, color: meta.color }}>
+                      {meta.icon} {meta.label}
                     </span>
-                    <span
-                      className="px-2 py-0.5 rounded-full text-[10.5px] font-medium capitalize"
-                      style={{ background: `${PRIORITY_COLORS[task.priority]}15`, color: PRIORITY_COLORS[task.priority] }}
-                    >
-                      {task.priority}
-                    </span>
-                    {isOverdue && <span className="text-[11px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>}
-                  </div>
-                  {task.description && (
-                    <p className="text-[12.5px] mb-2 line-clamp-2" style={{ color: 'var(--fd-ink-4)' }}>{task.description}</p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-3 text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
-                    {task.assignedTo ? (
-                      <span className="flex items-center gap-1.5">
-                        <Avatar name={task.assignedTo.name} size="xs" />
-                        {task.assignedTo.name}
-                      </span>
-                    ) : (
-                      <span className="italic">Unassigned</span>
-                    )}
-                    {task.deadline && (
-                      <span className="flex items-center gap-1">
-                        <Calendar size={11} /> {formatDate(task.deadline)}
-                      </span>
-                    )}
-                    <span>By {task.createdBy?.name || '—'}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                  {canManageTask(task) ? (
-                    <>
-                      <Select
-                        value={task.status}
-                        onChange={e => quickStatusChange(task, e.target.value)}
-                        className="!w-auto text-[12px] py-1.5"
-                      >
-                        {Object.entries(TASK_STATUS).map(([v, s]) => <option key={v} value={v}>{s.label}</option>)}
-                      </Select>
-                      <button
-                        onClick={() => { setEditingTask(task); setTaskModalOpen(true); }}
-                        className="p-2 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                        title="Edit task"
-                      >
-                        <Pencil size={14} style={{ color: 'var(--fd-ink-4)' }} />
-                      </button>
-                      <button
-                        onClick={() => setDeleteTarget(task)}
-                        className="p-2 rounded-lg hover:bg-[var(--fd-surface-sunken)] transition-colors"
-                        title="Delete task"
-                      >
-                        <Trash2 size={14} style={{ color: '#ef4444' }} />
-                      </button>
-                    </>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: ts.bg, color: ts.color }}>
-                      {ts.label}
-                    </span>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
+            </section>
+          )}
+
+          {/* Description */}
+          {project.description && (
+            <section>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--fd-ink-5)' }}>Description</p>
+              <p className="text-[13px] leading-relaxed" style={{ color: 'var(--fd-ink-2)', whiteSpace: 'pre-wrap' }}>{project.description}</p>
+            </section>
+          )}
+
+          {/* Priority + deadline */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <div className="flex items-center gap-1.5 mb-1"><AlertCircle size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Priority</span></div>
+              <div className="text-[13px] font-semibold capitalize" style={{ color: PRIORITY_COLORS[project.priority] }}>{project.priority}</div>
+            </div>
+            {project.deadline && (
+              <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><Calendar size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Deadline</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{formatDate(project.deadline)}</div>
+              </div>
+            )}
+          </div>
+
+          {/* Linked tasks */}
+          <section>
+            <button onClick={() => setTasksExpanded(e => !e)} className="w-full flex items-center justify-between mb-3 group">
+              <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--fd-ink-5)' }}>
+                Tasks {tasks.length > 0 && <span className="font-normal normal-case tracking-normal">({done}/{tasks.length} done)</span>}
+              </p>
+              {tasksExpanded ? <ChevronUp size={14} style={{ color: 'var(--fd-ink-5)' }} /> : <ChevronDown size={14} style={{ color: 'var(--fd-ink-5)' }} />}
+            </button>
+
+            {tasksExpanded && (
+              loading ? (
+                <div className="flex items-center gap-2 text-[12px] py-4 justify-center" style={{ color: 'var(--fd-ink-5)' }}>
+                  <Loader2 size={13} className="animate-spin" /> Loading tasks…
+                </div>
+              ) : tasks.length === 0 ? (
+                <p className="text-[12.5px] italic py-2" style={{ color: 'var(--fd-ink-5)' }}>No tasks linked to this project yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {tasks.map(task => {
+                    const ts = TASK_STATUS[task.status] || TASK_STATUS.pending;
+                    const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
+                    return (
+                      <div
+                        key={task._id}
+                        className="rounded-xl p-3 w-full"
+                        style={{ background: 'var(--fd-surface-sunken)', border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--fd-border)'}` }}
+                      >
+                        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                          <span className="font-semibold text-[13px] break-words" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                          <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold" style={{ background: ts.bg, color: ts.color }}>
+                            {ts.label}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-medium capitalize" style={{ background: `${PRIORITY_COLORS[task.priority]}15`, color: PRIORITY_COLORS[task.priority] }}>
+                            {task.priority}
+                          </span>
+                          {isOverdue && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>}
+                        </div>
+                        {task.description && (
+                          <p className="text-[12px] mb-2 line-clamp-2" style={{ color: 'var(--fd-ink-4)' }}>{task.description}</p>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] mb-2" style={{ color: 'var(--fd-ink-4)' }}>
+                          {task.assignedTo ? (
+                            <span className="flex items-center gap-1.5">
+                              <Avatar name={task.assignedTo.name} size="xs" />
+                              {task.assignedTo.name}
+                            </span>
+                          ) : (
+                            <span className="italic">Unassigned</span>
+                          )}
+                          {task.deadline && (
+                            <span className="flex items-center gap-1">
+                              <Calendar size={10} /> {formatDate(task.deadline)}
+                            </span>
+                          )}
+                          <span>By {task.createdBy?.name || '—'}</span>
+                        </div>
+
+                        {canManageTask(task) && (
+                          <div className="flex items-center gap-2 flex-wrap pt-2" style={{ borderTop: '1px solid var(--fd-border)' }} onClick={e => e.stopPropagation()}>
+                            <Select
+                              value={task.status}
+                              onChange={e => quickStatusChange(task, e.target.value)}
+                              className="!w-auto text-[11.5px] py-1 flex-shrink-0"
+                            >
+                              {Object.entries(TASK_STATUS).map(([v, s]) => <option key={v} value={v}>{s.label}</option>)}
+                            </Select>
+                            <button
+                              onClick={() => { setEditingTask(task); setTaskModalOpen(true); }}
+                              className="p-1.5 rounded-lg hover:bg-[var(--fd-surface)] transition-colors ml-auto"
+                              title="Edit task"
+                            >
+                              <Pencil size={13} style={{ color: 'var(--fd-ink-4)' }} />
+                            </button>
+                            <button
+                              onClick={() => setDeleteTaskTarget(task)}
+                              className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors"
+                              title="Delete task"
+                            >
+                              <Trash2 size={13} style={{ color: '#ef4444' }} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            )}
+          </section>
         </div>
-      )}
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t flex-shrink-0" style={{ borderColor: 'var(--fd-border)' }}>
+          <Button className="w-full" onClick={() => { setEditingTask(null); setTaskModalOpen(true); }}>
+            <Plus size={14} /> New Task
+          </Button>
+        </div>
+      </div>
 
       <TaskModal
         isOpen={taskModalOpen}
@@ -488,16 +602,17 @@ function ProjectDetail({ project, members, onBack, onProjectChanged, user }) {
         members={members}
       />
 
-      <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Task" size="sm">
+      <Modal isOpen={!!deleteTaskTarget} onClose={() => setDeleteTaskTarget(null)} title="Delete Task" size="sm">
         <p className="text-[13px] mb-4" style={{ color: 'var(--fd-ink-3)' }}>
-          Delete <strong>{deleteTarget?.title}</strong>? This can&apos;t be undone.
+          Delete <strong>{deleteTaskTarget?.title}</strong>? This can&apos;t be undone.
         </p>
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button variant="danger" onClick={confirmDelete}>Delete</Button>
+          <Button variant="secondary" onClick={() => setDeleteTaskTarget(null)}>Cancel</Button>
+          <Button variant="danger" onClick={confirmDeleteTask}>Delete</Button>
         </div>
       </Modal>
-    </div>
+    </>,
+    document.body
   );
 }
 
@@ -671,7 +786,7 @@ export default function WebsiteWorkPage() {
   const [projects, setProjects] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeProject, setActiveProject] = useState(null);
+  const [viewingProject, setViewingProject] = useState(null);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -681,7 +796,7 @@ export default function WebsiteWorkPage() {
     try {
       const { data } = await api.get('/website-work/projects');
       setProjects(data.projects || []);
-      setActiveProject(prev => {
+      setViewingProject(prev => {
         if (!prev) return prev;
         return data.projects?.find(p => p._id === prev._id) || null;
       });
@@ -707,7 +822,7 @@ export default function WebsiteWorkPage() {
     try {
       await api.delete(`/website-work/projects/${deleteTarget._id}`);
       setProjects(prev => prev.filter(p => p._id !== deleteTarget._id));
-      if (activeProject?._id === deleteTarget._id) setActiveProject(null);
+      if (viewingProject?._id === deleteTarget._id) setViewingProject(null);
       toast({ type: 'success', title: 'Project deleted' });
     } catch {
       toast({ type: 'error', title: 'Failed to delete project' });
@@ -764,18 +879,6 @@ export default function WebsiteWorkPage() {
     : projects;
   const pinnedProjects = filteredProjects.filter(p => p.pinned);
   const restProjects = filteredProjects.filter(p => !p.pinned);
-
-  if (activeProject) {
-    return (
-      <ProjectDetail
-        project={activeProject}
-        members={members}
-        onBack={() => setActiveProject(null)}
-        onProjectChanged={loadProjects}
-        user={user}
-      />
-    );
-  }
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -850,7 +953,7 @@ export default function WebsiteWorkPage() {
             <PinnedSection
               pinned={pinnedProjects}
               user={user}
-              onView={setActiveProject}
+              onView={setViewingProject}
               onEdit={p => { setEditingProject(p); setProjectModalOpen(true); }}
               onDelete={setDeleteTarget}
               onPin={handlePin}
@@ -869,7 +972,7 @@ export default function WebsiteWorkPage() {
                     key={project._id}
                     project={project}
                     user={user}
-                    onView={setActiveProject}
+                    onView={setViewingProject}
                     onEdit={p => { setEditingProject(p); setProjectModalOpen(true); }}
                     onDelete={setDeleteTarget}
                     onPin={handlePin}
@@ -898,6 +1001,18 @@ export default function WebsiteWorkPage() {
           <Button variant="danger" onClick={confirmDeleteProject}>Delete Project</Button>
         </div>
       </Modal>
+
+      {viewingProject && (
+        <ProjectDrawer
+          project={viewingProject}
+          members={members}
+          onClose={() => setViewingProject(null)}
+          onProjectChanged={loadProjects}
+          onEdit={p => { setEditingProject(p); setProjectModalOpen(true); }}
+          onDelete={p => setDeleteTarget(p)}
+          user={user}
+        />
+      )}
     </div>
   );
 }

@@ -963,24 +963,20 @@ function ShootScheduleWidget() {
             </div>
           </div>
           {/* Month nav */}
-          <div className="flex items-center gap-1">
+          <div
+            className="flex items-center gap-0.5 rounded-lg p-0.5"
+            style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
+          >
             <button
               onClick={() => setMonth(m => subMonths(m, 1))}
-              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              className="p-1.5 rounded-md transition-colors hover:bg-[var(--fd-card-bg)]"
               style={{ color: 'var(--fd-ink-3)' }}
             >
               <ChevronLeft size={14} />
             </button>
             <button
-              onClick={() => setMonth(new Date())}
-              className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold transition-colors hover:bg-[var(--fd-surface-sunken)]"
-              style={{ color: 'var(--fd-ink-4)' }}
-            >
-              Today
-            </button>
-            <button
               onClick={() => setMonth(m => addMonths(m, 1))}
-              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              className="p-1.5 rounded-md transition-colors hover:bg-[var(--fd-card-bg)]"
               style={{ color: 'var(--fd-ink-3)' }}
             >
               <ChevronRight size={14} />

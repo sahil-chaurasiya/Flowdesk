@@ -73,6 +73,14 @@ function ProjectProgressBar({ stats }) {
       ]
     : [];
 
+  // Mount at 0% and grow to the real width right after paint, so the bar
+  // visibly fills in — same entrance as the Noori project cards.
+  const [filled, setFilled] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setFilled(true), 60);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
@@ -84,14 +92,20 @@ function ProjectProgressBar({ stats }) {
         </span>
       </div>
       <div
-        className="w-full h-2 rounded-full overflow-hidden flex"
-        style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
+        className="w-full h-2 rounded-full overflow-hidden flex gap-[1px]"
+        style={{ background: 'var(--fd-surface-sunken)' }}
       >
-        {segments.map(s => (
+        {segments.map((s, i) => (
           s.value > 0 && (
             <div
               key={s.key}
-              style={{ width: `${(s.value / total) * 100}%`, background: s.color, height: '100%' }}
+              style={{
+                width: filled ? `${(s.value / total) * 100}%` : '0%',
+                background: s.color,
+                height: '100%',
+                boxShadow: `0 0 6px ${s.color}77`,
+                transition: `width 0.9s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.08}s`,
+              }}
             />
           )
         ))}
@@ -624,23 +638,32 @@ function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging,
 
   return (
     <div
-      className={`group relative rounded-2xl p-4 cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 ${dragging ? 'opacity-40 scale-95' : ''}`}
+      className={`group relative rounded-[20px] p-5 cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-2xl ${dragging ? 'opacity-40 scale-95' : ''}`}
       style={{
         background: 'var(--fd-surface)',
-        border: `1px solid ${project.pinned ? 'rgba(245,158,11,0.35)' : 'var(--fd-border)'}`,
-        boxShadow: project.pinned ? '0 0 0 1px rgba(245,158,11,0.08)' : undefined,
+        border: `1px solid ${project.pinned ? 'rgba(245,158,11,0.4)' : 'var(--fd-border)'}`,
         ...style,
       }}
       onClick={() => onView(project)}
     >
-      {/* Top accent strip in status colour */}
-      <div className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl" style={{ background: sm.color, opacity: 0.7 }} />
-
-      <div className="flex items-start justify-between gap-2 mb-2 pt-1">
-        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ background: sm.bg, color: sm.color }}>
-          {sm.label}
-        </span>
-        <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+      {/* Header row — status + category on the left, actions on the right */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: sm.bg, color: sm.color }}>
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: sm.color }} />
+            {sm.label}
+          </span>
+          {project.categories?.map(cat => {
+            const meta = PROJECT_CATEGORIES[cat];
+            if (!meta) return null;
+            return (
+              <span key={cat} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold" style={{ background: meta.bg, color: meta.color }}>
+                {meta.icon} {meta.label}
+              </span>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
           <button
             onClick={() => onPin(project)}
             className={`p-1.5 rounded-lg transition-all ${project.pinned ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} hover:scale-110`}
@@ -670,42 +693,29 @@ function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging,
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 mb-1">
-        <h3 className="font-bold text-[15px] truncate" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h3>
-        {project.pinned && (
-          <span className="text-[9px] font-bold uppercase tracking-wider flex-shrink-0" style={{ color: '#f59e0b' }}>pinned</span>
-        )}
-      </div>
+      <h3 className="font-bold text-[16px] leading-snug mb-1 truncate" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h3>
 
       {project.description && (
-        <p className="text-[12.5px] mb-2.5 line-clamp-2" style={{ color: 'var(--fd-ink-4)' }}>{project.description}</p>
+        <p className="text-[12.5px] leading-relaxed mb-4 line-clamp-2" style={{ color: 'var(--fd-ink-4)' }}>{project.description}</p>
       )}
 
-      {project.categories?.length > 0 && (
-        <div className="flex items-center gap-1.5 flex-wrap mb-3">
-          {project.categories.map(cat => {
-            const meta = PROJECT_CATEGORIES[cat];
-            if (!meta) return null;
-            return (
-              <span
-                key={cat}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                style={{ background: meta.bg, color: meta.color }}
-              >
-                {meta.icon} {meta.label}
-              </span>
-            );
-          })}
+      <div className={project.description ? '' : 'mt-1'}>
+        <ProjectProgressBar stats={project.taskStats} />
+      </div>
+
+      <div className="flex items-center justify-between mt-4 pt-3.5" style={{ borderTop: '1px solid var(--fd-border)' }}>
+        <div className="flex items-center gap-1.5 min-w-0">
+          {project.createdBy?.name && (
+            <>
+              <Avatar name={project.createdBy.name} size="xs" />
+              <span className="text-[11px] truncate" style={{ color: 'var(--fd-ink-5)' }}>{project.createdBy.name}</span>
+            </>
+          )}
         </div>
-      )}
-
-      <ProjectProgressBar stats={project.taskStats} />
-
-      <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--fd-border)' }}>
-        <span className="text-[11px] truncate" style={{ color: 'var(--fd-ink-5)' }}>
-          {project.createdBy?.name ? `Started by ${project.createdBy.name}` : ''}
-        </span>
-        <span className="flex items-center gap-1 text-[11.5px] font-medium flex-shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: '#4f6ef0' }}>
+        <span
+          className="flex items-center gap-1 text-[11.5px] font-semibold flex-shrink-0 px-2.5 py-1 rounded-full transition-all group-hover:gap-1.5"
+          style={{ color: '#4f6ef0', background: 'rgba(79,110,240,0.08)' }}
+        >
           View tasks <ChevronRight size={12} />
         </span>
       </div>
@@ -762,7 +772,7 @@ function PinnedSection({ pinned, user, onView, onEdit, onDelete, onPin, onReorde
             onDragOver={e => handleDragOver(e, idx)}
             onDrop={e => handleDrop(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`transition-all rounded-2xl ${overIdx === idx && draggingIdx !== idx ? 'ring-2 ring-amber-400/50' : ''}`}
+            className={`transition-all rounded-[20px] ${overIdx === idx && draggingIdx !== idx ? 'ring-2 ring-amber-400/50' : ''}`}
           >
             <ProjectCard
               project={p}

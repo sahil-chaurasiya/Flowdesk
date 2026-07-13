@@ -46,7 +46,15 @@ function getRoleStyle(role) {
 }
 
 // Attendance pill shown on each card
-function AttPill({ status }) {
+function AttPill({ status, unavailable }) {
+  if (unavailable) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-100 text-gray-500" title="Couldn't reach attendance data">
+        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block" />
+        Unavailable
+      </span>
+    );
+  }
   if (!status) {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-semibold bg-gray-100 text-gray-500">
@@ -60,6 +68,7 @@ function AttPill({ status }) {
     late:     { dot: 'bg-amber-500',   bg: 'bg-amber-50',    text: 'text-amber-700',   label: 'Late'     },
     on_leave: { dot: 'bg-blue-400',    bg: 'bg-blue-50',     text: 'text-blue-700',    label: 'On Leave' },
     absent:   { dot: 'bg-red-400',     bg: 'bg-red-50',      text: 'text-red-600',     label: 'Absent'   },
+    holiday:  { dot: 'bg-violet-400',  bg: 'bg-violet-50',   text: 'text-violet-700',  label: 'Holiday'  },
   }[status] || { dot: 'bg-gray-400', bg: 'bg-gray-100', text: 'text-gray-500', label: status };
 
   return (
@@ -91,6 +100,7 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [todayAtt, setTodayAtt] = useState({});
   const [attLoading, setAttLoading] = useState(false);
+  const [attFailed, setAttFailed] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -129,8 +139,8 @@ export default function TeamPage() {
     if (!isAdminOrManager) return;
     setAttLoading(true);
     api.get('/users/attendance-today')
-      .then(r => setTodayAtt(r.data.byEmail || {}))
-      .catch(() => {})
+      .then(r => { setTodayAtt(r.data.byEmail || {}); setAttFailed(false); })
+      .catch((err) => { console.error('Failed to load today\'s attendance:', err); setAttFailed(true); })
       .finally(() => setAttLoading(false));
   };
 
@@ -345,7 +355,7 @@ export default function TeamPage() {
                               {ROLE_LABELS[u.role] || u.role}
                             </span>
                             {isAdminOrManager && !attLoading && (
-                              <AttPill status={att?.status} />
+                              <AttPill status={att?.status} unavailable={attFailed} />
                             )}
                           </div>
                         </div>

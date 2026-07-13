@@ -49,6 +49,7 @@ const ATT_STATUS = {
   late:     { label: 'Late',     dot: 'bg-amber-400',   badge: 'bg-amber-100 text-amber-700',    cal: 'bg-amber-400'   },
   absent:   { label: 'Absent',   dot: 'bg-red-400',     badge: 'bg-red-100 text-red-600',        cal: 'bg-red-400'     },
   on_leave: { label: 'On Leave', dot: 'bg-blue-400',    badge: 'bg-blue-100 text-blue-700',      cal: 'bg-blue-400'    },
+  holiday:  { label: 'Holiday',  dot: 'bg-violet-400',  badge: 'bg-violet-100 text-violet-700',  cal: 'bg-violet-400'  },
 };
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -92,6 +93,7 @@ const ATT_STYLE = {
   late:     { bg: 'bg-amber-400',   ring: 'ring-amber-200',   text: 'text-white', glow: 'shadow-amber-200'   },
   absent:   { bg: 'bg-red-400',     ring: 'ring-red-200',     text: 'text-white', glow: 'shadow-red-200'     },
   on_leave: { bg: 'bg-blue-400',    ring: 'ring-blue-200',    text: 'text-white', glow: 'shadow-blue-200'    },
+  holiday:  { bg: 'bg-violet-400',  ring: 'ring-violet-200',  text: 'text-white', glow: 'shadow-violet-200'  },
   wfh:      { bg: 'bg-violet-400',  ring: 'ring-violet-200',  text: 'text-white', glow: 'shadow-violet-200'  },
 };
 
@@ -282,11 +284,12 @@ function AttendanceTab({ memberId }) {
       )}
       {!loading && !error && data?.found && (
         <>
-          <div className="grid grid-cols-4 gap-2">
+          <div className={`grid gap-2 ${data.summary.holiday > 0 ? 'grid-cols-5' : 'grid-cols-4'}`}>
             {[
               { label: 'Present', value: data.summary.present,              color: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
               { label: 'Late',    value: data.summary.late,                 color: 'bg-amber-50 border-amber-200 text-amber-700'       },
               { label: 'Absent',  value: data.summary.absent,               color: 'bg-red-50 border-red-200 text-red-600'             },
+              ...(data.summary.holiday > 0 ? [{ label: 'Holiday', value: data.summary.holiday, color: 'bg-violet-50 border-violet-200 text-violet-700' }] : []),
               { label: 'Hrs',     value: `${data.summary.totalWorkHours}h`, color: 'bg-[var(--fd-surface-raised)] border-[var(--fd-border)] text-[var(--fd-ink-2)]' },
             ].map(s => (
               <div key={s.label} className={`border rounded-xl p-3 text-center ${s.color}`}>

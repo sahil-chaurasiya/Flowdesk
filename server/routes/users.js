@@ -15,9 +15,23 @@ let _AttUser = null;
 let _AttRecord = null;
 
 function getAttendanceDb() {
+  // Already connected — reuse it.
   if (_attendanceDb && _attendanceDb.readyState === 1) return _attendanceDb;
+  // Already mid-connect — reuse the in-flight connection instead of firing off
+  // another one (mongoose buffers queries until it's ready, so this is safe).
+  if (_attendanceDb && _attendanceDb.readyState === 2) return _attendanceDb;
 
-  const uri = (process.env.MONGODB_URI || '').replace(
+  // Prefer an explicit connection string for the attendance app's database.
+  // Previously this was guessed by swapping the database name out of this
+  // app's own MONGODB_URI (assuming both apps live on the same cluster). That
+  // assumption is fragile — if the attendance app's database ever moves to a
+  // different cluster, gets renamed, or its credentials rotate, the guessed
+  // URI silently keeps pointing at the old/stale database and every query
+  // against it just comes back empty (which is what was showing up here as
+  // "everyone absent every day"). Set ATTENDANCE_MONGODB_URI to the exact
+  // same MONGODB_URI used in the attendance app's own backend .env to avoid
+  // relying on that guess entirely.
+  const uri = process.env.ATTENDANCE_MONGODB_URI || (process.env.MONGODB_URI || '').replace(
     /\/toflymediaportal(\?|$)/,
     '/office_attendance_db$1'
   );
@@ -25,6 +39,7 @@ function getAttendanceDb() {
   _attendanceDb = mongoose.createConnection(uri);
   _attendanceDb.on('connected', () => console.log('✅ Attendance DB connected'));
   _attendanceDb.on('error', (err) => console.error('❌ Attendance DB error:', err.message));
+  _attendanceDb.on('disconnected', () => console.warn('⚠️  Attendance DB disconnected — will reconnect on next request'));
 
   _AttUser = _attendanceDb.model(
     'AttUser',
@@ -303,6 +318,7 @@ router.get('/:id/attendance', protect, authorize('admin', 'manager'), asyncHandl
   // workHours = only fully-completed records (both check-in AND check-out)
   const present        = records.filter(r => r.status === 'present').length;
   const late           = records.filter(r => r.status === 'late').length;
+  const holiday        = records.filter(r => r.status === 'holiday').length;
   const fullyCompleted = records.filter(r => r.checkInTime && r.checkOutTime);
   const totalWorkHours = +fullyCompleted.reduce((acc, r) => acc + (r.workHours || 0), 0).toFixed(1);
 
@@ -331,14 +347,14 @@ router.get('/:id/attendance', protect, authorize('admin', 'manager'), asyncHandl
         if (cur.getUTCDay() !== 0) workingDays++;
         cur.setUTCDate(cur.getUTCDate() + 1);
       }
-      absentCount = Math.max(0, workingDays - (present + late));
+      absentCount = Math.max(0, workingDays - (present + late + holiday));
     }
   }
 
   res.json({
     success: true,
     found: true,
-    summary: { present, late, absent: absentCount, totalWorkHours },
+    summary: { present, late, absent: absentCount, holiday, totalWorkHours },
     records,
   });
 }));

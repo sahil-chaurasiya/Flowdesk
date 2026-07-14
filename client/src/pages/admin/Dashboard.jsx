@@ -23,6 +23,7 @@ import {
   addMonths, subMonths, parseISO, startOfDay, endOfDay, isBefore, isAfter,
 } from 'date-fns';
 import PerformanceMarketerDashboard from './PerformanceMarketerDashboard';
+import DeveloperDashboard from './DeveloperDashboard';
 
 const ROLE_LABELS = {
   admin: 'Admin', manager: 'Project Manager', developer: 'Software Developer',
@@ -1419,9 +1420,13 @@ function FollowUpsWidget() {
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const { user } = useAuthStore();
-  const isManagerOrAdmin = ['admin', 'manager', 'developer'].includes(user?.role);
+  // Developers get their own dedicated dashboard (see DeveloperDashboard.jsx),
+  // so they're excluded here — this only gates the generic admin/manager
+  // dashboard's data fetching and layout below.
+  const isManagerOrAdmin = ['admin', 'manager'].includes(user?.role);
   const showFollowUps    = ['admin', 'performance_marketer'].includes(user?.role);
   const isPM             = user?.role === 'performance_marketer';
+  const isDeveloper      = user?.role === 'developer';
 
   // Data fetching for admin/manager dashboard at top level
   const [stats,          setStats]          = useState({});
@@ -1447,8 +1452,9 @@ export default function AdminDashboard() {
       .finally(() => setLoadingClients(false));
   }, [isManagerOrAdmin]);
 
-  // Performance marketer gets their own focused dashboard
+  // Performance marketer and developer roles get their own focused dashboards
   if (isPM) return <PerformanceMarketerDashboard />;
+  if (isDeveloper) return <DeveloperDashboard />;
 
   return (
     <div className="space-y-6 animate-fade-in">

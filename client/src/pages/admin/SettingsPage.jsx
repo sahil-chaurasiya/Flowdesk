@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   User, Lock, Bell, Palette, Camera, Save, Eye, EyeOff,
   Sun, Moon, CheckCircle, Layers, Plus, Pencil, Trash2, X, Check,
+  Terminal,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useTheme } from '../../context/ThemeContext';
@@ -285,8 +286,57 @@ function SecurityTab() {
 }
 
 // ── Appearance Tab ────────────────────────────────────────────────────────────
-function AppearanceTab() {
-  const { isDark, toggleTheme } = useTheme();
+// The Software Developer role does not use the light/dark system at all — it
+// gets a dedicated bank of developer themes instead (see ThemeContext.jsx /
+// index.css). Every other role keeps the plain light/dark picker below,
+// completely unchanged.
+function AppearanceTab({ role }) {
+  const { isDark, toggleTheme, devTheme, setDevTheme, devThemes } = useTheme();
+
+  if (role === 'developer') {
+    return (
+      <div className="space-y-4">
+        <Section title="Theme" description="Pick a developer colour scheme. This role doesn't use the standard light/dark mode.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+            {devThemes.map(({ id, label, desc, swatch }) => {
+              const active = id === devTheme;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setDevTheme(id)}
+                  className="relative rounded-xl p-4 text-left transition-all"
+                  style={{
+                    background: active ? 'var(--fd-sidebar-active)' : 'var(--fd-surface-sunken)',
+                    border: active ? '2px solid var(--fd-accent)' : '2px solid transparent',
+                  }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="flex-shrink-0 rounded-full overflow-hidden flex"
+                      style={{ width: 18, height: 18, border: '1px solid var(--fd-border-strong)' }}
+                    >
+                      {swatch.map((c, i) => (
+                        <span key={i} style={{ background: c, width: '33.34%', height: '100%' }} />
+                      ))}
+                    </span>
+                    <Terminal size={14} style={{ color: active ? 'var(--fd-accent)' : 'var(--fd-ink-3)' }} />
+                  </div>
+                  <div className="mt-2 text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{label}</div>
+                  <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{desc}</div>
+                  {active && (
+                    <div
+                      className="absolute top-2 right-2 w-2 h-2 rounded-full"
+                      style={{ background: 'var(--fd-accent)' }}
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+      </div>
+    );
+  }
 
   const themes = [
     { id: 'light', label: 'Light', icon: Sun,  desc: 'Clean light interface' },
@@ -680,7 +730,7 @@ export default function SettingsPage() {
       {/* Content */}
       {tab === 'profile'    && <ProfileTab    user={user} onUpdate={updateUser} />}
       {tab === 'security'   && <SecurityTab   />}
-      {tab === 'appearance' && <AppearanceTab />}
+      {tab === 'appearance' && <AppearanceTab role={user?.role} />}
       {tab === 'services'   && canManageServices && <ServicesTab />}
       {tab === 'payment'    && user?.role === 'admin' && <PaymentSettingsSection />}
     </div>

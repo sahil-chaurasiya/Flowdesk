@@ -7,7 +7,7 @@ import {
   ListChecks, Instagram, Sun, Moon, Search,
   Kanban, Calendar, Activity, Settings, Briefcase,
   FileSearch, Key, BookUser, CreditCard, PhoneCall,
-  ClipboardList, Code2, Terminal,
+  ClipboardList, Code2, Terminal, Palette, Check,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -84,12 +84,13 @@ const MY_TASKS_ROLES = ['manager', 'developer', ...TEAM_ROLES];
 export default function AdminLayout() {
   const { user, logout, updateUser } = useAuthStore();
   const { socket } = useSocket();
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, devTheme, setDevTheme, devThemes } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed]   = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [showThemePicker, setShowThemePicker] = useState(false);
 
   // Resize listener
   useEffect(() => {
@@ -128,18 +129,25 @@ export default function AdminLayout() {
 
   const isLinuxDevTheme = user?.role === 'developer';
 
-  // Developer role gets a dedicated Linux/terminal visual theme (see the
-  // `html[data-role-theme="linux-dev"]` rules in index.css). This is a pure
-  // CSS re-skin — it doesn't touch any data fetching or component logic,
-  // and it's only ever applied for this one role.
+  // The Software Developer role does not use the app-wide light/dark system
+  // at all — it gets its own set of dedicated visual themes (see the
+  // `html[data-role-theme="…"]` and `html[data-dev-mode="true"]` rules in
+  // index.css) that the person can pick between. This is a pure CSS re-skin
+  // — it doesn't touch any data fetching or component logic — and it is
+  // only ever applied for this one role.
   useEffect(() => {
     if (isLinuxDevTheme) {
-      document.documentElement.setAttribute('data-role-theme', 'linux-dev');
+      document.documentElement.setAttribute('data-role-theme', devTheme);
+      document.documentElement.setAttribute('data-dev-mode', 'true');
     } else {
       document.documentElement.removeAttribute('data-role-theme');
+      document.documentElement.removeAttribute('data-dev-mode');
     }
-    return () => document.documentElement.removeAttribute('data-role-theme');
-  }, [isLinuxDevTheme]);
+    return () => {
+      document.documentElement.removeAttribute('data-role-theme');
+      document.documentElement.removeAttribute('data-dev-mode');
+    };
+  }, [isLinuxDevTheme, devTheme]);
 
   const handleLogout = async () => { await logout(); navigate('/login'); };
   const unread = user?.notifications?.filter(n => !n.read).length || 0;
@@ -399,8 +407,65 @@ export default function AdminLayout() {
               </kbd>
             </button>
 
-            {/* Dark mode toggle — not shown for the developer role, whose
-                Linux terminal theme is always dark and doesn't use it */}
+            {/* Developer role: theme picker (replaces light/dark entirely —
+                this role doesn't use the app-wide theme system at all). */}
+            {isLinuxDevTheme && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowThemePicker(v => !v)}
+                  className="btn-ghost p-2"
+                  aria-label="Choose developer theme"
+                  title="Theme"
+                >
+                  <Palette size={16} strokeWidth={1.7} />
+                </button>
+                {showThemePicker && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowThemePicker(false)} />
+                    <div
+                      className="absolute right-0 top-full mt-2 z-20 p-1.5"
+                      style={{
+                        width: 220,
+                        background: 'var(--fd-surface)',
+                        border: '1px solid var(--fd-border)',
+                        borderRadius: 8,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                      }}
+                    >
+                      {devThemes.map(t => {
+                        const active = t.id === devTheme;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => { setDevTheme(t.id); setShowThemePicker(false); }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left"
+                            style={{ background: active ? 'var(--fd-sidebar-active)' : 'transparent' }}
+                          >
+                            <span
+                              className="flex-shrink-0 rounded-full overflow-hidden flex"
+                              style={{ width: 16, height: 16, border: '1px solid var(--fd-border-strong)' }}
+                            >
+                              {t.swatch.map((c, i) => (
+                                <span key={i} style={{ background: c, width: '33.34%', height: '100%' }} />
+                              ))}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-[12px] font-medium truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                                {t.label}
+                              </span>
+                            </span>
+                            {active && <Check size={13} style={{ color: 'var(--fd-accent)' }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Dark mode toggle — not shown for the developer role, which
+                uses the theme picker above instead */}
             {!isLinuxDevTheme && (
               <button
                 onClick={toggleTheme}

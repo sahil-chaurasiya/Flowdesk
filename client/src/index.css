@@ -352,6 +352,793 @@
     --fd-accent-soft:   #56d364;
 
     --fd-mono: 'JetBrains Mono', 'Fira Code', 'Ubuntu Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
+
+    /* Badge/status colours — referenced generically by the shared
+       html[data-dev-mode="true"] component rules further down, so every
+       developer theme only has to define these once, here. */
+    --fd-status-success-bg: rgba(63,185,80,0.16);  --fd-status-success-text: #56d364;
+    --fd-status-warning-bg: rgba(210,153,34,0.16); --fd-status-warning-text: #e3b341;
+    --fd-status-danger-bg:  rgba(248,81,73,0.16);  --fd-status-danger-text:  #f85149;
+    --fd-status-neutral-bg: rgba(139,148,158,0.15);--fd-status-neutral-text: #8b949e;
+    --fd-status-info-bg:    rgba(63,185,80,0.16);  --fd-status-info-text:    #56d364;
+    --fd-selection-bg: rgba(63,185,80,0.28); --fd-selection-text: #e6edf3;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DEVELOPER THEME — DRACULA                                                  */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="dracula"] {
+    --background:   231 15% 18%;  --foreground: 60 30% 96%;
+    --card:         231 15% 21%;  --card-foreground: 60 30% 96%;
+    --popover:      231 15% 21%;  --popover-foreground: 60 30% 96%;
+    --primary:      265 89% 78%;  --primary-foreground: 231 15% 12%;
+    --secondary:    231 15% 24%;  --secondary-foreground: 231 10% 75%;
+    --muted:        231 15% 21%;  --muted-foreground: 231 10% 60%;
+    --accent:       265 60% 24%;  --accent-foreground: 265 89% 82%;
+    --destructive:  0 100% 67%;   --destructive-foreground: 0 0% 100%;
+    --border:       231 12% 27%;  --input: 231 18% 13%;
+    --ring:         265 89% 78%;  --radius: 6px;
+
+    --fd-canvas:          #21222c;
+    --fd-surface:         #282a36;
+    --fd-surface-raised:  #2f3140;
+    --fd-surface-sunken:  #191a21;
+    --fd-border:          #44475a;
+    --fd-border-subtle:   #383a4a;
+    --fd-border-strong:   #565971;
+
+    --fd-ink-1:           #f8f8f2;
+    --fd-ink-2:           #cbd0e0;
+    --fd-ink-3:           #a0a4bd;
+    --fd-ink-4:           #6f7390;
+    --fd-ink-5:           #4b4e63;
+
+    --fd-sidebar-bg:      #21222c;
+    --fd-sidebar-hover:   #2f3140;
+    --fd-sidebar-active:  rgba(189,147,249,0.14);
+    --fd-sidebar-link:    #a0a4bd;
+    --fd-sidebar-link-active: #bd93f9;
+    --fd-sidebar-border:  #383a4a;
+    --fd-sidebar-section: #4b4e63;
+
+    --fd-header-bg:       #21222c;
+    --fd-header-border:   #383a4a;
+
+    --fd-input-bg:        #191a21;
+    --fd-input-border:    #44475a;
+    --fd-input-text:      #f8f8f2;
+    --fd-input-placeholder: #6f7390;
+
+    --fd-table-head-bg:   #191a21;
+    --fd-table-head-text: #6f7390;
+    --fd-table-border:    #383a4a;
+    --fd-table-row-border:#2f3140;
+    --fd-table-row-hover: #2f3140;
+    --fd-table-cell-text: #cbd0e0;
+
+    --fd-chat-received-bg:    #2f3140;
+    --fd-chat-received-text:  #f8f8f2;
+    --fd-chat-received-border:#44475a;
+
+    --fd-notif-bg:        #282a36;
+    --fd-notif-header-bg: #191a21;
+    --fd-notif-border:    #44475a;
+    --fd-notif-row-border:#383a4a;
+    --fd-notif-unread-bg: rgba(189,147,249,0.08);
+    --fd-notif-icon-bg:   #2f3140;
+
+    --fd-card-bg:         #282a36;
+
+    --fd-modal-bg:        #282a36;
+    --fd-modal-border:    #44475a;
+    --fd-modal-footer-bg: #191a21;
+
+    --fd-toast-bg:        #2f3140;
+
+    --fd-shimmer-1:       #2f3140;
+    --fd-shimmer-2:       #44475a;
+
+    --fd-scrollbar:       #44475a;
+    --fd-scrollbar-hover: #565971;
+
+    --fd-tabs-bg:         #191a21;
+    --fd-tabs-border:     #44475a;
+    --fd-tab-active-bg:   #2f3140;
+    --fd-tab-active-text: #f8f8f2;
+    --fd-tab-text:        #a0a4bd;
+
+    --fd-btn-secondary-bg:     #383a4a;
+    --fd-btn-secondary-text:   #cbd0e0;
+    --fd-btn-secondary-border: #44475a;
+    --fd-btn-secondary-hover:  #44475a;
+
+    --fd-btn-ghost-text:       #a0a4bd;
+    --fd-btn-ghost-hover-bg:   #383a4a;
+    --fd-btn-ghost-hover-text: #f8f8f2;
+
+    --fd-accent:        #bd93f9;
+    --fd-accent-hover:  #a87ef0;
+    --fd-accent-strong: #9868e8;
+    --fd-accent-rgb:    189, 147, 249;
+    --fd-accent-tint:   rgba(189,147,249,0.12);
+    --fd-accent-soft:   #d6acff;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+    --fd-status-success-bg: rgba(80,250,123,0.16);  --fd-status-success-text: #50fa7b;
+    --fd-status-warning-bg: rgba(241,250,140,0.18); --fd-status-warning-text: #f1fa8c;
+    --fd-status-danger-bg:  rgba(255,85,85,0.16);   --fd-status-danger-text:  #ff5555;
+    --fd-status-neutral-bg: rgba(160,164,189,0.15); --fd-status-neutral-text: #a0a4bd;
+    --fd-status-info-bg:    rgba(139,233,253,0.16); --fd-status-info-text:    #8be9fd;
+    --fd-selection-bg: rgba(189,147,249,0.3); --fd-selection-text: #f8f8f2;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DEVELOPER THEME — NORD                                                     */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="nord"] {
+    --background:   220 16% 20%;  --foreground: 218 27% 94%;
+    --card:         220 16% 24%;  --card-foreground: 218 27% 94%;
+    --popover:      220 16% 24%;  --popover-foreground: 218 27% 94%;
+    --primary:      193 43% 67%;  --primary-foreground: 220 16% 14%;
+    --secondary:    220 16% 27%;  --secondary-foreground: 218 15% 75%;
+    --muted:        220 16% 24%;  --muted-foreground: 218 12% 60%;
+    --accent:       193 30% 22%;  --accent-foreground: 193 43% 75%;
+    --destructive:  354 42% 56%;  --destructive-foreground: 0 0% 100%;
+    --border:       220 16% 27%;  --input: 220 16% 15%;
+    --ring:         193 43% 67%;  --radius: 5px;
+
+    --fd-canvas:          #242933;
+    --fd-surface:         #2e3440;
+    --fd-surface-raised:  #343b48;
+    --fd-surface-sunken:  #232830;
+    --fd-border:          #3b4252;
+    --fd-border-subtle:   #333944;
+    --fd-border-strong:   #4c566a;
+
+    --fd-ink-1:           #eceff4;
+    --fd-ink-2:           #d8dee9;
+    --fd-ink-3:           #9aa5b1;
+    --fd-ink-4:           #6b7789;
+    --fd-ink-5:           #4c566a;
+
+    --fd-sidebar-bg:      #242933;
+    --fd-sidebar-hover:   #2e3440;
+    --fd-sidebar-active:  rgba(136,192,208,0.14);
+    --fd-sidebar-link:    #9aa5b1;
+    --fd-sidebar-link-active: #88c0d0;
+    --fd-sidebar-border:  #333944;
+    --fd-sidebar-section: #4c566a;
+
+    --fd-header-bg:       #242933;
+    --fd-header-border:   #333944;
+
+    --fd-input-bg:        #232830;
+    --fd-input-border:    #3b4252;
+    --fd-input-text:      #eceff4;
+    --fd-input-placeholder: #6b7789;
+
+    --fd-table-head-bg:   #232830;
+    --fd-table-head-text: #6b7789;
+    --fd-table-border:    #333944;
+    --fd-table-row-border:#2e3440;
+    --fd-table-row-hover: #343b48;
+    --fd-table-cell-text: #d8dee9;
+
+    --fd-chat-received-bg:    #343b48;
+    --fd-chat-received-text:  #eceff4;
+    --fd-chat-received-border:#3b4252;
+
+    --fd-notif-bg:        #2e3440;
+    --fd-notif-header-bg: #232830;
+    --fd-notif-border:    #3b4252;
+    --fd-notif-row-border:#333944;
+    --fd-notif-unread-bg: rgba(136,192,208,0.08);
+    --fd-notif-icon-bg:   #343b48;
+
+    --fd-card-bg:         #2e3440;
+
+    --fd-modal-bg:        #2e3440;
+    --fd-modal-border:    #3b4252;
+    --fd-modal-footer-bg: #232830;
+
+    --fd-toast-bg:        #343b48;
+
+    --fd-shimmer-1:       #343b48;
+    --fd-shimmer-2:       #3b4252;
+
+    --fd-scrollbar:       #3b4252;
+    --fd-scrollbar-hover: #4c566a;
+
+    --fd-tabs-bg:         #232830;
+    --fd-tabs-border:     #3b4252;
+    --fd-tab-active-bg:   #343b48;
+    --fd-tab-active-text: #eceff4;
+    --fd-tab-text:        #9aa5b1;
+
+    --fd-btn-secondary-bg:     #3b4252;
+    --fd-btn-secondary-text:   #d8dee9;
+    --fd-btn-secondary-border: #4c566a;
+    --fd-btn-secondary-hover:  #4c566a;
+
+    --fd-btn-ghost-text:       #9aa5b1;
+    --fd-btn-ghost-hover-bg:   #3b4252;
+    --fd-btn-ghost-hover-text: #eceff4;
+
+    --fd-accent:        #88c0d0;
+    --fd-accent-hover:  #81a1c1;
+    --fd-accent-strong: #5e81ac;
+    --fd-accent-rgb:    136, 192, 208;
+    --fd-accent-tint:   rgba(136,192,208,0.12);
+    --fd-accent-soft:   #8fbcbb;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+    --fd-status-success-bg: rgba(163,190,140,0.2); --fd-status-success-text: #a3be8c;
+    --fd-status-warning-bg: rgba(235,203,139,0.2); --fd-status-warning-text: #ebcb8b;
+    --fd-status-danger-bg:  rgba(191,97,106,0.22);  --fd-status-danger-text:  #bf616a;
+    --fd-status-neutral-bg: rgba(154,165,177,0.16); --fd-status-neutral-text: #9aa5b1;
+    --fd-status-info-bg:    rgba(129,161,193,0.22);  --fd-status-info-text:   #81a1c1;
+    --fd-selection-bg: rgba(136,192,208,0.28); --fd-selection-text: #eceff4;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DEVELOPER THEME — MONOKAI                                                  */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="monokai"] {
+    --background:   70 8% 15%;    --foreground: 60 30% 96%;
+    --card:         70 8% 18%;    --card-foreground: 60 30% 96%;
+    --popover:      70 8% 18%;    --popover-foreground: 60 30% 96%;
+    --primary:      80 74% 53%;   --primary-foreground: 70 8% 10%;
+    --secondary:    70 8% 21%;    --secondary-foreground: 60 10% 75%;
+    --muted:        70 8% 18%;    --muted-foreground: 60 8% 58%;
+    --accent:       80 50% 18%;   --accent-foreground: 80 74% 65%;
+    --destructive:  338 95% 61%;  --destructive-foreground: 0 0% 100%;
+    --border:       70 8% 22%;    --input: 70 8% 12%;
+    --ring:         80 74% 53%;   --radius: 3px;
+
+    --fd-canvas:          #1e1f1a;
+    --fd-surface:         #272822;
+    --fd-surface-raised:  #2f3129;
+    --fd-surface-sunken:  #1b1c17;
+    --fd-border:          #3e3d32;
+    --fd-border-subtle:   #34352b;
+    --fd-border-strong:   #49483e;
+
+    --fd-ink-1:           #f8f8f2;
+    --fd-ink-2:           #cfcfc2;
+    --fd-ink-3:           #a3a290;
+    --fd-ink-4:           #75715e;
+    --fd-ink-5:           #49483e;
+
+    --fd-sidebar-bg:      #1e1f1a;
+    --fd-sidebar-hover:   #2f3129;
+    --fd-sidebar-active:  rgba(166,226,46,0.14);
+    --fd-sidebar-link:    #a3a290;
+    --fd-sidebar-link-active: #a6e22e;
+    --fd-sidebar-border:  #34352b;
+    --fd-sidebar-section: #49483e;
+
+    --fd-header-bg:       #1e1f1a;
+    --fd-header-border:   #34352b;
+
+    --fd-input-bg:        #1b1c17;
+    --fd-input-border:    #3e3d32;
+    --fd-input-text:      #f8f8f2;
+    --fd-input-placeholder: #75715e;
+
+    --fd-table-head-bg:   #1b1c17;
+    --fd-table-head-text: #75715e;
+    --fd-table-border:    #34352b;
+    --fd-table-row-border:#2f3129;
+    --fd-table-row-hover: #2f3129;
+    --fd-table-cell-text: #cfcfc2;
+
+    --fd-chat-received-bg:    #2f3129;
+    --fd-chat-received-text:  #f8f8f2;
+    --fd-chat-received-border:#3e3d32;
+
+    --fd-notif-bg:        #272822;
+    --fd-notif-header-bg: #1b1c17;
+    --fd-notif-border:    #3e3d32;
+    --fd-notif-row-border:#34352b;
+    --fd-notif-unread-bg: rgba(166,226,46,0.08);
+    --fd-notif-icon-bg:   #2f3129;
+
+    --fd-card-bg:         #272822;
+
+    --fd-modal-bg:        #272822;
+    --fd-modal-border:    #3e3d32;
+    --fd-modal-footer-bg: #1b1c17;
+
+    --fd-toast-bg:        #2f3129;
+
+    --fd-shimmer-1:       #2f3129;
+    --fd-shimmer-2:       #3e3d32;
+
+    --fd-scrollbar:       #3e3d32;
+    --fd-scrollbar-hover: #49483e;
+
+    --fd-tabs-bg:         #1b1c17;
+    --fd-tabs-border:     #3e3d32;
+    --fd-tab-active-bg:   #2f3129;
+    --fd-tab-active-text: #f8f8f2;
+    --fd-tab-text:        #a3a290;
+
+    --fd-btn-secondary-bg:     #34352b;
+    --fd-btn-secondary-text:   #cfcfc2;
+    --fd-btn-secondary-border: #3e3d32;
+    --fd-btn-secondary-hover:  #3e3d32;
+
+    --fd-btn-ghost-text:       #a3a290;
+    --fd-btn-ghost-hover-bg:   #34352b;
+    --fd-btn-ghost-hover-text: #f8f8f2;
+
+    --fd-accent:        #a6e22e;
+    --fd-accent-hover:  #8fc926;
+    --fd-accent-strong: #79ad1f;
+    --fd-accent-rgb:    166, 226, 46;
+    --fd-accent-tint:   rgba(166,226,46,0.12);
+    --fd-accent-soft:   #c2ec6f;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+    --fd-status-success-bg: rgba(166,226,46,0.16); --fd-status-success-text: #a6e22e;
+    --fd-status-warning-bg: rgba(230,219,116,0.18);--fd-status-warning-text: #e6db74;
+    --fd-status-danger-bg:  rgba(249,38,114,0.18); --fd-status-danger-text:  #f92672;
+    --fd-status-neutral-bg: rgba(163,162,144,0.15);--fd-status-neutral-text: #a3a290;
+    --fd-status-info-bg:    rgba(102,217,239,0.18);--fd-status-info-text:    #66d9ef;
+    --fd-selection-bg: rgba(166,226,46,0.28); --fd-selection-text: #f8f8f2;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DEVELOPER THEME — SOLARIZED DARK                                          */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="solarized-dark"] {
+    --background:   193 100% 8%;  --foreground: 44 87% 94%;
+    --card:         193 81% 11%;  --card-foreground: 44 87% 94%;
+    --popover:      193 81% 11%;  --popover-foreground: 44 87% 94%;
+    --primary:      175 74% 39%;  --primary-foreground: 193 100% 6%;
+    --secondary:    193 60% 14%;  --secondary-foreground: 44 20% 75%;
+    --muted:        193 81% 11%;  --muted-foreground: 186 8% 55%;
+    --accent:       175 50% 16%;  --accent-foreground: 175 74% 55%;
+    --destructive:  1 71% 52%;    --destructive-foreground: 0 0% 100%;
+    --border:       193 71% 14%;  --input: 193 100% 7%;
+    --ring:         175 74% 39%;  --radius: 4px;
+
+    --fd-canvas:          #00212b;
+    --fd-surface:         #002b36;
+    --fd-surface-raised:  #073642;
+    --fd-surface-sunken:  #001b22;
+    --fd-border:          #0a3a45;
+    --fd-border-subtle:   #073642;
+    --fd-border-strong:   #155263;
+
+    --fd-ink-1:           #fdf6e3;
+    --fd-ink-2:           #93a1a1;
+    --fd-ink-3:           #839496;
+    --fd-ink-4:           #657b83;
+    --fd-ink-5:           #586e75;
+
+    --fd-sidebar-bg:      #00212b;
+    --fd-sidebar-hover:   #073642;
+    --fd-sidebar-active:  rgba(42,161,152,0.16);
+    --fd-sidebar-link:    #839496;
+    --fd-sidebar-link-active: #2aa198;
+    --fd-sidebar-border:  #073642;
+    --fd-sidebar-section: #586e75;
+
+    --fd-header-bg:       #00212b;
+    --fd-header-border:   #073642;
+
+    --fd-input-bg:        #001b22;
+    --fd-input-border:    #0a3a45;
+    --fd-input-text:      #fdf6e3;
+    --fd-input-placeholder: #586e75;
+
+    --fd-table-head-bg:   #001b22;
+    --fd-table-head-text: #586e75;
+    --fd-table-border:    #073642;
+    --fd-table-row-border:#073642;
+    --fd-table-row-hover: #073642;
+    --fd-table-cell-text: #93a1a1;
+
+    --fd-chat-received-bg:    #073642;
+    --fd-chat-received-text:  #fdf6e3;
+    --fd-chat-received-border:#0a3a45;
+
+    --fd-notif-bg:        #002b36;
+    --fd-notif-header-bg: #001b22;
+    --fd-notif-border:    #0a3a45;
+    --fd-notif-row-border:#073642;
+    --fd-notif-unread-bg: rgba(42,161,152,0.08);
+    --fd-notif-icon-bg:   #073642;
+
+    --fd-card-bg:         #002b36;
+
+    --fd-modal-bg:        #002b36;
+    --fd-modal-border:    #0a3a45;
+    --fd-modal-footer-bg: #001b22;
+
+    --fd-toast-bg:        #073642;
+
+    --fd-shimmer-1:       #073642;
+    --fd-shimmer-2:       #0a3a45;
+
+    --fd-scrollbar:       #0a3a45;
+    --fd-scrollbar-hover: #155263;
+
+    --fd-tabs-bg:         #001b22;
+    --fd-tabs-border:     #0a3a45;
+    --fd-tab-active-bg:   #073642;
+    --fd-tab-active-text: #fdf6e3;
+    --fd-tab-text:        #839496;
+
+    --fd-btn-secondary-bg:     #073642;
+    --fd-btn-secondary-text:   #93a1a1;
+    --fd-btn-secondary-border: #0a3a45;
+    --fd-btn-secondary-hover:  #0a3a45;
+
+    --fd-btn-ghost-text:       #839496;
+    --fd-btn-ghost-hover-bg:   #073642;
+    --fd-btn-ghost-hover-text: #fdf6e3;
+
+    --fd-accent:        #2aa198;
+    --fd-accent-hover:  #25918a;
+    --fd-accent-strong: #1f7d77;
+    --fd-accent-rgb:    42, 161, 152;
+    --fd-accent-tint:   rgba(42,161,152,0.12);
+    --fd-accent-soft:   #5fc4bb;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+    --fd-status-success-bg: rgba(133,153,0,0.22);  --fd-status-success-text: #9fb800;
+    --fd-status-warning-bg: rgba(181,137,0,0.24);  --fd-status-warning-text: #d7a500;
+    --fd-status-danger-bg:  rgba(220,50,47,0.2);   --fd-status-danger-text:  #dc322f;
+    --fd-status-neutral-bg: rgba(131,148,150,0.16);--fd-status-neutral-text: #839496;
+    --fd-status-info-bg:    rgba(38,139,210,0.22); --fd-status-info-text:    #4f9fe0;
+    --fd-selection-bg: rgba(42,161,152,0.3); --fd-selection-text: #fdf6e3;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DEVELOPER THEME — ONE DARK                                                */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="one-dark"] {
+    --background:   220 13% 14%;  --foreground: 220 9% 90%;
+    --card:         220 13% 17%;  --card-foreground: 220 9% 90%;
+    --popover:      220 13% 17%;  --popover-foreground: 220 9% 90%;
+    --primary:      207 82% 66%;  --primary-foreground: 220 13% 10%;
+    --secondary:    220 13% 20%;  --secondary-foreground: 220 8% 75%;
+    --muted:        220 13% 17%;  --muted-foreground: 220 6% 55%;
+    --accent:       207 50% 20%;  --accent-foreground: 207 82% 75%;
+    --destructive:  355 65% 65%;  --destructive-foreground: 0 0% 100%;
+    --border:       220 12% 21%;  --input: 220 14% 12%;
+    --ring:         207 82% 66%;  --radius: 6px;
+
+    --fd-canvas:          #21252b;
+    --fd-surface:         #282c34;
+    --fd-surface-raised:  #2c313a;
+    --fd-surface-sunken:  #1e2227;
+    --fd-border:          #3b4048;
+    --fd-border-subtle:   #333842;
+    --fd-border-strong:   #4b5263;
+
+    --fd-ink-1:           #e6e6e6;
+    --fd-ink-2:           #abb2bf;
+    --fd-ink-3:           #7f848e;
+    --fd-ink-4:           #5c6370;
+    --fd-ink-5:           #4b5263;
+
+    --fd-sidebar-bg:      #21252b;
+    --fd-sidebar-hover:   #2c313a;
+    --fd-sidebar-active:  rgba(97,175,239,0.14);
+    --fd-sidebar-link:    #7f848e;
+    --fd-sidebar-link-active: #61afef;
+    --fd-sidebar-border:  #333842;
+    --fd-sidebar-section: #4b5263;
+
+    --fd-header-bg:       #21252b;
+    --fd-header-border:   #333842;
+
+    --fd-input-bg:        #1e2227;
+    --fd-input-border:    #3b4048;
+    --fd-input-text:      #e6e6e6;
+    --fd-input-placeholder: #5c6370;
+
+    --fd-table-head-bg:   #1e2227;
+    --fd-table-head-text: #5c6370;
+    --fd-table-border:    #333842;
+    --fd-table-row-border:#2c313a;
+    --fd-table-row-hover: #2c313a;
+    --fd-table-cell-text: #abb2bf;
+
+    --fd-chat-received-bg:    #2c313a;
+    --fd-chat-received-text:  #e6e6e6;
+    --fd-chat-received-border:#3b4048;
+
+    --fd-notif-bg:        #282c34;
+    --fd-notif-header-bg: #1e2227;
+    --fd-notif-border:    #3b4048;
+    --fd-notif-row-border:#333842;
+    --fd-notif-unread-bg: rgba(97,175,239,0.08);
+    --fd-notif-icon-bg:   #2c313a;
+
+    --fd-card-bg:         #282c34;
+
+    --fd-modal-bg:        #282c34;
+    --fd-modal-border:    #3b4048;
+    --fd-modal-footer-bg: #1e2227;
+
+    --fd-toast-bg:        #2c313a;
+
+    --fd-shimmer-1:       #2c313a;
+    --fd-shimmer-2:       #3b4048;
+
+    --fd-scrollbar:       #3b4048;
+    --fd-scrollbar-hover: #4b5263;
+
+    --fd-tabs-bg:         #1e2227;
+    --fd-tabs-border:     #3b4048;
+    --fd-tab-active-bg:   #2c313a;
+    --fd-tab-active-text: #e6e6e6;
+    --fd-tab-text:        #7f848e;
+
+    --fd-btn-secondary-bg:     #333842;
+    --fd-btn-secondary-text:   #abb2bf;
+    --fd-btn-secondary-border: #3b4048;
+    --fd-btn-secondary-hover:  #3b4048;
+
+    --fd-btn-ghost-text:       #7f848e;
+    --fd-btn-ghost-hover-bg:   #333842;
+    --fd-btn-ghost-hover-text: #e6e6e6;
+
+    --fd-accent:        #61afef;
+    --fd-accent-hover:  #4fa2e8;
+    --fd-accent-strong: #3d95e0;
+    --fd-accent-rgb:    97, 175, 239;
+    --fd-accent-tint:   rgba(97,175,239,0.12);
+    --fd-accent-soft:   #8ec6f5;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+    --fd-status-success-bg: rgba(152,195,121,0.16); --fd-status-success-text: #98c379;
+    --fd-status-warning-bg: rgba(229,192,123,0.18); --fd-status-warning-text: #e5c07b;
+    --fd-status-danger-bg:  rgba(224,108,117,0.18); --fd-status-danger-text:  #e06c75;
+    --fd-status-neutral-bg: rgba(127,132,142,0.15); --fd-status-neutral-text: #7f848e;
+    --fd-status-info-bg:    rgba(86,182,194,0.18);  --fd-status-info-text:    #56b6c2;
+    --fd-selection-bg: rgba(97,175,239,0.28); --fd-selection-text: #e6e6e6;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DEVELOPER THEME — GRUVBOX                                                  */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="gruvbox"] {
+    --background:   0 3% 13%;     --foreground: 39 32% 82%;
+    --card:         0 2% 16%;     --card-foreground: 39 32% 82%;
+    --popover:      0 2% 16%;     --popover-foreground: 39 32% 82%;
+    --primary:      27 98% 55%;   --primary-foreground: 0 3% 10%;
+    --secondary:    0 2% 19%;     --secondary-foreground: 39 15% 70%;
+    --muted:        0 2% 16%;     --muted-foreground: 34 8% 55%;
+    --accent:       27 60% 18%;   --accent-foreground: 27 98% 65%;
+    --destructive:  1 91% 62%;    --destructive-foreground: 0 0% 100%;
+    --border:       0 2% 20%;     --input: 0 3% 11%;
+    --ring:         27 98% 55%;   --radius: 2px;
+
+    --fd-canvas:          #1d2021;
+    --fd-surface:         #282828;
+    --fd-surface-raised:  #32302f;
+    --fd-surface-sunken:  #1d2021;
+    --fd-border:          #3c3836;
+    --fd-border-subtle:   #32302f;
+    --fd-border-strong:   #504945;
+
+    --fd-ink-1:           #ebdbb2;
+    --fd-ink-2:           #d5c4a1;
+    --fd-ink-3:           #a89984;
+    --fd-ink-4:           #7c6f64;
+    --fd-ink-5:           #504945;
+
+    --fd-sidebar-bg:      #1d2021;
+    --fd-sidebar-hover:   #282828;
+    --fd-sidebar-active:  rgba(254,128,25,0.16);
+    --fd-sidebar-link:    #a89984;
+    --fd-sidebar-link-active: #fe8019;
+    --fd-sidebar-border:  #32302f;
+    --fd-sidebar-section: #504945;
+
+    --fd-header-bg:       #1d2021;
+    --fd-header-border:   #32302f;
+
+    --fd-input-bg:        #1d2021;
+    --fd-input-border:    #3c3836;
+    --fd-input-text:      #ebdbb2;
+    --fd-input-placeholder: #7c6f64;
+
+    --fd-table-head-bg:   #1d2021;
+    --fd-table-head-text: #7c6f64;
+    --fd-table-border:    #32302f;
+    --fd-table-row-border:#282828;
+    --fd-table-row-hover: #32302f;
+    --fd-table-cell-text: #d5c4a1;
+
+    --fd-chat-received-bg:    #32302f;
+    --fd-chat-received-text:  #ebdbb2;
+    --fd-chat-received-border:#3c3836;
+
+    --fd-notif-bg:        #282828;
+    --fd-notif-header-bg: #1d2021;
+    --fd-notif-border:    #3c3836;
+    --fd-notif-row-border:#32302f;
+    --fd-notif-unread-bg: rgba(254,128,25,0.08);
+    --fd-notif-icon-bg:   #32302f;
+
+    --fd-card-bg:         #282828;
+
+    --fd-modal-bg:        #282828;
+    --fd-modal-border:    #3c3836;
+    --fd-modal-footer-bg: #1d2021;
+
+    --fd-toast-bg:        #32302f;
+
+    --fd-shimmer-1:       #32302f;
+    --fd-shimmer-2:       #3c3836;
+
+    --fd-scrollbar:       #504945;
+    --fd-scrollbar-hover: #665c54;
+
+    --fd-tabs-bg:         #1d2021;
+    --fd-tabs-border:     #3c3836;
+    --fd-tab-active-bg:   #32302f;
+    --fd-tab-active-text: #ebdbb2;
+    --fd-tab-text:        #a89984;
+
+    --fd-btn-secondary-bg:     #3c3836;
+    --fd-btn-secondary-text:   #d5c4a1;
+    --fd-btn-secondary-border: #504945;
+    --fd-btn-secondary-hover:  #504945;
+
+    --fd-btn-ghost-text:       #a89984;
+    --fd-btn-ghost-hover-bg:   #3c3836;
+    --fd-btn-ghost-hover-text: #ebdbb2;
+
+    --fd-accent:        #fe8019;
+    --fd-accent-hover:  #e8720f;
+    --fd-accent-strong: #d1650a;
+    --fd-accent-rgb:    254, 128, 25;
+    --fd-accent-tint:   rgba(254,128,25,0.12);
+    --fd-accent-soft:   #fabd2f;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+    --fd-status-success-bg: rgba(184,187,38,0.18); --fd-status-success-text: #b8bb26;
+    --fd-status-warning-bg: rgba(250,189,47,0.18); --fd-status-warning-text: #fabd2f;
+    --fd-status-danger-bg:  rgba(251,73,52,0.18);  --fd-status-danger-text:  #fb4934;
+    --fd-status-neutral-bg: rgba(168,153,132,0.16);--fd-status-neutral-text: #a89984;
+    --fd-status-info-bg:    rgba(131,165,152,0.2); --fd-status-info-text:    #83a598;
+    --fd-selection-bg: rgba(254,128,25,0.3); --fd-selection-text: #ebdbb2;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DEVELOPER THEME — CYBERPUNK                                                */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="cyberpunk"] {
+    --background:   258 66% 6%;   --foreground: 252 100% 96%;
+    --card:         258 55% 9%;   --card-foreground: 252 100% 96%;
+    --popover:      258 55% 9%;   --popover-foreground: 252 100% 96%;
+    --primary:      186 100% 50%; --primary-foreground: 258 66% 5%;
+    --secondary:    258 45% 15%;  --secondary-foreground: 258 20% 75%;
+    --muted:        258 55% 9%;   --muted-foreground: 258 15% 55%;
+    --accent:       186 60% 14%;  --accent-foreground: 186 100% 65%;
+    --destructive:  346 100% 50%; --destructive-foreground: 0 0% 100%;
+    --border:       258 50% 12%;  --input: 258 66% 5%;
+    --ring:         186 100% 50%; --radius: 3px;
+
+    --fd-canvas:          #07011a;
+    --fd-surface:         #120a2e;
+    --fd-surface-raised:  #190f3d;
+    --fd-surface-sunken:  #0a0420;
+    --fd-border:          #2c1a5c;
+    --fd-border-subtle:   #20134a;
+    --fd-border-strong:   #3d2478;
+
+    --fd-ink-1:           #f2eeff;
+    --fd-ink-2:           #c9bdf0;
+    --fd-ink-3:           #8f7fc0;
+    --fd-ink-4:           #5f5390;
+    --fd-ink-5:           #3d3468;
+
+    --fd-sidebar-bg:      #07011a;
+    --fd-sidebar-hover:   #170b34;
+    --fd-sidebar-active:  rgba(0,246,255,0.14);
+    --fd-sidebar-link:    #8f7fc0;
+    --fd-sidebar-link-active: #00f6ff;
+    --fd-sidebar-border:  #20134a;
+    --fd-sidebar-section: #3d3468;
+
+    --fd-header-bg:       #07011a;
+    --fd-header-border:   #20134a;
+
+    --fd-input-bg:        #0a0420;
+    --fd-input-border:    #2c1a5c;
+    --fd-input-text:      #f2eeff;
+    --fd-input-placeholder: #5f5390;
+
+    --fd-table-head-bg:   #0a0420;
+    --fd-table-head-text: #5f5390;
+    --fd-table-border:    #20134a;
+    --fd-table-row-border:#170b34;
+    --fd-table-row-hover: #190f3d;
+    --fd-table-cell-text: #c9bdf0;
+
+    --fd-chat-received-bg:    #190f3d;
+    --fd-chat-received-text:  #f2eeff;
+    --fd-chat-received-border:#2c1a5c;
+
+    --fd-notif-bg:        #120a2e;
+    --fd-notif-header-bg: #0a0420;
+    --fd-notif-border:    #2c1a5c;
+    --fd-notif-row-border:#20134a;
+    --fd-notif-unread-bg: rgba(0,246,255,0.08);
+    --fd-notif-icon-bg:   #190f3d;
+
+    --fd-card-bg:         #120a2e;
+
+    --fd-modal-bg:        #120a2e;
+    --fd-modal-border:    #2c1a5c;
+    --fd-modal-footer-bg: #0a0420;
+
+    --fd-toast-bg:        #190f3d;
+
+    --fd-shimmer-1:       #190f3d;
+    --fd-shimmer-2:       #2c1a5c;
+
+    --fd-scrollbar:       #2c1a5c;
+    --fd-scrollbar-hover: #3d2478;
+
+    --fd-tabs-bg:         #0a0420;
+    --fd-tabs-border:     #2c1a5c;
+    --fd-tab-active-bg:   #190f3d;
+    --fd-tab-active-text: #f2eeff;
+    --fd-tab-text:        #8f7fc0;
+
+    --fd-btn-secondary-bg:     #20134a;
+    --fd-btn-secondary-text:   #c9bdf0;
+    --fd-btn-secondary-border: #2c1a5c;
+    --fd-btn-secondary-hover:  #2c1a5c;
+
+    --fd-btn-ghost-text:       #8f7fc0;
+    --fd-btn-ghost-hover-bg:   #20134a;
+    --fd-btn-ghost-hover-text: #f2eeff;
+
+    --fd-accent:        #00f6ff;
+    --fd-accent-hover:  #00d6e0;
+    --fd-accent-strong: #00b8c2;
+    --fd-accent-rgb:    0, 246, 255;
+    --fd-accent-tint:   rgba(0,246,255,0.12);
+    --fd-accent-soft:   #7bfbff;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+    --fd-status-success-bg: rgba(57,255,20,0.16);  --fd-status-success-text: #39ff14;
+    --fd-status-warning-bg: rgba(249,248,113,0.18);--fd-status-warning-text: #f9f871;
+    --fd-status-danger-bg:  rgba(255,0,60,0.2);    --fd-status-danger-text:  #ff3366;
+    --fd-status-neutral-bg: rgba(143,127,192,0.16);--fd-status-neutral-text: #8f7fc0;
+    --fd-status-info-bg:    rgba(185,103,255,0.2); --fd-status-info-text:    #c48bff;
+    --fd-selection-bg: rgba(0,246,255,0.28); --fd-selection-text: #f2eeff;
   }
 }
 
@@ -825,82 +1612,85 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────────── */
-/*  LINUX DEVELOPER THEME — component layer                                    */
-/*  Scoped entirely to html[data-role-theme="linux-dev"] (developer role       */
-/*  only, set in AdminLayout.jsx). Nothing here can affect any other role.     */
+/*  DEVELOPER THEMES — shared component layer                                  */
+/*  Scoped entirely to html[data-dev-mode="true"], which AdminLayout.jsx only  */
+/*  ever sets for the Software Developer role — regardless of which of the     */
+/*  developer themes above is currently selected. Nothing here can affect     */
+/*  any other role. Colours are pulled from the --fd-status-* / --fd-accent-*  */
+/*  variables each theme block above defines, so adding a new developer theme  */
+/*  never requires touching this block.                                       */
 /* ─────────────────────────────────────────────────────────────────────────── */
 @layer components {
-  html[data-role-theme="linux-dev"] body {
+  html[data-dev-mode="true"] body {
     font-family: var(--fd-mono);
     font-feature-settings: "liga" 1, "calt" 1;
   }
-  html[data-role-theme="linux-dev"] input,
-  html[data-role-theme="linux-dev"] textarea,
-  html[data-role-theme="linux-dev"] select,
-  html[data-role-theme="linux-dev"] button {
+  html[data-dev-mode="true"] input,
+  html[data-dev-mode="true"] textarea,
+  html[data-dev-mode="true"] select,
+  html[data-dev-mode="true"] button {
     font-family: var(--fd-mono);
   }
 
-  /* Flat, sharp corners — the tiling-WM / GTK look, not soft mac bubbles.
-     rounded-full is left alone on purpose (avatars, status dots, pills
-     read fine round in every desktop environment, Linux included). */
-  html[data-role-theme="linux-dev"] .fd-card,
-  html[data-role-theme="linux-dev"] .stat-card,
-  html[data-role-theme="linux-dev"] .settings-section,
-  html[data-role-theme="linux-dev"] .export-dropdown,
-  html[data-role-theme="linux-dev"] .fd-input,
-  html[data-role-theme="linux-dev"] .btn-primary,
-  html[data-role-theme="linux-dev"] .btn-secondary,
-  html[data-role-theme="linux-dev"] .btn-ghost,
-  html[data-role-theme="linux-dev"] .btn-danger,
-  html[data-role-theme="linux-dev"] .sidebar-link,
-  html[data-role-theme="linux-dev"] .chat-bubble-sent,
-  html[data-role-theme="linux-dev"] .chat-bubble-received,
-  html[data-role-theme="linux-dev"] .rounded-xl,
-  html[data-role-theme="linux-dev"] .rounded-2xl,
-  html[data-role-theme="linux-dev"] .rounded-3xl {
+  /* Flat, sharp corners — the code-editor / terminal look, not soft mac
+     bubbles. rounded-full is left alone on purpose (avatars, status dots,
+     pills read fine round no matter which developer theme is active). */
+  html[data-dev-mode="true"] .fd-card,
+  html[data-dev-mode="true"] .stat-card,
+  html[data-dev-mode="true"] .settings-section,
+  html[data-dev-mode="true"] .export-dropdown,
+  html[data-dev-mode="true"] .fd-input,
+  html[data-dev-mode="true"] .btn-primary,
+  html[data-dev-mode="true"] .btn-secondary,
+  html[data-dev-mode="true"] .btn-ghost,
+  html[data-dev-mode="true"] .btn-danger,
+  html[data-dev-mode="true"] .sidebar-link,
+  html[data-dev-mode="true"] .chat-bubble-sent,
+  html[data-dev-mode="true"] .chat-bubble-received,
+  html[data-dev-mode="true"] .rounded-xl,
+  html[data-dev-mode="true"] .rounded-2xl,
+  html[data-dev-mode="true"] .rounded-3xl {
     border-radius: 4px !important;
   }
 
-  html[data-role-theme="linux-dev"] .btn-primary {
+  html[data-dev-mode="true"] .btn-primary {
     background: var(--fd-accent);
     border-color: var(--fd-accent-strong);
     box-shadow: none;
   }
-  html[data-role-theme="linux-dev"] .btn-primary:hover {
+  html[data-dev-mode="true"] .btn-primary:hover {
     background: var(--fd-accent-hover);
     box-shadow: none;
     transform: none;
   }
-  html[data-role-theme="linux-dev"] .fd-card,
-  html[data-role-theme="linux-dev"] .stat-card {
+  html[data-dev-mode="true"] .fd-card,
+  html[data-dev-mode="true"] .stat-card {
     box-shadow: none;
   }
-  html[data-role-theme="linux-dev"] .fd-card-hover:hover {
+  html[data-dev-mode="true"] .fd-card-hover:hover {
     box-shadow: none;
-    border-color: #3fb950;
+    border-color: var(--fd-accent);
   }
 
-  /* Badges — pinned to the same values as [data-theme="dark"] so they read
-     correctly no matter what the (separate, still-independent) light/dark
-     toggle happens to be set to for this user. */
-  html[data-role-theme="linux-dev"] .status-active     { background: rgba(63,185,80,0.16);  color: #56d364; }
-  html[data-role-theme="linux-dev"] .status-inactive   { background: rgba(139,148,158,0.15); color: #8b949e; }
-  html[data-role-theme="linux-dev"] .status-onboarding { background: rgba(210,153,34,0.16);  color: #e3b341; }
-  html[data-role-theme="linux-dev"] .status-paused     { background: rgba(210,153,34,0.16);  color: #e3b341; }
-  html[data-role-theme="linux-dev"] .status-churned    { background: rgba(248,81,73,0.16);   color: #f85149; }
-  html[data-role-theme="linux-dev"] .priority-low      { background: rgba(139,148,158,0.15); color: #8b949e; }
-  html[data-role-theme="linux-dev"] .priority-medium   { background: rgba(63,185,80,0.16);   color: #56d364; }
-  html[data-role-theme="linux-dev"] .priority-high     { background: rgba(210,153,34,0.16);  color: #e3b341; }
-  html[data-role-theme="linux-dev"] .priority-urgent   { background: rgba(248,81,73,0.16);   color: #f85149; }
-  html[data-role-theme="linux-dev"] .btn-danger        { background: rgba(248,81,73,0.14); color: #f85149; border: 1px solid rgba(248,81,73,0.3); }
-  html[data-role-theme="linux-dev"] .btn-danger:hover  { background: rgba(248,81,73,0.2); border-color: rgba(248,81,73,0.45); }
-  html[data-role-theme="linux-dev"] .calendar-cell-today .calendar-day-num { background: var(--fd-accent); }
-  html[data-role-theme="linux-dev"] .kanban-drop-over  { outline-color: var(--fd-accent); }
+  /* Badges — driven by each theme's own --fd-status-* variables above, so
+     every developer theme gets correctly-coloured badges automatically. */
+  html[data-dev-mode="true"] .status-active     { background: var(--fd-status-success-bg); color: var(--fd-status-success-text); }
+  html[data-dev-mode="true"] .status-inactive   { background: var(--fd-status-neutral-bg); color: var(--fd-status-neutral-text); }
+  html[data-dev-mode="true"] .status-onboarding { background: var(--fd-status-warning-bg); color: var(--fd-status-warning-text); }
+  html[data-dev-mode="true"] .status-paused     { background: var(--fd-status-warning-bg); color: var(--fd-status-warning-text); }
+  html[data-dev-mode="true"] .status-churned    { background: var(--fd-status-danger-bg);  color: var(--fd-status-danger-text); }
+  html[data-dev-mode="true"] .priority-low      { background: var(--fd-status-neutral-bg); color: var(--fd-status-neutral-text); }
+  html[data-dev-mode="true"] .priority-medium   { background: var(--fd-status-info-bg);    color: var(--fd-status-info-text); }
+  html[data-dev-mode="true"] .priority-high     { background: var(--fd-status-warning-bg); color: var(--fd-status-warning-text); }
+  html[data-dev-mode="true"] .priority-urgent   { background: var(--fd-status-danger-bg);  color: var(--fd-status-danger-text); }
+  html[data-dev-mode="true"] .btn-danger        { background: var(--fd-status-danger-bg); color: var(--fd-status-danger-text); border: 1px solid var(--fd-status-danger-text); }
+  html[data-dev-mode="true"] .btn-danger:hover  { filter: brightness(1.15); }
+  html[data-dev-mode="true"] .calendar-cell-today .calendar-day-num { background: var(--fd-accent); }
+  html[data-dev-mode="true"] .kanban-drop-over  { outline-color: var(--fd-accent); }
 
-  /* Native form chrome + selection follow the terminal palette too */
-  html[data-role-theme="linux-dev"] input[type="date"],
-  html[data-role-theme="linux-dev"] input[type="datetime-local"] { color-scheme: dark; }
-  html[data-role-theme="linux-dev"] ::selection { background: rgba(63,185,80,0.28); color: #e6edf3; }
-  html[data-role-theme="linux-dev"] :focus-visible { box-shadow: 0 0 0 3px rgba(63,185,80,0.28); }
+  /* Native form chrome + selection follow the active developer theme too */
+  html[data-dev-mode="true"] input[type="date"],
+  html[data-dev-mode="true"] input[type="datetime-local"] { color-scheme: dark; }
+  html[data-dev-mode="true"] ::selection { background: var(--fd-selection-bg); color: var(--fd-selection-text); }
+  html[data-dev-mode="true"] :focus-visible { box-shadow: 0 0 0 3px var(--fd-selection-bg); }
 }

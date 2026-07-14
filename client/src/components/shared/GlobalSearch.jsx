@@ -7,7 +7,7 @@ import {
 import api from '../../lib/api';
 
 const TYPE_META = {
-  client:       { icon: Building2,    color: '#4f6ef0', label: 'Clients',        path: (r) => `/admin/clients/${r._id}` },
+  client:       { icon: Building2,    color: 'var(--fd-accent)', label: 'Clients',        path: (r) => `/admin/clients/${r._id}` },
   task:         { icon: CheckSquare,  color: '#f59e0b', label: 'Tasks',          path: ()  => `/admin/tasks` },
   lead:         { icon: Target,       color: '#22c55e', label: 'Leads',          path: ()  => `/admin/leads` },
   user:         { icon: Users,        color: '#a855f7', label: 'Team',           path: (r) => `/admin/team/${r._id}` },
@@ -42,9 +42,9 @@ const STATUS_LABELS = {
 };
 
 const STATUS_COLORS = {
-  pending: '#f59e0b', in_progress: '#4f6ef0', review: '#a855f7',
+  pending: '#f59e0b', in_progress: 'var(--fd-accent)', review: '#a855f7',
   completed: '#22c55e', cancelled: '#ef4444',
-  new: '#4f6ef0', contacted: '#f59e0b', qualified: '#22c55e',
+  new: 'var(--fd-accent)', contacted: '#f59e0b', qualified: '#22c55e',
   converted: '#22c55e', lost: '#ef4444',
 };
 
@@ -175,7 +175,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
 
   // Quick-jump pill config
   const quickJumps = [
-    { label: 'Clients',  type: 'client',       nav: '/admin/clients',        color: '#4f6ef0' },
+    { label: 'Clients',  type: 'client',       nav: '/admin/clients',        color: 'var(--fd-accent)' },
     { label: 'Tasks',    type: 'task',          nav: '/admin/tasks',          color: '#f59e0b' },
     { label: 'Leads',    type: 'lead',          nav: '/admin/leads',          color: '#22c55e' },
     { label: 'Team',     type: 'user',          nav: '/admin/team',           color: '#a855f7' },

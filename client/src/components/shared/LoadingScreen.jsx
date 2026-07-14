@@ -13,11 +13,11 @@ export function LoadingScreen() {
           {/* Soft pulse ring */}
           <div
             className="absolute inset-[-6px] rounded-2xl animate-ping opacity-20"
-            style={{ background: '#4f6ef0', animationDuration: '1.8s' }}
+            style={{ background: 'var(--fd-accent)', animationDuration: '1.8s' }}
           />
           <div
-            className="relative w-12 h-12 rounded-xl flex items-center justify-center bg-[#4f6ef0]"
-            style={{ boxShadow: '0 4px 16px rgba(79,110,240,0.3)' }}
+            className="relative w-12 h-12 rounded-xl flex items-center justify-center bg-[var(--fd-accent)]"
+            style={{ boxShadow: '0 4px 16px rgba(var(--fd-accent-rgb),0.3)' }}
           >
             <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
               <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
@@ -54,14 +54,14 @@ export function Spinner({ size = 'md', className }) {
         sizes[size],
         className
       )}
-      style={{ borderColor: 'var(--fd-border-strong)', borderTopColor: '#4f6ef0' }}
+      style={{ borderColor: 'var(--fd-border-strong)', borderTopColor: 'var(--fd-accent)' }}
     />
   );
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
 const AVATAR_PALETTES = [
-  { bg: '#eff0fe', color: '#3a56d4' },
+  { bg: 'var(--fd-accent-tint)', color: 'var(--fd-accent-hover)' },
   { bg: '#edf7f1', color: '#2a7d4f' },
   { bg: '#fef7ea', color: '#92600a' },
   { bg: '#fdf2ff', color: '#7e22ce' },
@@ -73,7 +73,7 @@ const AVATAR_PALETTES = [
 
 // Dark mode palette variants
 const AVATAR_PALETTES_DARK = [
-  { bg: 'rgba(79,110,240,0.2)',  color: '#7896f3' },
+  { bg: 'rgba(var(--fd-accent-rgb),0.2)',  color: 'var(--fd-accent-soft)' },
   { bg: 'rgba(42,125,79,0.2)',   color: '#4ade80' },
   { bg: 'rgba(146,96,10,0.2)',   color: '#fbbf24' },
   { bg: 'rgba(126,34,206,0.2)',  color: '#c084fc' },
@@ -127,7 +127,7 @@ export function Avatar({ name, src, size = 'md', className }) {
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 const STAT_PALETTES = {
-  blue:   { icon: '#4f6ef0', iconBg: '#eff0fe', iconBgDark: 'rgba(79,110,240,0.15)' },
+  blue:   { icon: 'var(--fd-accent)', iconBg: 'var(--fd-accent-tint)', iconBgDark: 'rgba(var(--fd-accent-rgb),0.15)' },
   green:  { icon: '#2a7d4f', iconBg: '#edf7f1', iconBgDark: 'rgba(42,125,79,0.15)' },
   orange: { icon: '#92600a', iconBg: '#fef7ea', iconBgDark: 'rgba(146,96,10,0.15)' },
   purple: { icon: '#7e22ce', iconBg: '#fdf2ff', iconBgDark: 'rgba(126,34,206,0.15)' },
@@ -265,7 +265,7 @@ export function Skeleton({ className = '', style }) {
 // ─── Badge ───────────────────────────────────────────────────────────────────
 const BADGE_STYLES_LIGHT = {
   default: { background: '#f5f4f1', color: '#44423d', border: '1px solid #e8e5e0' },
-  blue:    { background: '#eff0fe', color: '#3a56d4', border: '1px solid #c5d4fb' },
+  blue:    { background: 'var(--fd-accent-tint)', color: 'var(--fd-accent-hover)', border: '1px solid #c5d4fb' },
   green:   { background: '#edf7f1', color: '#2a7d4f', border: '1px solid #b8e2c9' },
   yellow:  { background: '#fef7ea', color: '#92600a', border: '1px solid #f5d78e' },
   red:     { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' },
@@ -274,7 +274,7 @@ const BADGE_STYLES_LIGHT = {
 
 const BADGE_STYLES_DARK = {
   default: { background: 'rgba(138,134,128,0.15)', color: '#c4c0b8', border: '1px solid rgba(138,134,128,0.25)' },
-  blue:    { background: 'rgba(79,110,240,0.18)',  color: '#7896f3', border: '1px solid rgba(79,110,240,0.3)' },
+  blue:    { background: 'rgba(var(--fd-accent-rgb),0.18)',  color: 'var(--fd-accent-soft)', border: '1px solid rgba(var(--fd-accent-rgb),0.3)' },
   green:   { background: 'rgba(42,125,79,0.18)',   color: '#4ade80', border: '1px solid rgba(42,125,79,0.3)' },
   yellow:  { background: 'rgba(146,96,10,0.18)',   color: '#fbbf24', border: '1px solid rgba(146,96,10,0.3)' },
   red:     { background: 'rgba(185,28,28,0.18)',   color: '#f87171', border: '1px solid rgba(185,28,28,0.3)' },

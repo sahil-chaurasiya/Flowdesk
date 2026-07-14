@@ -116,7 +116,7 @@ function CredentialForm({ initial, clients, managers, userRole, onSubmit, loadin
                   )}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium border transition-all"
                   style={selected
-                    ? { background: '#4f6ef0', color: '#fff', borderColor: '#4060e0' }
+                    ? { background: 'var(--fd-accent)', color: '#fff', borderColor: 'var(--fd-accent-strong)' }
                     : { background: 'var(--fd-btn-secondary-bg)', color: 'var(--fd-btn-secondary-text)', borderColor: 'var(--fd-btn-secondary-border)' }
                   }
                 >

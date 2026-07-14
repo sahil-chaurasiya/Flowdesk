@@ -8,13 +8,13 @@ function cn(...classes) { return classes.filter(Boolean).join(' '); }
 const BTN_VARIANTS = {
   primary: {
     style: {
-      background: '#4f6ef0',
+      background: 'var(--fd-accent)',
       color: '#ffffff',
       border: '1px solid #4060e0',
       boxShadow: '0 1px 3px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.14)',
     },
     hoverStyle: {
-      background: '#3a56d4',
+      background: 'var(--fd-accent-hover)',
     },
   },
   secondary: {
@@ -106,7 +106,7 @@ export function Button({
             height: size === 'xs' ? 12 : 14,
             border: '2px solid',
             borderColor: variant === 'primary' ? 'rgba(255,255,255,0.3)' : 'var(--fd-border)',
-            borderTopColor: variant === 'primary' ? '#ffffff' : '#4f6ef0',
+            borderTopColor: variant === 'primary' ? '#ffffff' : 'var(--fd-accent)',
           }}
         />
       )}
@@ -280,7 +280,7 @@ export function ToastProvider({ children }) {
     success: { border: 'rgba(52,211,153,0.4)',  icon: <CheckCircle size={15} color="#34d399" />,  bar: '#34d399' },
     error:   { border: 'rgba(248,113,113,0.4)', icon: <AlertCircle size={15} color="#f87171" />,  bar: '#f87171' },
     warning: { border: 'rgba(251,191,36,0.4)',  icon: <AlertTriangle size={15} color="#fbbf24" />, bar: '#fbbf24' },
-    info:    { border: 'rgba(129,140,248,0.4)', icon: <Info size={15} color="#818cf8" />,          bar: '#4f6ef0' },
+    info:    { border: 'rgba(129,140,248,0.4)', icon: <Info size={15} color="#818cf8" />,          bar: 'var(--fd-accent)' },
   };
 
   return (

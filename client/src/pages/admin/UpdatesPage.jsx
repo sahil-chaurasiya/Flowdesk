@@ -21,9 +21,9 @@ function ClientFilterBar({ clients, value, onChange, placeholder = 'All Clients'
         onChange={e => onChange(e.target.value)}
         className="appearance-none text-[12px] font-medium pl-7 pr-7 py-1.5 rounded-lg cursor-pointer"
         style={{
-          background: value ? '#eff0fe' : 'var(--fd-surface)',
-          border: `1px solid ${value ? '#4f6ef0' : 'var(--fd-border)'}`,
-          color: value ? '#3a56d4' : 'var(--fd-ink-3)',
+          background: value ? 'var(--fd-accent-tint)' : 'var(--fd-surface)',
+          border: `1px solid ${value ? 'var(--fd-accent)' : 'var(--fd-border)'}`,
+          color: value ? 'var(--fd-accent-hover)' : 'var(--fd-ink-3)',
         }}
       >
         <option value="">{placeholder}</option>
@@ -35,7 +35,7 @@ function ClientFilterBar({ clients, value, onChange, placeholder = 'All Clients'
         <button
           onClick={() => onChange('')}
           className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded"
-          style={{ color: '#3a56d4' }}
+          style={{ color: 'var(--fd-accent-hover)' }}
         >
           <X size={10} />
         </button>
@@ -113,9 +113,9 @@ export function UpdatesPage() {
             onChange={e => setFilterType(e.target.value)}
             className="appearance-none text-[12px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
             style={{
-              background: filterType ? '#eff0fe' : 'var(--fd-surface)',
-              border: `1px solid ${filterType ? '#4f6ef0' : 'var(--fd-border)'}`,
-              color: filterType ? '#3a56d4' : 'var(--fd-ink-3)',
+              background: filterType ? 'var(--fd-accent-tint)' : 'var(--fd-surface)',
+              border: `1px solid ${filterType ? 'var(--fd-accent)' : 'var(--fd-border)'}`,
+              color: filterType ? 'var(--fd-accent-hover)' : 'var(--fd-ink-3)',
             }}
           >
             <option value="">All Types</option>
@@ -124,7 +124,7 @@ export function UpdatesPage() {
             ))}
           </select>
           {filterType && (
-            <button onClick={() => setFilterType('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: '#3a56d4' }}>
+            <button onClick={() => setFilterType('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: 'var(--fd-accent-hover)' }}>
               <X size={10} />
             </button>
           )}
@@ -286,9 +286,9 @@ export function ReportsAdminPage() {
             onChange={e => setFilterPeriod(e.target.value)}
             className="appearance-none text-[12px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
             style={{
-              background: filterPeriod ? '#eff0fe' : 'var(--fd-surface)',
-              border: `1px solid ${filterPeriod ? '#4f6ef0' : 'var(--fd-border)'}`,
-              color: filterPeriod ? '#3a56d4' : 'var(--fd-ink-3)',
+              background: filterPeriod ? 'var(--fd-accent-tint)' : 'var(--fd-surface)',
+              border: `1px solid ${filterPeriod ? 'var(--fd-accent)' : 'var(--fd-border)'}`,
+              color: filterPeriod ? 'var(--fd-accent-hover)' : 'var(--fd-ink-3)',
             }}
           >
             <option value="">All Periods</option>
@@ -297,7 +297,7 @@ export function ReportsAdminPage() {
             ))}
           </select>
           {filterPeriod && (
-            <button onClick={() => setFilterPeriod('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: '#3a56d4' }}>
+            <button onClick={() => setFilterPeriod('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: 'var(--fd-accent-hover)' }}>
               <X size={10} />
             </button>
           )}
@@ -499,9 +499,9 @@ export function FilesAdminPage() {
             onChange={e => setFilterCategory(e.target.value)}
             className="appearance-none text-[12px] font-medium px-3 py-1.5 rounded-lg cursor-pointer capitalize"
             style={{
-              background: filterCategory ? '#eff0fe' : 'var(--fd-surface)',
-              border: `1px solid ${filterCategory ? '#4f6ef0' : 'var(--fd-border)'}`,
-              color: filterCategory ? '#3a56d4' : 'var(--fd-ink-3)',
+              background: filterCategory ? 'var(--fd-accent-tint)' : 'var(--fd-surface)',
+              border: `1px solid ${filterCategory ? 'var(--fd-accent)' : 'var(--fd-border)'}`,
+              color: filterCategory ? 'var(--fd-accent-hover)' : 'var(--fd-ink-3)',
             }}
           >
             <option value="">All Categories</option>
@@ -510,7 +510,7 @@ export function FilesAdminPage() {
             ))}
           </select>
           {filterCategory && (
-            <button onClick={() => setFilterCategory('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: '#3a56d4' }}>
+            <button onClick={() => setFilterCategory('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 p-0.5 rounded" style={{ color: 'var(--fd-accent-hover)' }}>
               <X size={10} />
             </button>
           )}

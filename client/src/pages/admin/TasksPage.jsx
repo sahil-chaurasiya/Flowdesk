@@ -204,7 +204,7 @@ export default function TasksPage() {
                 onClick={() => setStatusFilter(t.value)}
                 className="px-3 py-1.5 rounded-lg text-[12px] font-medium whitespace-nowrap transition-all border flex-shrink-0"
                 style={statusFilter === t.value
-                  ? { background: '#4f6ef0', color: 'var(--fd-surface)', borderColor: '#4060e0' }
+                  ? { background: 'var(--fd-accent)', color: 'var(--fd-surface)', borderColor: 'var(--fd-accent-strong)' }
                   : { background: 'var(--fd-surface)', color: 'var(--fd-ink-3)', borderColor: 'var(--fd-border-strong)' }
                 }
               >
@@ -520,7 +520,7 @@ export default function TasksPage() {
               checked={form.isClientVisible}
               onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))}
               className="rounded"
-              style={{ accentColor: '#4f6ef0' }}
+              style={{ accentColor: 'var(--fd-accent)' }}
             />
             <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
           </label>

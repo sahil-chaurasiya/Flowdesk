@@ -28,7 +28,7 @@ function linkifyText(text) {
   const parts = text.split(urlRegex);
   return parts.map((part, i) =>
     urlRegex.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#4f6ef0', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--fd-accent)', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
       : part
   );
 }
@@ -57,13 +57,13 @@ const ROLE_WELCOME = {
 };
 
 const PRIORITY_COLORS = {
-  low: '#a8a49e', medium: '#4f6ef0', high: '#f59e0b', urgent: '#ef4444',
+  low: '#a8a49e', medium: 'var(--fd-accent)', high: '#f59e0b', urgent: '#ef4444',
 };
 
 const STATUS_META = {
   today:       { label: 'Today',       color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
   pending:     { label: 'Pending',     color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
-  in_progress: { label: 'In Progress', color: '#4f6ef0', bg: 'rgba(79,110,240,0.1)' },
+  in_progress: { label: 'In Progress', color: 'var(--fd-accent)', bg: 'rgba(var(--fd-accent-rgb),0.1)' },
   review:      { label: 'In Review',   color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },
   completed:   { label: 'Completed',   color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
   cancelled:   { label: 'Cancelled',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
@@ -92,7 +92,7 @@ function StatusActionButton({ task, onStatusUpdate, updating, size = 'md' }) {
   if (!canStart && !canReview) return null;
 
   const action = canStart
-    ? { label: 'Start Working', icon: Play, nextStatus: 'in_progress', color: '#4f6ef0', gradient: 'linear-gradient(135deg,#4f6ef0,#6366f1)', shadow: 'rgba(79,110,240,0.3)', confirmMsg: 'Begin this task?', confirmIcon: Zap }
+    ? { label: 'Start Working', icon: Play, nextStatus: 'in_progress', color: 'var(--fd-accent)', gradient: 'linear-gradient(135deg,var(--fd-accent),var(--fd-accent-hover))', shadow: 'rgba(var(--fd-accent-rgb),0.3)', confirmMsg: 'Begin this task?', confirmIcon: Zap }
     : { label: 'Send for Review', icon: Send, nextStatus: 'review', color: '#a855f7', gradient: 'linear-gradient(135deg,#a855f7,#9333ea)', shadow: 'rgba(168,85,247,0.3)', confirmMsg: 'Done? Send to PM for review?', confirmIcon: CheckCircle };
 
   const ActionIcon = action.icon;
@@ -188,9 +188,9 @@ function AssignedByBadge({ createdBy, isClientRequest, style }) {
     <span
       className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
       style={{
-        background: isClientRequest ? 'rgba(245,158,11,0.1)' : 'rgba(79,110,240,0.08)',
+        background: isClientRequest ? 'rgba(245,158,11,0.1)' : 'rgba(var(--fd-accent-rgb),0.08)',
         color: isClientRequest ? '#92400e' : 'var(--fd-ink-3)',
-        border: `1px solid ${isClientRequest ? 'rgba(245,158,11,0.25)' : 'rgba(79,110,240,0.15)'}`,
+        border: `1px solid ${isClientRequest ? 'rgba(245,158,11,0.25)' : 'rgba(var(--fd-accent-rgb),0.15)'}`,
         ...style,
       }}
     >
@@ -209,7 +209,7 @@ function RevisionBadge({ count, size = 'sm', onClick, pmFlagged = false }) {
   if (!count) return null;
   const isLg = size === 'lg';
   const palette = pmFlagged
-    ? { bg: 'rgba(79,110,240,0.12)', color: '#4f6ef0', border: 'rgba(79,110,240,0.3)' }
+    ? { bg: 'rgba(var(--fd-accent-rgb),0.12)', color: 'var(--fd-accent)', border: 'rgba(var(--fd-accent-rgb),0.3)' }
     : { bg: 'rgba(245,158,11,0.12)', color: '#b45309', border: 'rgba(245,158,11,0.3)' };
   return (
     <span
@@ -229,7 +229,7 @@ function RevisionBadge({ count, size = 'sm', onClick, pmFlagged = false }) {
       {pmFlagged && (
         <span
           className="text-[9px] font-bold px-1 py-0 rounded-full uppercase tracking-wide"
-          style={{ background: 'rgba(79,110,240,0.18)' }}
+          style={{ background: 'rgba(var(--fd-accent-rgb),0.18)' }}
         >
           PM
         </span>
@@ -500,18 +500,18 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLo
                       key={rev._id || i}
                       className="rounded-lg p-2.5"
                       style={loggedByPM
-                        ? { background: 'rgba(79,110,240,0.07)', border: '1px solid rgba(79,110,240,0.25)' }
+                        ? { background: 'rgba(var(--fd-accent-rgb),0.07)', border: '1px solid rgba(var(--fd-accent-rgb),0.25)' }
                         : { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[11.5px] font-semibold truncate" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                          <span className="text-[11.5px] font-semibold truncate" style={{ color: loggedByPM ? 'var(--fd-accent)' : '#b45309' }}>
                             {rev.requestedBy?.name || 'Team member'}
                           </span>
                           {loggedByPM && (
                             <span
                               className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0"
-                              style={{ background: 'rgba(79,110,240,0.15)', color: '#4f6ef0' }}
+                              style={{ background: 'rgba(var(--fd-accent-rgb),0.15)', color: 'var(--fd-accent)' }}
                             >
                               PM
                             </span>
@@ -521,7 +521,7 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLo
                           {timeAgo(rev.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[10.5px] font-medium mb-1" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                      <p className="text-[10.5px] font-medium mb-1" style={{ color: loggedByPM ? 'var(--fd-accent)' : '#b45309' }}>
                         {loggedByPM ? 'Change requested by project manager' : 'Self-reported change'}
                       </p>
                       {rev.note ? (
@@ -741,9 +741,9 @@ export default function MyTasksPage() {
           onClick={() => setShowAllTime(v => !v)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
           style={{
-            background: showAllTime ? 'rgba(79,110,240,0.12)' : 'var(--fd-surface-sunken)',
-            color: showAllTime ? '#4f6ef0' : 'var(--fd-ink-3)',
-            border: `1px solid ${showAllTime ? 'rgba(79,110,240,0.3)' : 'var(--fd-border)'}`,
+            background: showAllTime ? 'rgba(var(--fd-accent-rgb),0.12)' : 'var(--fd-surface-sunken)',
+            color: showAllTime ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
+            border: `1px solid ${showAllTime ? 'rgba(var(--fd-accent-rgb),0.3)' : 'var(--fd-border)'}`,
           }}
         >
           {showAllTime ? '✓ Showing All Time' : 'Show All Time'}

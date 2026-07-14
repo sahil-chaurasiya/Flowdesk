@@ -19,7 +19,7 @@ import { linkifyText } from '../../lib/utils';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const EVENT_COLORS = {
   task_deadline: { bg: '#ef4444', light: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
-  meeting:       { bg: '#4f6ef0', light: '#eff0fe', text: '#3a56d4', border: '#c7cdfb' },
+  meeting:       { bg: 'var(--fd-accent)', light: 'var(--fd-accent-tint)', text: 'var(--fd-accent-hover)', border: '#c7cdfb' },
   reminder:      { bg: '#f59e0b', light: '#fffbeb', text: '#92600a', border: '#fde68a' },
   follow_up:     { bg: '#a855f7', light: '#faf5ff', text: '#7e22ce', border: '#e9d5ff' },
   campaign:      { bg: '#22c55e', light: '#f0fdf4', text: '#15803d', border: '#bbf7d0' },
@@ -886,9 +886,9 @@ function FilterBar({ clients, filters, onChange, overdueCount }) {
           <select
             className="text-[12px] font-medium pl-6 pr-6 py-1.5 rounded-lg appearance-none cursor-pointer"
             style={{
-              background: filters.client ? '#eff0fe' : 'var(--fd-surface)',
-              border: `1px solid ${filters.client ? '#4f6ef0' : 'var(--fd-border)'}`,
-              color: filters.client ? '#3a56d4' : 'var(--fd-ink-3)',
+              background: filters.client ? 'var(--fd-accent-tint)' : 'var(--fd-surface)',
+              border: `1px solid ${filters.client ? 'var(--fd-accent)' : 'var(--fd-border)'}`,
+              color: filters.client ? 'var(--fd-accent-hover)' : 'var(--fd-ink-3)',
             }}
             value={filters.client || ''}
             onChange={e => onChange({ ...filters, client: e.target.value })}
@@ -906,9 +906,9 @@ function FilterBar({ clients, filters, onChange, overdueCount }) {
         <select
           className="text-[12px] font-medium px-3 py-1.5 rounded-lg appearance-none cursor-pointer"
           style={{
-            background: filters.type ? (EVENT_COLORS[filters.type]?.light || '#eff0fe') : 'var(--fd-surface)',
-            border: `1px solid ${filters.type ? (EVENT_COLORS[filters.type]?.bg || '#4f6ef0') : 'var(--fd-border)'}`,
-            color: filters.type ? (EVENT_COLORS[filters.type]?.text || '#3a56d4') : 'var(--fd-ink-3)',
+            background: filters.type ? (EVENT_COLORS[filters.type]?.light || 'var(--fd-accent-tint)') : 'var(--fd-surface)',
+            border: `1px solid ${filters.type ? (EVENT_COLORS[filters.type]?.bg || 'var(--fd-accent)') : 'var(--fd-border)'}`,
+            color: filters.type ? (EVENT_COLORS[filters.type]?.text || 'var(--fd-accent-hover)') : 'var(--fd-ink-3)',
           }}
           value={filters.type || ''}
           onChange={e => onChange({ ...filters, type: e.target.value })}
@@ -998,7 +998,7 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
           <button
             onClick={() => onNewEvent(day)}
             className="flex items-center gap-1.5 text-[13px] font-semibold px-3 py-2 rounded-xl"
-            style={{ background: '#4f6ef0', color: '#fff' }}
+            style={{ background: 'var(--fd-accent)', color: '#fff' }}
           >
             <Plus size={14} /> Add
           </button>
@@ -1007,7 +1007,7 @@ function DaySheet({ day, events, onClose, onViewEvent, onNewEvent }) {
         {dayEvents.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-[14px]" style={{ color: 'var(--fd-ink-4)' }}>No events this day</p>
-            <button onClick={() => onNewEvent(day)} className="mt-3 text-[13px] font-semibold" style={{ color: '#4f6ef0' }}>
+            <button onClick={() => onNewEvent(day)} className="mt-3 text-[13px] font-semibold" style={{ color: 'var(--fd-accent)' }}>
               + Add an event
             </button>
           </div>
@@ -1303,7 +1303,7 @@ export default function CalendarPage() {
         const contentTypes = ['reel', 'static_post', 'carousel', 'story', 'other'];
         const contentEvents = displayedEvents.filter(ev => contentTypes.includes(ev.type) && ev.status === 'done' && isSameMonth(parseISO(ev.startDate), current));
         const kpis = [
-          { label: 'Total Content', count: contentEvents.length, color: '#4f6ef0', bg: '#eef2ff', icon: '📦' },
+          { label: 'Total Content', count: contentEvents.length, color: 'var(--fd-accent)', bg: '#eef2ff', icon: '📦' },
           { label: 'Posts',         count: contentEvents.filter(ev => ev.type === 'static_post' || ev.type === 'carousel').length, color: '#8b5cf6', bg: '#f5f3ff', icon: '🖼️' },
           { label: 'Reels',         count: contentEvents.filter(ev => ev.type === 'reel').length,        color: '#06b6d4', bg: '#ecfeff', icon: '🎬' },
           { label: 'Stories',       count: contentEvents.filter(ev => ev.type === 'story').length,       color: '#e11d48', bg: '#fff1f2', icon: '📖' },
@@ -1389,7 +1389,7 @@ export default function CalendarPage() {
                             height:     today ? 20 : 'auto',
                             minWidth:   today ? 20 : 0,
                             padding:    today ? 0 : '0 2px',
-                            background: today ? '#4f6ef0' : 'transparent',
+                            background: today ? 'var(--fd-accent)' : 'transparent',
                             color: today ? '#fff' : !inMonth ? 'var(--fd-ink-5)' : 'var(--fd-ink-2)',
                           }}
                         >
@@ -1402,7 +1402,7 @@ export default function CalendarPage() {
                           <button
                             onClick={e => { e.stopPropagation(); setModal({ mode: 'new', defaultDate: day }); }}
                             className="hidden sm:flex items-center justify-center w-5 h-5 rounded-full transition-transform hover:scale-110 shadow-sm"
-                            style={{ color: '#fff', background: '#4f6ef0' }}
+                            style={{ color: '#fff', background: 'var(--fd-accent)' }}
                             title="Add event"
                           >
                             <Plus size={11} strokeWidth={2.5} />

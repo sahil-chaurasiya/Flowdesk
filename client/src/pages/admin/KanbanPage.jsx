@@ -12,13 +12,13 @@ import { formatDate, timeAgo } from '../../lib/utils';
 const COLUMNS = [
   { id: 'today',       label: 'Today',        color: '#f59e0b', icon: AlertCircle },
   { id: 'pending',     label: 'Pending',      color: '#94a3b8', icon: AlertCircle },
-  { id: 'in_progress', label: 'In Progress',  color: '#4f6ef0', icon: Clock },
+  { id: 'in_progress', label: 'In Progress',  color: 'var(--fd-accent)', icon: Clock },
   { id: 'review',      label: 'In Review',    color: '#a855f7', icon: Target },
   { id: 'completed',   label: 'Completed',    color: '#22c55e', icon: CheckCircle },
 ];
 
 const PRIORITY_COLORS = {
-  low: '#a8a49e', medium: '#4f6ef0', high: '#f59e0b', urgent: '#ef4444',
+  low: '#a8a49e', medium: 'var(--fd-accent)', high: '#f59e0b', urgent: '#ef4444',
 };
 
 const CATEGORY_LABELS = {
@@ -36,7 +36,7 @@ const ROLE_LABELS = {
 const STATUS_STYLE = {
   today:       { background: 'rgba(245,158,11,0.12)', color: '#f59e0b' },
   pending:     { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
-  in_progress: { background: 'rgba(79,110,240,0.12)', color: '#4f6ef0' },
+  in_progress: { background: 'rgba(var(--fd-accent-rgb),0.12)', color: 'var(--fd-accent)' },
   review:      { background: 'rgba(168,85,247,0.12)', color: '#a855f7' },
   completed:   { background: 'rgba(34,197,94,0.12)', color: '#22c55e' },
   cancelled:   { background: 'rgba(239,68,68,0.12)', color: '#ef4444' },
@@ -49,7 +49,7 @@ function linkifyText(text) {
   const parts = text.split(urlRegex);
   return parts.map((part, i) =>
     urlRegex.test(part)
-      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: '#4f6ef0', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
+      ? <a key={i} href={part} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--fd-accent)', textDecoration: 'underline', wordBreak: 'break-all' }}>{part}</a>
       : part
   );
 }
@@ -70,7 +70,7 @@ function RevisionBadge({ count, size = 'sm', pmFlagged = false }) {
   if (!count) return null;
   const isLg = size === 'lg';
   const palette = pmFlagged
-    ? { bg: 'rgba(79,110,240,0.12)', color: '#4f6ef0', border: 'rgba(79,110,240,0.3)' }
+    ? { bg: 'rgba(var(--fd-accent-rgb),0.12)', color: 'var(--fd-accent)', border: 'rgba(var(--fd-accent-rgb),0.3)' }
     : { bg: 'rgba(245,158,11,0.12)', color: '#b45309', border: 'rgba(245,158,11,0.3)' };
   return (
     <span
@@ -89,7 +89,7 @@ function RevisionBadge({ count, size = 'sm', pmFlagged = false }) {
       {pmFlagged && (
         <span
           className="text-[9px] font-bold px-1 py-0 rounded-full uppercase tracking-wide"
-          style={{ background: 'rgba(79,110,240,0.18)' }}
+          style={{ background: 'rgba(var(--fd-accent-rgb),0.18)' }}
         >
           PM
         </span>
@@ -364,18 +364,18 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
                       key={rev._id || i}
                       className="rounded-lg p-2.5"
                       style={loggedByPM
-                        ? { background: 'rgba(79,110,240,0.07)', border: '1px solid rgba(79,110,240,0.25)' }
+                        ? { background: 'rgba(var(--fd-accent-rgb),0.07)', border: '1px solid rgba(var(--fd-accent-rgb),0.25)' }
                         : { background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)' }}
                     >
                       <div className="flex items-center justify-between gap-2 mb-1">
                         <span className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[11.5px] font-semibold truncate" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                          <span className="text-[11.5px] font-semibold truncate" style={{ color: loggedByPM ? 'var(--fd-accent)' : '#b45309' }}>
                             {rev.requestedBy?.name || 'Team member'}
                           </span>
                           {loggedByPM && (
                             <span
                               className="text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0"
-                              style={{ background: 'rgba(79,110,240,0.15)', color: '#4f6ef0' }}
+                              style={{ background: 'rgba(var(--fd-accent-rgb),0.15)', color: 'var(--fd-accent)' }}
                             >
                               PM
                             </span>
@@ -385,7 +385,7 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
                           {timeAgo(rev.createdAt)}
                         </span>
                       </div>
-                      <p className="text-[10.5px] font-medium mb-1" style={{ color: loggedByPM ? '#4f6ef0' : '#b45309' }}>
+                      <p className="text-[10.5px] font-medium mb-1" style={{ color: loggedByPM ? 'var(--fd-accent)' : '#b45309' }}>
                         {loggedByPM ? 'Change requested by project manager' : 'Self-reported change'}
                       </p>
                       {rev.note ? (
@@ -450,7 +450,7 @@ function TaskCard({ task, onDragStart, onClick }) {
             <span
               className="inline-flex items-center gap-0.5 text-[9.5px] font-semibold px-1.5 py-0.5 rounded"
               style={isLatestRevisionByPM(task)
-                ? { background: 'rgba(79,110,240,0.16)', color: '#4f6ef0' }
+                ? { background: 'rgba(var(--fd-accent-rgb),0.16)', color: 'var(--fd-accent)' }
                 : { background: 'rgba(245,158,11,0.14)', color: '#b45309' }}
               title={isLatestRevisionByPM(task)
                 ? `${task.revisionCount} revision${task.revisionCount > 1 ? 's' : ''} — PM requested changes`
@@ -838,9 +838,9 @@ export default function KanbanPage() {
           onClick={() => setShowAllTime(v => !v)}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all"
           style={{
-            background: showAllTime ? 'rgba(79,110,240,0.12)' : 'var(--fd-surface-sunken)',
-            color: showAllTime ? '#4f6ef0' : 'var(--fd-ink-3)',
-            border: `1px solid ${showAllTime ? 'rgba(79,110,240,0.3)' : 'var(--fd-border)'}`,
+            background: showAllTime ? 'rgba(var(--fd-accent-rgb),0.12)' : 'var(--fd-surface-sunken)',
+            color: showAllTime ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
+            border: `1px solid ${showAllTime ? 'rgba(var(--fd-accent-rgb),0.3)' : 'var(--fd-border)'}`,
           }}
         >
           {showAllTime ? '✓ Showing All Time' : 'Show All Time'}
@@ -889,9 +889,9 @@ export default function KanbanPage() {
             onClick={() => { setFilterAssignedToMe(v => !v); if (!filterAssignedToMe) setFilterMember(''); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12.5px] font-semibold transition-all whitespace-nowrap"
             style={{
-              background: filterAssignedToMe ? 'rgba(79,110,240,0.12)' : 'var(--fd-surface-sunken)',
-              color: filterAssignedToMe ? '#4f6ef0' : 'var(--fd-ink-3)',
-              border: `1px solid ${filterAssignedToMe ? 'rgba(79,110,240,0.3)' : 'var(--fd-border)'}`,
+              background: filterAssignedToMe ? 'rgba(var(--fd-accent-rgb),0.12)' : 'var(--fd-surface-sunken)',
+              color: filterAssignedToMe ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
+              border: `1px solid ${filterAssignedToMe ? 'rgba(var(--fd-accent-rgb),0.3)' : 'var(--fd-border)'}`,
               height: 34.5,
             }}
           >
@@ -986,7 +986,7 @@ export default function KanbanPage() {
                 checked={form.isPersonal}
                 onChange={e => setForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client, websiteProject: e.target.checked ? '' : p.websiteProject, assignedTo: e.target.checked ? user._id : p.assignedTo }))}
                 className="rounded"
-                style={{ accentColor: '#4f6ef0' }}
+                style={{ accentColor: 'var(--fd-accent)' }}
               />
               <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>
                 🔒 Personal task — only visible to me, no client needed
@@ -1040,7 +1040,7 @@ export default function KanbanPage() {
           </div>
           {!form.isPersonal && (
             <label className="flex items-center gap-2.5 cursor-pointer">
-              <input type="checkbox" checked={form.isClientVisible} onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
+              <input type="checkbox" checked={form.isClientVisible} onChange={e => setForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: 'var(--fd-accent)' }} />
               <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
             </label>
           )}
@@ -1069,7 +1069,7 @@ export default function KanbanPage() {
                 checked={editForm.isPersonal || false}
                 onChange={e => setEditForm(p => ({ ...p, isPersonal: e.target.checked, client: e.target.checked ? '' : p.client, websiteProject: e.target.checked ? '' : p.websiteProject }))}
                 className="rounded"
-                style={{ accentColor: '#4f6ef0' }}
+                style={{ accentColor: 'var(--fd-accent)' }}
               />
               <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>
                 🔒 Personal task — only visible to me, no client needed
@@ -1123,7 +1123,7 @@ export default function KanbanPage() {
           </div>
           {!editForm.isPersonal && (
             <label className="flex items-center gap-2.5 cursor-pointer">
-              <input type="checkbox" checked={editForm.isClientVisible || false} onChange={e => setEditForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: '#4f6ef0' }} />
+              <input type="checkbox" checked={editForm.isClientVisible || false} onChange={e => setEditForm(p => ({ ...p, isClientVisible: e.target.checked }))} className="rounded" style={{ accentColor: 'var(--fd-accent)' }} />
               <span className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Visible to client portal</span>
             </label>
           )}

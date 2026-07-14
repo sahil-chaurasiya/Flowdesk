@@ -7,7 +7,7 @@ import {
   ListChecks, Instagram, Sun, Moon, Search,
   Kanban, Calendar, Activity, Settings, Briefcase,
   FileSearch, Key, BookUser, CreditCard, PhoneCall,
-  ClipboardList, Code2,
+  ClipboardList, Code2, Terminal,
 } from 'lucide-react';
 import useAuthStore from '../../context/authStore';
 import { useSocket } from '../../context/SocketContext';
@@ -126,6 +126,21 @@ export default function AdminLayout() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  const isLinuxDevTheme = user?.role === 'developer';
+
+  // Developer role gets a dedicated Linux/terminal visual theme (see the
+  // `html[data-role-theme="linux-dev"]` rules in index.css). This is a pure
+  // CSS re-skin — it doesn't touch any data fetching or component logic,
+  // and it's only ever applied for this one role.
+  useEffect(() => {
+    if (isLinuxDevTheme) {
+      document.documentElement.setAttribute('data-role-theme', 'linux-dev');
+    } else {
+      document.documentElement.removeAttribute('data-role-theme');
+    }
+    return () => document.documentElement.removeAttribute('data-role-theme');
+  }, [isLinuxDevTheme]);
+
   const handleLogout = async () => { await logout(); navigate('/login'); };
   const unread = user?.notifications?.filter(n => !n.read).length || 0;
 
@@ -167,14 +182,30 @@ export default function AdminLayout() {
       >
         {/* Company logo */}
         <div className="flex-shrink-0">
-          <div className="w-7 h-7 rounded-lg overflow-hidden">
-            <img src="/icon-512.png" alt="FlowDesk" className="w-full h-full object-cover" />
-          </div>
+          {isLinuxDevTheme ? (
+            <div
+              className="w-7 h-7 flex items-center justify-center"
+              style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)', borderRadius: 4 }}
+            >
+              <Terminal size={14} style={{ color: 'var(--fd-accent)' }} />
+            </div>
+          ) : (
+            <div className="w-7 h-7 rounded-lg overflow-hidden">
+              <img src="/icon-512.png" alt="FlowDesk" className="w-full h-full object-cover" />
+            </div>
+          )}
         </div>
         {(!collapsed || isMobile) && (
-          <span className="text-[14px] font-bold tracking-tight" style={{ color: 'var(--fd-ink-1)' }}>
-             To Fly Media FlowDesk
-          </span>
+          isLinuxDevTheme ? (
+            <span className="text-[13px] font-semibold tracking-tight truncate" style={{ color: 'var(--fd-ink-1)', fontFamily: 'var(--fd-mono)' }}>
+              <span style={{ color: 'var(--fd-accent)' }}>flowdesk</span>
+              <span style={{ color: 'var(--fd-ink-4)' }}>@dev:~$</span>
+            </span>
+          ) : (
+            <span className="text-[14px] font-bold tracking-tight" style={{ color: 'var(--fd-ink-1)' }}>
+               To Fly Media FlowDesk
+            </span>
+          )
         )}
         {isMobile && (
           <button className="ml-auto btn-ghost p-1" onClick={() => setMobileOpen(false)}>
@@ -204,15 +235,15 @@ export default function AdminLayout() {
                   to={item.to}
                   onClick={() => isMobile && setMobileOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 rounded-lg mb-0.5 text-[13px] font-medium transition-all duration-150 ${
-                      isActive
-                        ? 'text-[#4f6ef0]'
-                        : 'hover:text-[var(--fd-ink-1)]'
-                    }`
+                    `flex items-center gap-3 px-3 py-2 mb-0.5 text-[13px] font-medium transition-all duration-150 ${
+                      isLinuxDevTheme ? '' : 'rounded-lg'
+                    } ${isActive ? '' : 'hover:text-[var(--fd-ink-1)]'}`
                   }
                   style={({ isActive }) => ({
-                    background: isActive ? 'var(--fd-sidebar-active-bg)' : 'transparent',
-                    color: isActive ? '#4f6ef0' : 'var(--fd-ink-3)',
+                    background: isActive ? (isLinuxDevTheme ? 'var(--fd-sidebar-active)' : 'var(--fd-sidebar-active-bg)') : 'transparent',
+                    color: isActive ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
+                    borderRadius: isLinuxDevTheme ? 4 : undefined,
+                    borderLeft: isLinuxDevTheme ? `2px solid ${isActive ? 'var(--fd-accent)' : 'transparent'}` : undefined,
                   })}
                   title={collapsed && !isMobile ? item.label : undefined}
                 >
@@ -233,7 +264,7 @@ export default function AdminLayout() {
         <div className={`flex items-center gap-3 ${collapsed && !isMobile ? 'justify-center' : ''}`}>
           <div
             className="relative w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0 group cursor-pointer overflow-hidden"
-            style={{ background: '#4f6ef0' }}
+            style={{ background: 'var(--fd-accent)' }}
             onClick={() => navigate('/admin/settings')}
             title="Go to profile settings"
           >
@@ -338,7 +369,7 @@ export default function AdminLayout() {
 
           {/* Mobile brand */}
           <div className="flex items-center gap-2 md:hidden">
-            <div className="w-6 h-6 rounded bg-[#4f6ef0] flex items-center justify-center">
+            <div className="w-6 h-6 rounded bg-[var(--fd-accent)] flex items-center justify-center">
               <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
                 <path d="M2.5 11L7 3L11.5 11" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -368,17 +399,20 @@ export default function AdminLayout() {
               </kbd>
             </button>
 
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggleTheme}
-              className="btn-ghost p-2"
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {isDark
-                ? <Sun size={16} strokeWidth={1.7} />
-                : <Moon size={16} strokeWidth={1.7} />
-              }
-            </button>
+            {/* Dark mode toggle — not shown for the developer role, whose
+                Linux terminal theme is always dark and doesn't use it */}
+            {!isLinuxDevTheme && (
+              <button
+                onClick={toggleTheme}
+                className="btn-ghost p-2"
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {isDark
+                  ? <Sun size={16} strokeWidth={1.7} />
+                  : <Moon size={16} strokeWidth={1.7} />
+                }
+              </button>
+            )}
 
             {/* Notifications */}
             <div className="relative">
@@ -390,7 +424,7 @@ export default function AdminLayout() {
                 <Bell size={16} strokeWidth={1.7} />
                 {unread > 0 && (
                   <span
-                    className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-[#4f6ef0] rounded-full"
+                    className="absolute top-1.5 right-1.5 w-[7px] h-[7px] bg-[var(--fd-accent)] rounded-full"
                     style={{ boxShadow: '0 0 0 2px var(--fd-header-bg)' }}
                   />
                 )}

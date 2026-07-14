@@ -13,7 +13,7 @@ const TYPE_ICON = {
 };
 
 const TYPE_DOT = {
-  message: '#4f6ef0',
+  message: 'var(--fd-accent)',
   update:  '#7e22ce',
   task:    '#2a7d4f',
   file:    '#92600a',
@@ -66,7 +66,7 @@ export default function NotificationPanel({ onClose }) {
           {unread > 0 && (
             <span
               className="text-[10px] font-bold rounded-full px-1.5 min-w-[18px] text-center py-0.5"
-              style={{ background: '#4f6ef0', color: '#ffffff' }}
+              style={{ background: 'var(--fd-accent)', color: '#ffffff' }}
             >
               {unread}
             </span>
@@ -131,7 +131,7 @@ export default function NotificationPanel({ onClose }) {
               {!n.read && (
                 <div
                   className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5"
-                  style={{ background: TYPE_DOT[n.type] || '#4f6ef0' }}
+                  style={{ background: TYPE_DOT[n.type] || 'var(--fd-accent)' }}
                 />
               )}
             </div>

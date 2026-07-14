@@ -13,7 +13,7 @@ import { formatDate } from '../../lib/utils';
 
 const PROJECT_STATUS = {
   planning:    { label: 'Planning',    color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
-  in_progress: { label: 'In Progress', color: '#4f6ef0', bg: 'rgba(79,110,240,0.12)' },
+  in_progress: { label: 'In Progress', color: 'var(--fd-accent)', bg: 'rgba(var(--fd-accent-rgb),0.12)' },
   on_hold:     { label: 'On Hold',     color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
   review:      { label: 'In Review',   color: '#a855f7', bg: 'rgba(168,85,247,0.12)' },
   completed:   { label: 'Completed',   color: '#22c55e', bg: 'rgba(34,197,94,0.12)' },
@@ -23,21 +23,21 @@ const PROJECT_STATUS = {
 const TASK_STATUS = {
   today:       { label: 'Today',       color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
   pending:     { label: 'Pending',     color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
-  in_progress: { label: 'In Progress', color: '#4f6ef0', bg: 'rgba(79,110,240,0.1)' },
+  in_progress: { label: 'In Progress', color: 'var(--fd-accent)', bg: 'rgba(var(--fd-accent-rgb),0.1)' },
   review:      { label: 'In Review',   color: '#a855f7', bg: 'rgba(168,85,247,0.1)' },
   completed:   { label: 'Completed',   color: '#22c55e', bg: 'rgba(34,197,94,0.1)' },
   cancelled:   { label: 'Cancelled',   color: '#ef4444', bg: 'rgba(239,68,68,0.1)' },
 };
 
-const PRIORITY_COLORS = { low: '#a8a49e', medium: '#4f6ef0', high: '#f59e0b', urgent: '#ef4444' };
+const PRIORITY_COLORS = { low: '#a8a49e', medium: 'var(--fd-accent)', high: '#f59e0b', urgent: '#ef4444' };
 
 const PROJECT_CATEGORIES = {
-  office_project:  { label: 'Office Project',  icon: '🏢', color: '#4f6ef0', bg: 'rgba(79,110,240,0.12)' },
+  office_project:  { label: 'Office Project',  icon: '🏢', color: 'var(--fd-accent)', bg: 'rgba(var(--fd-accent-rgb),0.12)' },
   client_project:  { label: 'Client Project',  icon: '💼', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 };
 
 // ── Radial progress ring ──────────────────────────────────────────────────────
-function ProgressRing({ value = 0, color = '#4f6ef0', size = 72 }) {
+function ProgressRing({ value = 0, color = 'var(--fd-accent)', size = 72 }) {
   const r = (size - 8) / 2;
   const circ = 2 * Math.PI * r;
   const dash = (value / 100) * circ;
@@ -67,7 +67,7 @@ function ProjectProgressBar({ stats }) {
     ? [
         { key: 'completed',  value: stats.completed,  color: '#22c55e' },
         { key: 'review',     value: stats.review,     color: '#a855f7' },
-        { key: 'inProgress', value: stats.inProgress, color: '#4f6ef0' },
+        { key: 'inProgress', value: stats.inProgress, color: 'var(--fd-accent)' },
         { key: 'pending',    value: stats.pending,    color: '#94a3b8' },
         { key: 'cancelled',  value: stats.cancelled,  color: '#ef4444' },
       ]
@@ -714,7 +714,7 @@ function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging,
         </div>
         <span
           className="flex items-center gap-1 text-[11.5px] font-semibold flex-shrink-0 px-2.5 py-1 rounded-full transition-all group-hover:gap-1.5"
-          style={{ color: '#4f6ef0', background: 'rgba(79,110,240,0.08)' }}
+          style={{ color: 'var(--fd-accent)', background: 'rgba(var(--fd-accent-rgb),0.08)' }}
         >
           View tasks <ChevronRight size={12} />
         </span>
@@ -909,7 +909,7 @@ export default function WebsiteWorkPage() {
         </Card>
         <Card className="p-4">
           <div className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fd-ink-4)' }}>Active</div>
-          <div className="text-2xl font-bold" style={{ color: '#4f6ef0' }}>{overallStats.active}</div>
+          <div className="text-2xl font-bold" style={{ color: 'var(--fd-accent)' }}>{overallStats.active}</div>
         </Card>
         <Card className="p-4">
           <div className="text-[11px] font-semibold uppercase tracking-wide mb-1" style={{ color: 'var(--fd-ink-4)' }}>Total Tasks</div>

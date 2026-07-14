@@ -20,20 +20,20 @@ const sendTokenResponse = (user, statusCode, res) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
 
+  // Previously this hand-picked a handful of fields (name, email, role, ...)
+  // which silently dropped createdAt, lastLogin, department, phone, etc.
+  // from the login response — so "Member since" / "Last login" (and any
+  // other account metadata) only showed up after a page refresh forced a
+  // re-fetch from GET /auth/me. Use the model's own toJSON() instead, which
+  // already strips password/refreshTokens and returns everything else —
+  // the same full shape /auth/me returns. Applies to every account/role.
+  const userJson = typeof user.toJSON === 'function' ? user.toJSON() : user;
+
   res.status(statusCode).json({
     success: true,
     accessToken,
     refreshToken,
-    user: {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-      clientId: user.clientId,
-      jobTitle: user.jobTitle,
-      isActive: user.isActive
-    }
+    user: userJson
   });
 };
 

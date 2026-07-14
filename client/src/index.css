@@ -106,6 +106,17 @@
     --fd-btn-ghost-text:       #7a7770;
     --fd-btn-ghost-hover-bg:   #f5f4f1;
     --fd-btn-ghost-hover-text: #1a1916;
+
+    /* ── Accent tokens ── kept identical to the historical hardcoded hex
+       (#4f6ef0 etc.) so re-pointing inline styles at these variables is a
+       zero-visual-diff change for every role except the Linux dev theme,
+       which overrides them below. ── */
+    --fd-accent:        #4f6ef0;
+    --fd-accent-hover:  #3a56d4;
+    --fd-accent-strong: #4060e0;
+    --fd-accent-rgb:    79, 110, 240;
+    --fd-accent-tint:   #eff0fe;
+    --fd-accent-soft:   #7896f3;
   }
 }
 
@@ -211,6 +222,136 @@
     --fd-btn-ghost-text:       #8a8680;
     --fd-btn-ghost-hover-bg:   #22252c;
     --fd-btn-ghost-hover-text: #edeae4;
+
+    --fd-accent:        #4f6ef0;
+    --fd-accent-hover:  #3a56d4;
+    --fd-accent-strong: #4060e0;
+    --fd-accent-rgb:    79, 110, 240;
+    --fd-accent-tint:   #1e2a4a;
+    --fd-accent-soft:   #7896f3;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  DESIGN TOKENS — LINUX DEVELOPER THEME                                      */
+/*  Applied only to the Software Developer role (see AdminLayout.jsx, which    */
+/*  sets data-role-theme="linux-dev" on <html> for that role only). Every      */
+/*  other role keeps the normal light/dark tokens above untouched.             */
+/*  Palette: TTY/distro-terminal — near-black surfaces, terminal green as      */
+/*  the primary accent, monospace type. Deliberately not macOS: no traffic-    */
+/*  light chrome, no soft "frosted glass" tint, sharp flat corners instead of  */
+/*  big rounded-2xl bubbles.                                                   */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer base {
+  html[data-role-theme="linux-dev"] {
+    --background:   215 21% 7%;
+    --foreground:   210 14% 89%;
+    --card:         215 21% 10%;
+    --card-foreground: 210 14% 89%;
+    --popover:      215 21% 10%;
+    --popover-foreground: 210 14% 89%;
+    --primary:      131 41% 55%;
+    --primary-foreground: 215 25% 7%;
+    --secondary:    215 15% 16%;
+    --secondary-foreground: 210 10% 75%;
+    --muted:        215 15% 14%;
+    --muted-foreground: 212 8% 55%;
+    --accent:       131 30% 18%;
+    --accent-foreground: 131 41% 70%;
+    --destructive:  4 90% 66%;
+    --destructive-foreground: 0 0% 100%;
+    --border:       215 14% 20%;
+    --input:        215 18% 12%;
+    --ring:         131 41% 55%;
+    --radius:       3px;
+
+    --fd-canvas:          #0a0d12;
+    --fd-surface:         #161b22;
+    --fd-surface-raised:  #1c2128;
+    --fd-surface-sunken:  #0d1117;
+    --fd-border:          #30363d;
+    --fd-border-subtle:   #21262d;
+    --fd-border-strong:   #3d4451;
+
+    --fd-ink-1:           #e6edf3;
+    --fd-ink-2:           #c9d1d9;
+    --fd-ink-3:           #8b949e;
+    --fd-ink-4:           #6e7681;
+    --fd-ink-5:           #484f58;
+
+    --fd-sidebar-bg:      #0a0d12;
+    --fd-sidebar-hover:   #161b22;
+    --fd-sidebar-active:  rgba(63,185,80,0.14);
+    --fd-sidebar-link:    #8b949e;
+    --fd-sidebar-link-active: #3fb950;
+    --fd-sidebar-border:  #21262d;
+    --fd-sidebar-section: #484f58;
+
+    --fd-header-bg:       #0a0d12;
+    --fd-header-border:   #21262d;
+
+    --fd-input-bg:        #0d1117;
+    --fd-input-border:    #30363d;
+    --fd-input-text:      #e6edf3;
+    --fd-input-placeholder: #6e7681;
+
+    --fd-table-head-bg:   #0d1117;
+    --fd-table-head-text: #6e7681;
+    --fd-table-border:    #21262d;
+    --fd-table-row-border:#21262d;
+    --fd-table-row-hover: #1c2128;
+    --fd-table-cell-text: #c9d1d9;
+
+    --fd-chat-received-bg:    #1c2128;
+    --fd-chat-received-text:  #e6edf3;
+    --fd-chat-received-border:#30363d;
+
+    --fd-notif-bg:        #161b22;
+    --fd-notif-header-bg: #0d1117;
+    --fd-notif-border:    #30363d;
+    --fd-notif-row-border:#21262d;
+    --fd-notif-unread-bg: rgba(63,185,80,0.06);
+    --fd-notif-icon-bg:   #1c2128;
+
+    --fd-card-bg:         #161b22;
+
+    --fd-modal-bg:        #161b22;
+    --fd-modal-border:    #30363d;
+    --fd-modal-footer-bg: #0d1117;
+
+    --fd-toast-bg:        #1c2128;
+
+    --fd-shimmer-1:       #161b22;
+    --fd-shimmer-2:       #21262d;
+
+    --fd-scrollbar:       #30363d;
+    --fd-scrollbar-hover: #484f58;
+
+    --fd-tabs-bg:         #0d1117;
+    --fd-tabs-border:     #30363d;
+    --fd-tab-active-bg:   #1c2128;
+    --fd-tab-active-text: #e6edf3;
+    --fd-tab-text:        #8b949e;
+
+    --fd-btn-secondary-bg:     #21262d;
+    --fd-btn-secondary-text:   #c9d1d9;
+    --fd-btn-secondary-border: #30363d;
+    --fd-btn-secondary-hover:  #30363d;
+
+    --fd-btn-ghost-text:       #8b949e;
+    --fd-btn-ghost-hover-bg:   #21262d;
+    --fd-btn-ghost-hover-text: #e6edf3;
+
+    /* Terminal-green accent replaces the mac/GitHub-blue everywhere that
+       reads from the token instead of a hardcoded hex. */
+    --fd-accent:        #3fb950;
+    --fd-accent-hover:  #2ea043;
+    --fd-accent-strong: #238636;
+    --fd-accent-rgb:    63, 185, 80;
+    --fd-accent-tint:   rgba(63,185,80,0.12);
+    --fd-accent-soft:   #56d364;
+
+    --fd-mono: 'JetBrains Mono', 'Fira Code', 'Ubuntu Mono', 'DejaVu Sans Mono', ui-monospace, monospace;
   }
 }
 
@@ -681,4 +822,85 @@
     overflow: hidden;
     min-width: 160px;
   }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  LINUX DEVELOPER THEME — component layer                                    */
+/*  Scoped entirely to html[data-role-theme="linux-dev"] (developer role       */
+/*  only, set in AdminLayout.jsx). Nothing here can affect any other role.     */
+/* ─────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  html[data-role-theme="linux-dev"] body {
+    font-family: var(--fd-mono);
+    font-feature-settings: "liga" 1, "calt" 1;
+  }
+  html[data-role-theme="linux-dev"] input,
+  html[data-role-theme="linux-dev"] textarea,
+  html[data-role-theme="linux-dev"] select,
+  html[data-role-theme="linux-dev"] button {
+    font-family: var(--fd-mono);
+  }
+
+  /* Flat, sharp corners — the tiling-WM / GTK look, not soft mac bubbles.
+     rounded-full is left alone on purpose (avatars, status dots, pills
+     read fine round in every desktop environment, Linux included). */
+  html[data-role-theme="linux-dev"] .fd-card,
+  html[data-role-theme="linux-dev"] .stat-card,
+  html[data-role-theme="linux-dev"] .settings-section,
+  html[data-role-theme="linux-dev"] .export-dropdown,
+  html[data-role-theme="linux-dev"] .fd-input,
+  html[data-role-theme="linux-dev"] .btn-primary,
+  html[data-role-theme="linux-dev"] .btn-secondary,
+  html[data-role-theme="linux-dev"] .btn-ghost,
+  html[data-role-theme="linux-dev"] .btn-danger,
+  html[data-role-theme="linux-dev"] .sidebar-link,
+  html[data-role-theme="linux-dev"] .chat-bubble-sent,
+  html[data-role-theme="linux-dev"] .chat-bubble-received,
+  html[data-role-theme="linux-dev"] .rounded-xl,
+  html[data-role-theme="linux-dev"] .rounded-2xl,
+  html[data-role-theme="linux-dev"] .rounded-3xl {
+    border-radius: 4px !important;
+  }
+
+  html[data-role-theme="linux-dev"] .btn-primary {
+    background: var(--fd-accent);
+    border-color: var(--fd-accent-strong);
+    box-shadow: none;
+  }
+  html[data-role-theme="linux-dev"] .btn-primary:hover {
+    background: var(--fd-accent-hover);
+    box-shadow: none;
+    transform: none;
+  }
+  html[data-role-theme="linux-dev"] .fd-card,
+  html[data-role-theme="linux-dev"] .stat-card {
+    box-shadow: none;
+  }
+  html[data-role-theme="linux-dev"] .fd-card-hover:hover {
+    box-shadow: none;
+    border-color: #3fb950;
+  }
+
+  /* Badges — pinned to the same values as [data-theme="dark"] so they read
+     correctly no matter what the (separate, still-independent) light/dark
+     toggle happens to be set to for this user. */
+  html[data-role-theme="linux-dev"] .status-active     { background: rgba(63,185,80,0.16);  color: #56d364; }
+  html[data-role-theme="linux-dev"] .status-inactive   { background: rgba(139,148,158,0.15); color: #8b949e; }
+  html[data-role-theme="linux-dev"] .status-onboarding { background: rgba(210,153,34,0.16);  color: #e3b341; }
+  html[data-role-theme="linux-dev"] .status-paused     { background: rgba(210,153,34,0.16);  color: #e3b341; }
+  html[data-role-theme="linux-dev"] .status-churned    { background: rgba(248,81,73,0.16);   color: #f85149; }
+  html[data-role-theme="linux-dev"] .priority-low      { background: rgba(139,148,158,0.15); color: #8b949e; }
+  html[data-role-theme="linux-dev"] .priority-medium   { background: rgba(63,185,80,0.16);   color: #56d364; }
+  html[data-role-theme="linux-dev"] .priority-high     { background: rgba(210,153,34,0.16);  color: #e3b341; }
+  html[data-role-theme="linux-dev"] .priority-urgent   { background: rgba(248,81,73,0.16);   color: #f85149; }
+  html[data-role-theme="linux-dev"] .btn-danger        { background: rgba(248,81,73,0.14); color: #f85149; border: 1px solid rgba(248,81,73,0.3); }
+  html[data-role-theme="linux-dev"] .btn-danger:hover  { background: rgba(248,81,73,0.2); border-color: rgba(248,81,73,0.45); }
+  html[data-role-theme="linux-dev"] .calendar-cell-today .calendar-day-num { background: var(--fd-accent); }
+  html[data-role-theme="linux-dev"] .kanban-drop-over  { outline-color: var(--fd-accent); }
+
+  /* Native form chrome + selection follow the terminal palette too */
+  html[data-role-theme="linux-dev"] input[type="date"],
+  html[data-role-theme="linux-dev"] input[type="datetime-local"] { color-scheme: dark; }
+  html[data-role-theme="linux-dev"] ::selection { background: rgba(63,185,80,0.28); color: #e6edf3; }
+  html[data-role-theme="linux-dev"] :focus-visible { box-shadow: 0 0 0 3px rgba(63,185,80,0.28); }
 }

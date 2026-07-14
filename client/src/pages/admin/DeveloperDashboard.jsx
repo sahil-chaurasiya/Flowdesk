@@ -4,6 +4,7 @@ import {
   Terminal, GitBranch, Rocket, Code2, ListChecks, FolderKanban,
   AlertTriangle, CheckCircle2, Circle, CircleDot, Diamond, X,
   Flame, Boxes, Pin, Sparkles, ChevronRight, ArrowUpRight, Plus,
+  Minus, Square,
 } from 'lucide-react';
 import {
   eachDayOfInterval, startOfDay, endOfDay, subDays, format as fmtDate,
@@ -36,7 +37,7 @@ const DEV = {
 
 const HEAT_LEVELS = ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353'];
 
-const MONO = "ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace";
+const MONO = "'JetBrains Mono', 'Fira Code', 'Ubuntu Mono', 'DejaVu Sans Mono', ui-monospace, Consolas, monospace";
 
 const TASK_GLYPH = {
   today:       { icon: Circle,    color: DEV.orange, label: 'To Do' },
@@ -376,16 +377,25 @@ export default function DeveloperDashboard() {
 
       {/* ── Terminal hero ── */}
       <div className="rounded-2xl overflow-hidden" style={{ background: DEV.bg, border: `1px solid ${DEV.border}` }}>
-        {/* title bar */}
-        <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: DEV.panel, borderBottom: `1px solid ${DEV.border}` }}>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#ff5f56' }} />
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#ffbd2e' }} />
-            <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#27c93f' }} />
-          </div>
+        {/* title bar — GTK/GNOME-style header, not macOS traffic lights:
+            icon + process name on the left, flat window controls on the right */}
+        <div className="flex items-center gap-2 px-3 py-2" style={{ background: DEV.panel, borderBottom: `1px solid ${DEV.border}` }}>
+          <Terminal size={13} style={{ color: DEV.green, flexShrink: 0 }} />
           <span style={{ fontFamily: MONO, fontSize: 11.5, color: DEV.dim }}>
-            {(user?.name || 'dev').toLowerCase().replace(/\s+/g, '')}@flowdesk — zsh
+            {(user?.name || 'dev').toLowerCase().replace(/\s+/g, '')}@flowdesk — bash
           </span>
+          <div className="flex-1" />
+          <div className="flex items-center gap-0.5">
+            <span className="w-6 h-6 rounded-[3px] flex items-center justify-center" style={{ color: DEV.dim }}>
+              <Minus size={12} />
+            </span>
+            <span className="w-6 h-6 rounded-[3px] flex items-center justify-center" style={{ color: DEV.dim }}>
+              <Square size={10} />
+            </span>
+            <span className="w-6 h-6 rounded-[3px] flex items-center justify-center" style={{ color: DEV.dim }}>
+              <X size={13} />
+            </span>
+          </div>
         </div>
 
         {/* body */}

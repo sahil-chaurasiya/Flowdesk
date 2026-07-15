@@ -14,6 +14,25 @@ const websiteProjectSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  // ── Quick-reference links ────────────────────────────────────────────────
+  // Optional URLs surfaced on the project card/drawer and pulled into the
+  // Developer Dashboard's "stack.env" panel. All optional — nothing breaks
+  // if a project doesn't have them filled in.
+  repoUrl: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Repo URL cannot exceed 500 characters'],
+  },
+  adminUrl: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Admin URL cannot exceed 500 characters'],
+  },
+  liveUrl: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Live URL cannot exceed 500 characters'],
+  },
   status: {
     type: String,
     enum: ['planning', 'in_progress', 'on_hold', 'review', 'completed', 'cancelled'],

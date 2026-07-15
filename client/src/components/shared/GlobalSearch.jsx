@@ -2,13 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Building2, CheckSquare, Target, Users, X, Loader2,
-  CalendarDays, FileText, MessageSquare, Megaphone, UserSearch,
+  CalendarDays, FileText, MessageSquare, Megaphone, UserSearch, Code2,
 } from 'lucide-react';
 import api from '../../lib/api';
+import useAuthStore from '../../context/authStore';
 
 const TYPE_META = {
   client:       { icon: Building2,    color: 'var(--fd-accent)', label: 'Clients',        path: (r) => `/admin/clients/${r._id}` },
-  task:         { icon: CheckSquare,  color: '#f59e0b', label: 'Tasks',          path: ()  => `/admin/tasks` },
+  task:         { icon: CheckSquare,  color: '#f59e0b', label: 'Tasks',          path: (r) => r.isWebsiteWork ? `/admin/website-work` : `/admin/tasks` },
   lead:         { icon: Target,       color: '#22c55e', label: 'Leads',          path: ()  => `/admin/leads` },
   user:         { icon: Users,        color: '#a855f7', label: 'Team',           path: (r) => `/admin/team/${r._id}` },
   internalLead: { icon: UserSearch,   color: '#f97316', label: 'Pipeline',       path: ()  => `/admin/internal-leads` },
@@ -16,10 +17,11 @@ const TYPE_META = {
   socialPost:   { icon: Megaphone,    color: '#ec4899', label: 'Social Posts',   path: ()  => `/admin/social` },
   file:         { icon: FileText,     color: '#64748b', label: 'Files',          path: ()  => `/admin/files` },
   message:      { icon: MessageSquare,color: '#10b981', label: 'Messages',       path: ()  => `/admin/messages` },
+  websiteProject: { icon: Code2,      color: '#22d3ee', label: 'Website Work',   path: ()  => `/admin/website-work` },
 };
 
 // Render order for groups
-const GROUP_ORDER = ['client', 'task', 'lead', 'user', 'internalLead', 'event', 'socialPost', 'file', 'message'];
+const GROUP_ORDER = ['client', 'task', 'websiteProject', 'lead', 'user', 'internalLead', 'event', 'socialPost', 'file', 'message'];
 
 // Map type → key in results object
 const RESULT_KEY = {
@@ -32,6 +34,7 @@ const RESULT_KEY = {
   socialPost:   'socialPosts',
   file:         'files',
   message:      'messages',
+  websiteProject: 'websiteProjects',
 };
 
 const STATUS_LABELS = {
@@ -39,6 +42,7 @@ const STATUS_LABELS = {
   completed: 'Completed', cancelled: 'Cancelled',
   new: 'New', contacted: 'Contacted', qualified: 'Qualified',
   converted: 'Converted', lost: 'Lost',
+  planning: 'Planning', on_hold: 'On Hold',
 };
 
 const STATUS_COLORS = {
@@ -46,6 +50,7 @@ const STATUS_COLORS = {
   completed: '#22c55e', cancelled: '#ef4444',
   new: 'var(--fd-accent)', contacted: '#f59e0b', qualified: '#22c55e',
   converted: '#22c55e', lost: '#ef4444',
+  planning: '#94a3b8', on_hold: '#f59e0b',
 };
 
 function useDebounce(value, delay) {
@@ -68,6 +73,7 @@ function getItemLabel(item) {
     case 'socialPost':   return item.caption ? item.caption.slice(0, 60) + (item.caption.length > 60 ? '…' : '') : `${item.platform} post`;
     case 'file':         return item.originalName || item.name;
     case 'message':      return item.content ? item.content.slice(0, 60) + (item.content.length > 60 ? '…' : '') : 'Message';
+    case 'websiteProject': return item.name;
     default:             return item.name || item.title || item.company || item.email || '';
   }
 }
@@ -75,7 +81,10 @@ function getItemLabel(item) {
 function getItemSub(item) {
   switch (item._type) {
     case 'task':
-      return [item.client?.company, STATUS_LABELS[item.status]].filter(Boolean).join(' · ');
+      return [
+        item.isWebsiteWork ? (item.websiteProject?.name || 'Website Work') : item.client?.company,
+        STATUS_LABELS[item.status],
+      ].filter(Boolean).join(' · ');
     case 'client':
       return [item.industry, item.status ? STATUS_LABELS[item.status] || item.status : null].filter(Boolean).join(' · ');
     case 'user':
@@ -94,12 +103,15 @@ function getItemSub(item) {
       return [item.category, item.client?.company].filter(Boolean).join(' · ');
     case 'message':
       return [item.sender?.name, item.conversation?.client?.company].filter(Boolean).join(' · ');
+    case 'websiteProject':
+      return [STATUS_LABELS[item.status] || item.status, item.categories?.includes('client_project') ? 'Client Project' : item.categories?.includes('office_project') ? 'Internal' : null].filter(Boolean).join(' · ');
     default:
       return '';
   }
 }
 
 export default function GlobalSearch({ isOpen, onClose }) {
+  const { user } = useAuthStore();
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -173,18 +185,24 @@ export default function GlobalSearch({ isOpen, onClose }) {
   const hasResults = flat.length > 0;
   const showResults = results !== null;
 
-  // Quick-jump pill config
+  // Which quick-jump pills make sense for this role — mirrors the exact
+  // same gating the backend search route applies, so a pill never promises
+  // access the person doesn't actually have.
+  const isManagerRole = ['admin', 'manager'].includes(user?.role);
+  const canSeeWebsiteWork = ['admin', 'developer'].includes(user?.role);
+
   const quickJumps = [
-    { label: 'Clients',  type: 'client',       nav: '/admin/clients',        color: 'var(--fd-accent)' },
-    { label: 'Tasks',    type: 'task',          nav: '/admin/tasks',          color: '#f59e0b' },
-    { label: 'Leads',    type: 'lead',          nav: '/admin/leads',          color: '#22c55e' },
-    { label: 'Team',     type: 'user',          nav: '/admin/team',           color: '#a855f7' },
-    { label: 'Pipeline', type: 'internalLead',  nav: '/admin/internal-leads', color: '#f97316' },
-    { label: 'Calendar', type: 'event',         nav: '/admin/calendar',       color: '#06b6d4' },
-    { label: 'Social',   type: 'socialPost',    nav: '/admin/social',         color: '#ec4899' },
-    { label: 'Files',    type: 'file',          nav: '/admin/files',          color: '#64748b' },
-    { label: 'Messages', type: 'message',       nav: '/admin/messages',       color: '#10b981' },
-  ];
+    { label: 'Clients',      type: 'client',         nav: '/admin/clients',        color: 'var(--fd-accent)', show: isManagerRole },
+    { label: 'Tasks',        type: 'task',           nav: '/admin/tasks',          color: '#f59e0b',          show: true },
+    { label: 'Website Work', type: 'websiteProject', nav: '/admin/website-work',   color: '#22d3ee',          show: canSeeWebsiteWork },
+    { label: 'Leads',        type: 'lead',           nav: '/admin/leads',          color: '#22c55e',          show: isManagerRole },
+    { label: 'Team',         type: 'user',           nav: '/admin/team',           color: '#a855f7',          show: isManagerRole },
+    { label: 'Pipeline',     type: 'internalLead',   nav: '/admin/internal-leads', color: '#f97316',          show: isManagerRole },
+    { label: 'Calendar',     type: 'event',          nav: '/admin/calendar',       color: '#06b6d4',          show: true },
+    { label: 'Social',       type: 'socialPost',     nav: '/admin/social',         color: '#ec4899',          show: isManagerRole },
+    { label: 'Files',        type: 'file',           nav: '/admin/files',          color: '#64748b',          show: true },
+    { label: 'Messages',     type: 'message',        nav: '/admin/messages',       color: '#10b981',          show: true },
+  ].filter(q => q.show);
 
   return (
     <div
@@ -333,7 +351,7 @@ export default function GlobalSearch({ isOpen, onClose }) {
                             </div>
 
                             {/* Status pill — only for types that have meaningful status */}
-                            {item.status && ['task', 'lead', 'client'].includes(item._type) && (
+                            {item.status && ['task', 'lead', 'client', 'websiteProject'].includes(item._type) && (
                               <span
                                 className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0 capitalize"
                                 style={{

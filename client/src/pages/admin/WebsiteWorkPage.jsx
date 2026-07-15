@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import {
   Code2, Plus, X, Trash2, Pencil, ChevronRight,
   AlertCircle, Calendar, Pin, GripVertical, Target, BarChart3,
-  ChevronDown, ChevronUp, Loader2,
+  ChevronDown, ChevronUp, Loader2, Github, LayoutDashboard, Globe, ExternalLink,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -117,7 +117,7 @@ function ProjectProgressBar({ stats }) {
 // ── Project form modal ───────────────────────────────────────────────────────
 function ProjectModal({ isOpen, onClose, onSaved, editing }) {
   const toast = useToast();
-  const [form, setForm] = useState({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '', categories: [] });
+  const [form, setForm] = useState({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '', categories: [], repoUrl: '', adminUrl: '', liveUrl: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -129,9 +129,12 @@ function ProjectModal({ isOpen, onClose, onSaved, editing }) {
         priority: editing.priority || 'medium',
         deadline: editing.deadline ? editing.deadline.split('T')[0] : '',
         categories: editing.categories || [],
+        repoUrl: editing.repoUrl || '',
+        adminUrl: editing.adminUrl || '',
+        liveUrl: editing.liveUrl || '',
       });
     } else {
-      setForm({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '', categories: [] });
+      setForm({ name: '', description: '', status: 'planning', priority: 'medium', deadline: '', categories: [], repoUrl: '', adminUrl: '', liveUrl: '' });
     }
   }, [editing, isOpen]);
 
@@ -221,6 +224,33 @@ function ProjectModal({ isOpen, onClose, onSaved, editing }) {
           value={form.deadline}
           onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))}
         />
+
+        {/* Quick-reference links — optional, but power the Website Work
+            drawer's link buttons and the Developer Dashboard's stack.env panel. */}
+        <div className="space-y-3 pt-1 border-t" style={{ borderColor: 'var(--fd-border)' }}>
+          <p className="text-[11px] font-semibold uppercase tracking-wider pt-3" style={{ color: 'var(--fd-ink-5)' }}>
+            Links <span style={{ color: 'var(--fd-ink-5)', fontWeight: 400, textTransform: 'none' }}>(optional)</span>
+          </p>
+          <Input
+            label="Repo URL"
+            value={form.repoUrl}
+            onChange={e => setForm(p => ({ ...p, repoUrl: e.target.value }))}
+            placeholder="https://github.com/you/repo"
+          />
+          <Input
+            label="Admin URL"
+            value={form.adminUrl}
+            onChange={e => setForm(p => ({ ...p, adminUrl: e.target.value }))}
+            placeholder="https://admin.example.com"
+          />
+          <Input
+            label="Live URL"
+            value={form.liveUrl}
+            onChange={e => setForm(p => ({ ...p, liveUrl: e.target.value }))}
+            placeholder="https://example.com"
+          />
+        </div>
+
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
           <Button type="submit" loading={saving}>{editing ? 'Save Changes' : 'Create Project'}</Button>
@@ -506,6 +536,33 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
             )}
           </div>
 
+          {/* Quick links */}
+          {(project.repoUrl || project.adminUrl || project.liveUrl) && (
+            <section>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--fd-ink-5)' }}>Links</p>
+              <div className="flex flex-col gap-1.5">
+                {[
+                  { url: project.repoUrl, label: 'Repository', icon: Github },
+                  { url: project.adminUrl, label: 'Admin panel', icon: LayoutDashboard },
+                  { url: project.liveUrl, label: 'Live site', icon: Globe },
+                ].filter(l => l.url).map(l => (
+                  <a
+                    key={l.label}
+                    href={l.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12.5px] font-medium transition-colors hover:bg-[var(--fd-surface-sunken)] group"
+                    style={{ border: '1px solid var(--fd-border)', color: 'var(--fd-ink-2)' }}
+                  >
+                    <l.icon size={14} style={{ color: 'var(--fd-ink-4)' }} />
+                    <span className="flex-1 truncate">{l.label}</span>
+                    <ExternalLink size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--fd-ink-5)' }} />
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Linked tasks */}
           <section>
             <button onClick={() => setTasksExpanded(e => !e)} className="w-full flex items-center justify-between mb-3 group">
@@ -694,6 +751,28 @@ function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging,
       </div>
 
       <h3 className="font-bold text-[16px] leading-snug mb-1 truncate" style={{ color: 'var(--fd-ink-1)' }}>{project.name}</h3>
+
+      {(project.repoUrl || project.adminUrl || project.liveUrl) && (
+        <div className="flex items-center gap-1.5 mb-2.5" onClick={e => e.stopPropagation()}>
+          {[
+            { url: project.repoUrl, label: 'Repository', icon: Github },
+            { url: project.adminUrl, label: 'Admin panel', icon: LayoutDashboard },
+            { url: project.liveUrl, label: 'Live site', icon: Globe },
+          ].filter(l => l.url).map(l => (
+            <a
+              key={l.label}
+              href={l.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={l.label}
+              className="p-1.5 rounded-lg transition-colors hover:bg-[var(--fd-surface-sunken)]"
+              style={{ border: '1px solid var(--fd-border)', color: 'var(--fd-ink-4)' }}
+            >
+              <l.icon size={12.5} />
+            </a>
+          ))}
+        </div>
+      )}
 
       {project.description && (
         <p className="text-[12.5px] leading-relaxed mb-4 line-clamp-2" style={{ color: 'var(--fd-ink-4)' }}>{project.description}</p>

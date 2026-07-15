@@ -12,6 +12,7 @@ const CalendarEvent = require('../models/CalendarEvent');
 const { SocialPost } = require('../models/SocialPost');
 const File          = require('../models/File');
 const { Message, Conversation } = require('../models/Message');
+const WebsiteProject = require('../models/WebsiteProject');
 
 const ALL_INTERNAL = ['admin', 'manager', ...TEAM_ROLES];
 
@@ -28,12 +29,17 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
       results: {
         users: [], clients: [], tasks: [], leads: [],
         internalLeads: [], events: [], socialPosts: [], files: [], messages: [],
+        websiteProjects: [],
       },
     });
   }
 
   const regex = { $regex: term, $options: 'i' };
   const isManager = ['admin', 'manager'].includes(req.user.role);
+  // Software developers get near-admin visibility into the Website Work
+  // section specifically (same access rule as server/routes/websiteWork.js),
+  // but nothing else manager-only (clients, leads, social, team, etc).
+  const canSeeWebsiteWork = ['admin', 'developer'].includes(req.user.role);
   const LIMIT = 5;
 
   const [
@@ -46,6 +52,7 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
     socialPosts,
     files,
     messages,
+    websiteProjects,
   ] = await Promise.all([
 
     // ── Users (managers/admins only) ─────────────────────────────────────────
@@ -64,13 +71,22 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
           .lean()
       : Promise.resolve([]),
 
-    // ── Tasks (team sees only their own, managers see all) ───────────────────
+    // ── Tasks (team sees only their own; managers see all; developers also
+    //    see every Website Work task regardless of assignment — same
+    //    visibility they already get on the Website Work page itself) ──────
     Task.find({
-      $or: [{ title: regex }, { description: regex }, { category: regex }],
-      ...(isManager ? {} : { assignedTo: req.user._id }),
+      $and: [
+        { $or: [{ title: regex }, { description: regex }, { category: regex }] },
+        isManager
+          ? {}
+          : canSeeWebsiteWork
+            ? { $or: [{ assignedTo: req.user._id }, { isWebsiteWork: true }] }
+            : { assignedTo: req.user._id },
+      ],
     })
       .populate('client', 'company')
-      .select('title status priority category deadline client')
+      .populate('websiteProject', 'name')
+      .select('title status priority category deadline client isWebsiteWork websiteProject')
       .limit(LIMIT)
       .lean(),
 
@@ -99,16 +115,18 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
     // ── Calendar Events ──────────────────────────────────────────────────────
     // team sees their own or public events; managers see all
     CalendarEvent.find({
-      $or: [{ title: regex }, { description: regex }],
-      ...(isManager
-        ? {}
-        : {
-            $or: [
-              { createdBy: req.user._id },
-              { assignedTo: req.user._id },
-              { visibility: 'all' },
-            ],
-          }),
+      $and: [
+        { $or: [{ title: regex }, { description: regex }] },
+        isManager
+          ? {}
+          : {
+              $or: [
+                { createdBy: req.user._id },
+                { assignedTo: req.user._id },
+                { visibility: 'all' },
+              ],
+            },
+      ],
     })
       .populate('client', 'company')
       .select('title description type startDate endDate client')
@@ -164,6 +182,14 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
         .limit(LIMIT)
         .lean();
     })(),
+
+    // ── Website Work projects (admin + developer only) ───────────────────────
+    canSeeWebsiteWork
+      ? WebsiteProject.find({ $or: [{ name: regex }, { description: regex }] })
+          .select('name description status priority categories')
+          .limit(LIMIT)
+          .lean()
+      : Promise.resolve([]),
   ]);
 
   res.json({
@@ -178,6 +204,7 @@ router.get('/', protect, authorize(...ALL_INTERNAL), asyncHandler(async (req, re
       socialPosts:   socialPosts.map(p => ({ ...p, _type: 'socialPost' })),
       files:         files.map(f => ({ ...f, _type: 'file' })),
       messages:      messages.map(m => ({ ...m, _type: 'message' })),
+      websiteProjects: websiteProjects.map(p => ({ ...p, _type: 'websiteProject' })),
     },
     query: term,
   });

@@ -65,7 +65,7 @@ router.get('/projects', asyncHandler(async (req, res) => {
 
 // @route POST /api/website-work/projects
 router.post('/projects', asyncHandler(async (req, res) => {
-  const { name, description, status, priority, deadline, client, categories } = req.body;
+  const { name, description, status, priority, deadline, client, categories, repoUrl, adminUrl, liveUrl } = req.body;
   if (!name?.trim()) return res.status(400).json({ success: false, message: 'Project name is required' });
 
   const project = await WebsiteProject.create({
@@ -76,6 +76,9 @@ router.post('/projects', asyncHandler(async (req, res) => {
     deadline: deadline || undefined,
     client: client || undefined,
     categories: Array.isArray(categories) ? categories : [],
+    repoUrl: repoUrl?.trim() || undefined,
+    adminUrl: adminUrl?.trim() || undefined,
+    liveUrl: liveUrl?.trim() || undefined,
     createdBy: req.user._id,
   });
 
@@ -103,7 +106,7 @@ router.put('/projects/:id', asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'You can only edit website projects you created' });
   }
 
-  const allowed = ['name', 'description', 'status', 'priority', 'deadline', 'client', 'categories'];
+  const allowed = ['name', 'description', 'status', 'priority', 'deadline', 'client', 'categories', 'repoUrl', 'adminUrl', 'liveUrl'];
   const updates = {};
   allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
   if (updates.client === '') updates.client = null;

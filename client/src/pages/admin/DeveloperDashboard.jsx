@@ -4,7 +4,7 @@ import {
   Terminal, GitBranch, Rocket, Code2, ListChecks, FolderKanban,
   AlertTriangle, CheckCircle2, Circle, CircleDot, Diamond, X,
   Flame, Boxes, Pin, Sparkles, ChevronRight, ArrowUpRight, Plus,
-  Minus, Square,
+  Minus, Square, Github, LayoutDashboard, Globe, Copy, Check,
 } from 'lucide-react';
 import {
   eachDayOfInterval, startOfDay, endOfDay, subDays, format as fmtDate,
@@ -93,42 +93,47 @@ function getGreetingWord() {
 }
 
 // ── Signature element: contribution-style activity heatmap ────────────────────
+const HEATMAP_WEEKS = 14;
+
+// Pulled out of the component so both ActivityHeatmap (for the grid) and the
+// dashboard root (for the currentStreak VarStat tile) can compute it off the
+// same logic without duplicating the day-bucketing math.
+function computeActivityStats(tasks, weeks = HEATMAP_WEEKS) {
+  const totalDays = weeks * 7;
+  const today = new Date();
+  const start = subDays(today, totalDays - 1);
+  const days = eachDayOfInterval({ start, end: today });
+
+  const counts = days.map(day => {
+    const ds = startOfDay(day), de = endOfDay(day);
+    const c = tasks.filter(t => t.completedAt && new Date(t.completedAt) >= ds && new Date(t.completedAt) <= de).length;
+    return { date: day, count: c };
+  });
+
+  // Pad the front so columns align Mon → Sun like a real contribution graph
+  const firstDow = (days[0].getDay() + 6) % 7; // 0 = Monday
+  const padded = [...Array(firstDow).fill(null), ...counts];
+  while (padded.length % 7 !== 0) padded.push(null);
+
+  const cols = [];
+  for (let i = 0; i < padded.length; i += 7) cols.push(padded.slice(i, i + 7));
+
+  const max = Math.max(...counts.map(c => c.count), 1);
+  const total = counts.reduce((s, c) => s + c.count, 0);
+
+  // Current streak: consecutive days (from today backwards) with activity
+  let streak = 0;
+  for (let i = counts.length - 1; i >= 0; i--) {
+    if (counts[i].count > 0) streak++;
+    else if (i === counts.length - 1) continue; // today might just not be done yet
+    else break;
+  }
+
+  return { columns: cols, max, total, streak };
+}
+
 function ActivityHeatmap({ tasks }) {
-  const WEEKS = 14;
-  const totalDays = WEEKS * 7;
-
-  const { columns, max, total, streak } = useMemo(() => {
-    const today = new Date();
-    const start = subDays(today, totalDays - 1);
-    const days = eachDayOfInterval({ start, end: today });
-
-    const counts = days.map(day => {
-      const ds = startOfDay(day), de = endOfDay(day);
-      const c = tasks.filter(t => t.completedAt && new Date(t.completedAt) >= ds && new Date(t.completedAt) <= de).length;
-      return { date: day, count: c };
-    });
-
-    // Pad the front so columns align Mon → Sun like a real contribution graph
-    const firstDow = (days[0].getDay() + 6) % 7; // 0 = Monday
-    const padded = [...Array(firstDow).fill(null), ...counts];
-    while (padded.length % 7 !== 0) padded.push(null);
-
-    const cols = [];
-    for (let i = 0; i < padded.length; i += 7) cols.push(padded.slice(i, i + 7));
-
-    const max = Math.max(...counts.map(c => c.count), 1);
-    const total = counts.reduce((s, c) => s + c.count, 0);
-
-    // Current streak: consecutive days (from today backwards) with activity
-    let streak = 0;
-    for (let i = counts.length - 1; i >= 0; i--) {
-      if (counts[i].count > 0) streak++;
-      else if (i === counts.length - 1) continue; // today might just not be done yet
-      else break;
-    }
-
-    return { columns: cols, max, total, streak };
-  }, [tasks]);
+  const { columns, max, total, streak } = useMemo(() => computeActivityStats(tasks), [tasks]);
 
   const level = (count) => {
     if (!count) return 0;
@@ -224,6 +229,49 @@ function VarStat({ name, value, color, sub, linkTo }) {
     </div>
   );
   return linkTo ? <Link to={linkTo} className="block h-full">{inner}</Link> : inner;
+}
+
+// One `KEY=value` row in the stack.env panel, with copy-to-clipboard on hover.
+function EnvLine({ envKey, url, icon: Icon }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async (e) => {
+    e.preventDefault();
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked — no-op */ }
+  };
+
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2 rounded-lg group"
+      style={{ fontFamily: MONO, fontSize: 11.5, background: DEV.panel2, border: `1px solid ${DEV.border}` }}
+    >
+      <Icon size={12} style={{ color: DEV.dim, flexShrink: 0 }} />
+      <span style={{ color: DEV.purple, flexShrink: 0 }}>{envKey}</span>
+      <span style={{ color: DEV.dim, flexShrink: 0 }}>=</span>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="truncate hover:underline"
+        style={{ color: DEV.blue }}
+        title={url}
+      >
+        {url}
+      </a>
+      <button
+        onClick={copy}
+        className="ml-auto flex-shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+        style={{ color: copied ? DEV.green : DEV.dim }}
+        title="Copy"
+      >
+        {copied ? <Check size={12} /> : <Copy size={12} />}
+      </button>
+    </div>
+  );
 }
 
 function TaskLine({ task, onStatusChange, updating }) {
@@ -327,6 +375,33 @@ export default function DeveloperDashboard() {
     return { todo, inProgress, review, done, overdue, activeProjects };
   }, [tasks, projects]);
 
+  // Same math the heatmap uses — kept separate so the streak can live in the
+  // VarStat row above the heatmap instead of only inside it.
+  const { streak } = useMemo(() => computeActivityStats(tasks), [tasks]);
+
+  // Projects that have at least one quick-reference link filled in (set from
+  // the Website Work project form). Feeds the stack.env panel below.
+  const projectsWithLinks = useMemo(
+    () => projects.filter(p => p.repoUrl || p.adminUrl || p.liveUrl),
+    [projects]
+  );
+
+  // Fake-but-grounded `uptime` readout: real days/hours/minutes since the
+  // account was created, with a "load average" derived from today's actual
+  // workload instead of made-up numbers.
+  const uptimeInfo = useMemo(() => {
+    const created = user?.createdAt ? new Date(user.createdAt) : null;
+    if (!created || isNaN(created)) return null;
+    const ms = Date.now() - created.getTime();
+    const days = Math.floor(ms / 86400000);
+    const hours = Math.floor((ms % 86400000) / 3600000);
+    const mins = Math.floor((ms % 3600000) / 60000);
+    const load1 = ((kpis?.inProgress || 0) + (kpis?.review || 0) * 0.5).toFixed(2);
+    const load5 = ((kpis?.todo || 0) * 0.4 + (kpis?.inProgress || 0) * 0.3).toFixed(2);
+    const load15 = ((kpis?.done || 0) * 0.05).toFixed(2);
+    return { days, hours, mins, load: `${load1}, ${load5}, ${load15}` };
+  }, [user?.createdAt, kpis]);
+
   const { overdueList, upcomingList } = useMemo(() => {
     const now = new Date();
     const active = tasks.filter(t => t.deadline && !['completed', 'cancelled'].includes(t.status));
@@ -385,6 +460,20 @@ export default function DeveloperDashboard() {
             {(user?.name || 'dev').toLowerCase().replace(/\s+/g, '')}@flowdesk — bash
           </span>
           <div className="flex-1" />
+          {/* Build status badge — real signal (no overdue tasks), styled as CI */}
+          <div
+            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full mr-2"
+            style={{ background: DEV.panel2, border: `1px solid ${DEV.border}` }}
+            title={kpis.overdue > 0 ? `${kpis.overdue} overdue task${kpis.overdue === 1 ? '' : 's'}` : 'Nothing overdue'}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ background: kpis.overdue > 0 ? DEV.red : DEV.green, boxShadow: `0 0 5px ${kpis.overdue > 0 ? DEV.red : DEV.green}` }}
+            />
+            <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: kpis.overdue > 0 ? DEV.red : DEV.green }}>
+              build: {kpis.overdue > 0 ? 'failing' : 'passing'}
+            </span>
+          </div>
           <div className="flex items-center gap-0.5">
             <span className="w-6 h-6 rounded-[3px] flex items-center justify-center" style={{ color: DEV.dim }}>
               <Minus size={12} />
@@ -408,6 +497,15 @@ export default function DeveloperDashboard() {
             <span style={{ color: DEV.orange }}>{kpis.todo} todo</span> · <span style={{ color: DEV.blue }}>{kpis.inProgress} in_progress</span> · <span style={{ color: DEV.purple }}>{kpis.review} review</span>
             {kpis.overdue > 0 && <> · <span style={{ color: DEV.red }}>{kpis.overdue} overdue</span></>}
           </div>
+
+          {uptimeInfo && (
+            <>
+              <div className="mt-1"><span style={{ color: DEV.green }}>➜</span> <span style={{ color: DEV.blue }}>~</span> <span style={{ color: DEV.text }}>uptime</span></div>
+              <div style={{ color: DEV.dim }}>
+                up <span style={{ color: DEV.text }}>{uptimeInfo.days} days, {uptimeInfo.hours}:{String(uptimeInfo.mins).padStart(2, '0')}</span>, 1 user, load average: {uptimeInfo.load}
+              </div>
+            </>
+          )}
 
           <div className="mt-1"><span style={{ color: DEV.green }}>➜</span> <span style={{ color: DEV.blue }}>~</span> <span style={{ color: DEV.text }}>echo $MOTD</span></div>
           <div style={{ color: DEV.text }}>"{motd}"<span className="devdash-cursor" /></div>
@@ -433,13 +531,14 @@ export default function DeveloperDashboard() {
       </div>
 
       {/* ── Variable readout row ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-7 gap-3">
         <VarStat name="todo"        value={kpis.todo}        color={DEV.orange} linkTo="/admin/kanban" />
         <VarStat name="inProgress"  value={kpis.inProgress}  color={DEV.blue}   linkTo="/admin/kanban" />
         <VarStat name="inReview"    value={kpis.review}      color={DEV.purple} linkTo="/admin/kanban" />
         <VarStat name="done"        value={kpis.done}        color={DEV.green}  linkTo="/admin/kanban" sub="all time" />
         <VarStat name="overdue"     value={kpis.overdue}     color={kpis.overdue ? DEV.red : DEV.dim} linkTo="/admin/kanban" />
         <VarStat name="liveRepos"   value={kpis.activeProjects} color={DEV.pink} linkTo="/admin/website-work" sub={`${projects.length} total`} />
+        <VarStat name="currentStreak" value={streak > 0 ? `${streak}🔥` : 0} color={streak > 0 ? DEV.orange : DEV.dim} sub="days shipped in a row" />
       </div>
 
       {/* ── Heatmap + Deadlines log ── */}
@@ -469,6 +568,25 @@ export default function DeveloperDashboard() {
           )}
         </Panel>
       </div>
+
+      {/* ── stack.env — quick links pulled straight from Website Work projects ── */}
+      {projectsWithLinks.length > 0 && (
+        <Panel>
+          <CommentHeading text="stack.env" count={projectsWithLinks.length} linkTo="/admin/website-work" />
+          <div className="space-y-3">
+            {projectsWithLinks.slice(0, 6).map(p => (
+              <div key={p._id}>
+                <div style={{ fontFamily: MONO, fontSize: 10.5, color: DEV.dim }} className="mb-1.5"># {p.name}</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {p.repoUrl && <EnvLine envKey="REPO_URL" url={p.repoUrl} icon={Github} />}
+                  {p.adminUrl && <EnvLine envKey="ADMIN_URL" url={p.adminUrl} icon={LayoutDashboard} />}
+                  {p.liveUrl && <EnvLine envKey="PROD_URL" url={p.liveUrl} icon={Globe} />}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
 
       {/* ── Website Work repos ── */}
       <Panel>

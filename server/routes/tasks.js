@@ -396,21 +396,37 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
     req.body.websiteProject = null;
   }
 
-  const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  // Capture the pre-update values before we mutate `existing` below — the
+  // status-change / assignment-change comparisons further down need to
+  // compare against what it *was*, not what it's about to become.
+  const previousStatus = existing.status;
+  const previousAssignedTo = existing.assignedTo;
+
+  // Apply the (already filtered/sanitized) updates onto the document itself,
+  // then save it — this is what makes the pre('save') hook run, which is
+  // what stamps `completedAt` the moment status flips to 'completed'.
+  // findByIdAndUpdate() looks equivalent but skips document middleware
+  // entirely, so it was silently saving the new status without ever
+  // recording completedAt — which is what the Developer Dashboard's
+  // activity heatmap and "shipped" counts read from.
+  Object.keys(req.body).forEach(key => { existing[key] = req.body[key]; });
+  await existing.save();
+
+  const task = await Task.findById(existing._id)
     .populate('client', 'name company')
     .populate('assignedTo', 'name avatar role jobTitle')
     .populate('createdBy', 'name')
     .populate('websiteProject', 'name status');
 
   // Log status change
-  if (req.body.status && req.body.status !== existing.status) {
+  if (req.body.status && req.body.status !== previousStatus) {
     logActivity({
       req,
       action: 'task.status_changed',
       entity: { type: 'task', id: task._id, name: task.title },
-      meta: { from: existing.status, to: req.body.status },
+      meta: { from: previousStatus, to: req.body.status },
     });
-  } else if (req.body.assignedTo && String(req.body.assignedTo) !== String(existing.assignedTo)) {
+  } else if (req.body.assignedTo && String(req.body.assignedTo) !== String(previousAssignedTo)) {
     logActivity({
       req,
       action: 'task.assigned',
@@ -426,7 +442,7 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
   }
 
   // Notify manager when team sends for review
-  if (req.body.status === 'review' && existing.status !== 'review') {
+  if (req.body.status === 'review' && previousStatus !== 'review') {
     const managers = await User.find({ role: { $in: MANAGER_ROLES } }).select('_id');
     for (const mgr of managers) {
       await createNotification(mgr._id, {
@@ -439,7 +455,7 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
     try { req.app.locals.emitEvent?.('task.review_requested', { taskId: task._id, title: task.title, client: task.client?.company, reviewedBy: req.user.name }); } catch {}
   }
 
-  if (req.body.status === 'completed' && existing.status !== 'completed') {
+  if (req.body.status === 'completed' && previousStatus !== 'completed') {
     try { req.app.locals.emitEvent?.('task.completed', { taskId: task._id, title: task.title, client: task.client?.company, completedBy: req.user.name }); } catch {}
   }
 

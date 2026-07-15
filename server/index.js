@@ -183,6 +183,23 @@ server.listen(PORT, () => {
   };
   runDeadlineCheck();
   setInterval(runDeadlineCheck, 60 * 60 * 1000);
+
+  // ── Uptime monitor: ping each Website Work project's liveUrl on a timer ───
+  const { checkAllProjects } = require('./services/uptimeMonitor');
+  const UPTIME_CHECK_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
+  const runUptimeSweep = async () => {
+    try {
+      const { checked, total } = await checkAllProjects();
+      if (total > 0) {
+        console.log(`📡 Uptime sweep: checked ${checked}/${total} project(s)`);
+      }
+    } catch (err) {
+      console.error('Uptime sweep error:', err.message);
+    }
+  };
+  // Slight delay on first run so it doesn't compete with startup/DB connect.
+  setTimeout(runUptimeSweep, 15 * 1000);
+  setInterval(runUptimeSweep, UPTIME_CHECK_INTERVAL_MS);
 });
 
 module.exports = { app, server };

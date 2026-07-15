@@ -5,6 +5,7 @@ import {
   AlertTriangle, CheckCircle2, Circle, CircleDot, Diamond, X,
   Flame, Boxes, Pin, Sparkles, ChevronRight, ArrowUpRight, Plus,
   Minus, Square, Github, LayoutDashboard, Globe, Copy, Check,
+  Wifi, WifiOff, RefreshCw,
 } from 'lucide-react';
 import {
   eachDayOfInterval, startOfDay, endOfDay, subDays, format as fmtDate,
@@ -69,6 +70,15 @@ const PROJECT_STATUS_META = {
 const CATEGORY_META = {
   office_project: { label: 'Internal', color: DEV.blue },
   client_project: { label: 'Client',   color: DEV.orange },
+};
+
+// Real uptime status for a project's liveUrl, from server/services/uptimeMonitor.js
+// (pinged on a 5-minute sweep — see index.js — plus on-demand via the recheck
+// button on the stack.env panel below).
+const UPTIME_META = {
+  up:      { label: 'UP',      color: DEV.green, icon: Wifi },
+  down:    { label: 'DOWN',    color: DEV.red,   icon: WifiOff },
+  unknown: { label: 'PENDING', color: DEV.dim,    icon: Wifi },
 };
 
 const MOTD = [
@@ -232,7 +242,9 @@ function VarStat({ name, value, color, sub, linkTo }) {
 }
 
 // One `KEY=value` row in the stack.env panel, with copy-to-clipboard on hover.
-function EnvLine({ envKey, url, icon: Icon }) {
+// `status` + `onRecheck` are optional — only passed in for PROD_URL rows,
+// which are the ones actually monitored by server/services/uptimeMonitor.js.
+function EnvLine({ envKey, url, icon: Icon, status, onRecheck, rechecking }) {
   const [copied, setCopied] = useState(false);
 
   const copy = async (e) => {
@@ -243,6 +255,9 @@ function EnvLine({ envKey, url, icon: Icon }) {
       setTimeout(() => setCopied(false), 1500);
     } catch { /* clipboard blocked — no-op */ }
   };
+
+  const meta = status ? (UPTIME_META[status.status] || UPTIME_META.unknown) : null;
+  const StatusIcon = meta?.icon;
 
   return (
     <div
@@ -262,9 +277,36 @@ function EnvLine({ envKey, url, icon: Icon }) {
       >
         {url}
       </a>
+
+      {meta && (
+        <span
+          className="ml-auto flex-shrink-0 flex items-center gap-1 px-1.5 py-[1px] rounded"
+          style={{ background: `${meta.color}18`, color: meta.color, fontWeight: 700, fontSize: 10 }}
+          title={
+            status.lastCheckedAt
+              ? `Checked ${timeAgo(status.lastCheckedAt)}${status.responseTimeMs != null ? ` · ${status.responseTimeMs}ms` : ''}${status.error ? ` · ${status.error}` : ''}`
+              : 'Not checked yet'
+          }
+        >
+          <StatusIcon size={10} /> {meta.label}
+        </span>
+      )}
+
+      {onRecheck && (
+        <button
+          onClick={(e) => { e.preventDefault(); onRecheck(); }}
+          className={`flex-shrink-0 p-1 rounded transition-opacity ${meta ? '' : 'opacity-0 group-hover:opacity-100'}`}
+          style={{ color: DEV.dim }}
+          title="Check now"
+          disabled={rechecking}
+        >
+          <RefreshCw size={11} className={rechecking ? 'animate-spin' : ''} />
+        </button>
+      )}
+
       <button
         onClick={copy}
-        className="ml-auto flex-shrink-0 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+        className={`flex-shrink-0 p-1 rounded transition-opacity ${meta || onRecheck ? '' : 'ml-auto opacity-0 group-hover:opacity-100'}`}
         style={{ color: copied ? DEV.green : DEV.dim }}
         title="Copy"
       >
@@ -349,6 +391,7 @@ export default function DeveloperDashboard() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(null);
   const [filter, setFilter] = useState('active');
+  const [checkingUptimeId, setCheckingUptimeId] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -385,6 +428,31 @@ export default function DeveloperDashboard() {
     () => projects.filter(p => p.repoUrl || p.adminUrl || p.liveUrl),
     [projects]
   );
+
+  // Real uptime, populated server-side by services/uptimeMonitor.js (ping
+  // sweep every 5 min — see index.js) — not the fake load-average joke below.
+  const uptimeSummary = useMemo(() => {
+    const monitored = projects.filter(p => p.liveUrl);
+    const up = monitored.filter(p => p.uptime?.status === 'up').length;
+    const down = monitored.filter(p => p.uptime?.status === 'down').length;
+    const unknown = monitored.length - up - down;
+    const mostRecentCheck = monitored
+      .map(p => p.uptime?.lastCheckedAt)
+      .filter(Boolean)
+      .sort((a, b) => new Date(b) - new Date(a))[0] || null;
+    const downProjects = monitored.filter(p => p.uptime?.status === 'down');
+    return { monitored: monitored.length, up, down, unknown, mostRecentCheck, downProjects };
+  }, [projects]);
+
+  const recheckUptime = async (projectId) => {
+    setCheckingUptimeId(projectId);
+    try {
+      const res = await api.patch(`/website-work/projects/${projectId}/check-uptime`);
+      const uptime = res.data.uptime;
+      setProjects(prev => prev.map(p => p._id === projectId ? { ...p, uptime } : p));
+    } catch { /* silent — next scheduled sweep will pick it up anyway */ }
+    finally { setCheckingUptimeId(null); }
+  };
 
   // Fake-but-grounded `uptime` readout: real days/hours/minutes since the
   // account was created, with a "load average" derived from today's actual
@@ -507,6 +575,18 @@ export default function DeveloperDashboard() {
             </>
           )}
 
+          {uptimeSummary.monitored > 0 && (
+            <>
+              <div className="mt-1"><span style={{ color: DEV.green }}>➜</span> <span style={{ color: DEV.blue }}>~</span> <span style={{ color: DEV.text }}>services --status</span></div>
+              <div style={{ color: DEV.dim }}>
+                <span style={{ color: uptimeSummary.down > 0 ? DEV.red : DEV.green }}>{uptimeSummary.up}/{uptimeSummary.monitored} up</span>
+                {uptimeSummary.down > 0 && <> · <span style={{ color: DEV.red }}>{uptimeSummary.down} down</span> ({uptimeSummary.downProjects.map(p => p.name).join(', ')})</>}
+                {uptimeSummary.unknown > 0 && <> · <span style={{ color: DEV.dim }}>{uptimeSummary.unknown} pending</span></>}
+                {uptimeSummary.mostRecentCheck && <> · checked {timeAgo(uptimeSummary.mostRecentCheck)}</>}
+              </div>
+            </>
+          )}
+
           <div className="mt-1"><span style={{ color: DEV.green }}>➜</span> <span style={{ color: DEV.blue }}>~</span> <span style={{ color: DEV.text }}>echo $MOTD</span></div>
           <div style={{ color: DEV.text }}>"{motd}"<span className="devdash-cursor" /></div>
 
@@ -580,7 +660,16 @@ export default function DeveloperDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   {p.repoUrl && <EnvLine envKey="REPO_URL" url={p.repoUrl} icon={Github} />}
                   {p.adminUrl && <EnvLine envKey="ADMIN_URL" url={p.adminUrl} icon={LayoutDashboard} />}
-                  {p.liveUrl && <EnvLine envKey="PROD_URL" url={p.liveUrl} icon={Globe} />}
+                  {p.liveUrl && (
+                    <EnvLine
+                      envKey="PROD_URL"
+                      url={p.liveUrl}
+                      icon={Globe}
+                      status={p.uptime}
+                      onRecheck={() => recheckUptime(p._id)}
+                      rechecking={checkingUptimeId === p._id}
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -624,6 +713,19 @@ export default function DeveloperDashboard() {
                             <span className="w-2 h-2 rounded-full" style={{ background: cat.color }} /> {cat.label}
                           </span>
                         )}
+                        {p.liveUrl && (() => {
+                          const liveMeta = UPTIME_META[p.uptime?.status || 'unknown'];
+                          const LiveIcon = liveMeta.icon;
+                          return (
+                            <span
+                              className="flex items-center gap-1 text-[10.5px] font-semibold"
+                              style={{ color: liveMeta.color }}
+                              title={p.uptime?.lastCheckedAt ? `Live URL checked ${timeAgo(p.uptime.lastCheckedAt)}` : 'Live URL not checked yet'}
+                            >
+                              <LiveIcon size={10} /> {liveMeta.label}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                     <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 800, color: statusMeta.color }}>{stats.progress || 0}%</span>

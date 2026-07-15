@@ -124,8 +124,18 @@ const taskSchema = new mongoose.Schema({
 });
 
 taskSchema.pre('save', function (next) {
-  if (this.isModified('status') && this.status === 'completed' && !this.completedAt) {
-    this.completedAt = new Date();
+  if (this.isModified('status')) {
+    if (this.status === 'completed' && !this.completedAt) {
+      // Just became completed for the first time (or after being cleared
+      // below) — stamp it with right now.
+      this.completedAt = new Date();
+    } else if (this.status !== 'completed' && this.completedAt) {
+      // Moved OUT of completed (e.g. sent back to review) — this task is no
+      // longer "done", so it shouldn't still count as shipped. Clearing this
+      // means if it's completed again later, it gets a fresh, current
+      // timestamp instead of keeping the old one.
+      this.completedAt = undefined;
+    }
   }
   next();
 });

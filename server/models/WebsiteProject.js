@@ -76,6 +76,34 @@ const websiteProjectSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  // ── Uptime monitoring ────────────────────────────────────────────────────
+  // Populated by server/services/uptimeMonitor.js, which pings `liveUrl` on
+  // a timer (see index.js) and on-demand (see PATCH /:id/check-uptime in
+  // routes/websiteWork.js). Entirely additive — a project with no liveUrl
+  // simply never gets checked and `uptime.status` stays 'unknown'.
+  uptime: {
+    status: {
+      type: String,
+      enum: ['up', 'down', 'unknown'],
+      default: 'unknown',
+    },
+    lastCheckedAt: { type: Date, default: null },
+    statusCode: { type: Number, default: null },
+    responseTimeMs: { type: Number, default: null },
+    error: { type: String, default: null },
+    // Rolling window of recent checks, oldest first, for a small sparkline /
+    // history view. Capped in server/services/uptimeMonitor.js.
+    history: {
+      type: [{
+        _id: false,
+        checkedAt: { type: Date, required: true },
+        up: { type: Boolean, required: true },
+        statusCode: { type: Number, default: null },
+        responseTimeMs: { type: Number, default: null },
+      }],
+      default: [],
+    },
+  },
 }, {
   timestamps: true,
 });

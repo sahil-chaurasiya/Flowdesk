@@ -6,6 +6,7 @@ const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 const { createNotification } = require('../utils/notifications');
 const { logActivity } = require('../utils/activityLog');
+const { checkProject } = require('../services/uptimeMonitor');
 
 // Everything in this file is restricted to admin + developer. This is the
 // section where devs (and admins) create projects and assign/change tasks
@@ -202,6 +203,36 @@ router.patch('/projects/reorder-pins', asyncHandler(async (req, res) => {
   res.json({ success: true });
 }));
 
+// @route GET /api/website-work/projects/:id/uptime
+// @desc  Return a project's current uptime status + recent check history.
+//        Lightweight read — no ownership restriction, same as viewing the
+//        project itself.
+router.get('/projects/:id/uptime', asyncHandler(async (req, res) => {
+  const project = await WebsiteProject.findById(req.params.id).select('name liveUrl uptime');
+  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+
+  res.json({
+    success: true,
+    liveUrl: project.liveUrl || null,
+    uptime: project.uptime || { status: 'unknown', history: [] },
+  });
+}));
+
+// @route PATCH /api/website-work/projects/:id/check-uptime
+// @desc  Ping the project's liveUrl right now instead of waiting for the
+//        next scheduled sweep (see index.js). Any admin or developer can
+//        trigger this — it's a read-like action, not an edit of the project.
+router.patch('/projects/:id/check-uptime', asyncHandler(async (req, res) => {
+  const project = await WebsiteProject.findById(req.params.id);
+  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
+  if (!project.liveUrl?.trim()) {
+    return res.status(400).json({ success: false, message: 'This project has no live URL to check' });
+  }
+
+  const uptime = await checkProject(project);
+  res.json({ success: true, uptime });
+}));
+
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
 // @route GET /api/website-work/tasks?project=<id>
@@ -293,10 +324,19 @@ router.put('/tasks/:id', asyncHandler(async (req, res) => {
 
   const reassigned = updates.assignedTo && String(updates.assignedTo) !== String(existing.assignedTo || '');
 
-  const task = await Task.findByIdAndUpdate(req.params.id, updates, {
-    new: true,
-    runValidators: true,
-  })
+  // Keep the pre-update status for the activity-log comparison below, since
+  // we're about to overwrite `existing` in place.
+  const previousStatus = existing.status;
+
+  // Apply updates onto the document and .save() it — NOT findByIdAndUpdate.
+  // findByIdAndUpdate() bypasses the Task model's pre('save') hook, which is
+  // what stamps `completedAt` when status flips to 'completed'. Without that
+  // timestamp, the task never shows up in the Developer Dashboard's activity
+  // heatmap even though its status genuinely is "completed".
+  Object.keys(updates).forEach(key => { existing[key] = updates[key]; });
+  await existing.save();
+
+  const task = await Task.findById(existing._id)
     .populate('assignedTo', 'name avatar role jobTitle')
     .populate('createdBy', 'name avatar role')
     .populate('websiteProject', 'name status');
@@ -312,7 +352,7 @@ router.put('/tasks/:id', asyncHandler(async (req, res) => {
 
   logActivity({
     req,
-    action: req.body.status && req.body.status !== existing.status ? 'task.status_changed' : 'task.updated',
+    action: req.body.status && req.body.status !== previousStatus ? 'task.status_changed' : 'task.updated',
     entity: { type: 'task', id: task._id, name: task.title },
     meta: { isWebsiteWork: true },
   });

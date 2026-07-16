@@ -74,7 +74,12 @@ const DEFAULT_TABLE_COLUMNS = [
   { id: 'status',   label: 'Status' },
   { id: 'since',    label: 'Since' },
 ];
-const CLIENT_ORDER_KEY = 'fd_clients_priority_order_v1';
+// Client drag-and-drop order now lives in the database (per-user, on the
+// User document via /api/users/me/client-order) so it persists forever and
+// across devices/browsers instead of just this browser's localStorage. The
+// localStorage key below is only used as an instant-paint cache while the
+// real order loads from the server on first mount.
+const CLIENT_ORDER_KEY = 'fd_clients_priority_order_cache_v1';
 const VIEW_MODE_KEY = 'fd_clients_view_mode_v1';
 
 function ClientForm({ initial, onSubmit, loading, managers }) {
@@ -479,17 +484,56 @@ export default function ClientsPage() {
 
   // ── Shared client priority order — used by BOTH Table and Box views ────────
   // Dragging a row in Table view or a card in Box view updates this single
-  // order, so the two views always stay in sync. Purely visual: saved
-  // per-browser, never sent to the server or affects any real client data.
+  // order, so the two views always stay in sync. It's saved permanently in
+  // the database, per user (User.clientOrder) — so it never disappears, and
+  // each user's own reordering never affects any other user. It never
+  // touches the client's real status or any shared client data.
+  //
+  // On first paint we use whatever was cached in localStorage (instant,
+  // avoids a flash of unordered clients) then immediately fetch the real,
+  // permanent order from the server and switch to that.
   const [clientOrder, setClientOrder] = useState(() => {
     try {
       const raw = localStorage.getItem(CLIENT_ORDER_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   });
+  const orderLoadedFromServer = useRef(false);
+  const saveOrderTimeout = useRef(null);
+
+  // Load this user's saved order from the database once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await api.get('/users/me/client-order');
+        if (cancelled) return;
+        orderLoadedFromServer.current = true;
+        if (Array.isArray(data.order)) {
+          setClientOrder(data.order);
+          try { localStorage.setItem(CLIENT_ORDER_KEY, JSON.stringify(data.order)); } catch {}
+        }
+      } catch {
+        // Offline / request failed — keep using the local cache; next
+        // successful reorder will retry saving to the server.
+        orderLoadedFromServer.current = true;
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const persistClientOrder = (ids) => {
     setClientOrder(ids);
     try { localStorage.setItem(CLIENT_ORDER_KEY, JSON.stringify(ids)); } catch {}
+    // Debounce the network save slightly so rapid successive drags (e.g.
+    // dragging one card past several others) don't fire an API call each.
+    if (saveOrderTimeout.current) clearTimeout(saveOrderTimeout.current);
+    saveOrderTimeout.current = setTimeout(() => {
+      api.put('/users/me/client-order', { order: ids }).catch(() => {
+        // Save failed (offline/network) — order stays correct locally via
+        // localStorage and will sync again on the next reorder or reload.
+      });
+    }, 400);
   };
   // Apply saved order to the current client list; newcomers appended at the end
   const orderedClients = useMemo(() => {

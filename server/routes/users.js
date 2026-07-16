@@ -161,6 +161,30 @@ router.get('/attendance-today', protect, authorize('admin', 'manager'), asyncHan
   res.json({ success: true, today, byEmail });
 }));
 
+// @route GET /api/users/me/client-order
+// Returns the current user's saved custom order for the Clients page
+// (shared by both the Box and Table views). Every user has their own order.
+router.get('/me/client-order', protect, asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select('clientOrder');
+  res.json({ success: true, order: (user?.clientOrder || []).map(id => String(id)) });
+}));
+
+// @route PUT /api/users/me/client-order
+// Saves the current user's custom Clients page order. Body: { order: [clientId, ...] }
+// Only ever writes to req.user's own document, so one user's drag-and-drop
+// reordering can never affect any other user.
+router.put('/me/client-order', protect, asyncHandler(async (req, res) => {
+  const { order } = req.body;
+  if (!Array.isArray(order)) {
+    return res.status(400).json({ success: false, message: '"order" must be an array of client IDs' });
+  }
+  // Filter out anything that isn't a valid ObjectId so a bad/stale id can
+  // never crash the save or corrupt the stored order.
+  const cleanOrder = order.filter(id => mongoose.Types.ObjectId.isValid(id));
+  await User.findByIdAndUpdate(req.user._id, { clientOrder: cleanOrder }, { runValidators: true });
+  res.json({ success: true, order: cleanOrder.map(id => String(id)) });
+}));
+
 // @route GET /api/users/:id
 router.get('/:id', protect, asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id).populate('clientId', 'name company status');

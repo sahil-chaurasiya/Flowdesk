@@ -111,6 +111,14 @@ const userSchema = new mongoose.Schema({
     read: { type: Boolean, default: false },
     link: String,
     createdAt: { type: Date, default: Date.now }
+  }],
+  // Per-user, persistent custom sort order for the Clients page (Box + Table
+  // views share this single order). Stores Client _ids in the order this
+  // user last dragged them into. Every user has their own independent copy,
+  // so one person reordering clients never affects anyone else.
+  clientOrder: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Client'
   }]
 }, {
   timestamps: true

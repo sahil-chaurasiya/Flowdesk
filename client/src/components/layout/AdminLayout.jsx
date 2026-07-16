@@ -84,7 +84,7 @@ const MY_TASKS_ROLES = ['manager', 'developer', ...TEAM_ROLES];
 export default function AdminLayout() {
   const { user, logout, updateUser } = useAuthStore();
   const { socket } = useSocket();
-  const { isDark, toggleTheme, devTheme, setDevTheme, devThemes } = useTheme();
+  const { isDark, toggleTheme, theme, setTheme, appThemes, devTheme, setDevTheme, devThemes } = useTheme();
   const navigate = useNavigate();
   const [collapsed, setCollapsed]   = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -464,19 +464,66 @@ export default function AdminLayout() {
               </div>
             )}
 
-            {/* Dark mode toggle — not shown for the developer role, which
-                uses the theme picker above instead */}
+            {/* Theme picker — every role except Software Developer (which
+                uses its own dev theme picker above instead). Light and dark
+                are still both here, plus the additional full re-skins
+                (Ocean, Forest, Sunset, Rose, Midnight, Slate). */}
             {!isLinuxDevTheme && (
-              <button
-                onClick={toggleTheme}
-                className="btn-ghost p-2"
-                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                {isDark
-                  ? <Sun size={16} strokeWidth={1.7} />
-                  : <Moon size={16} strokeWidth={1.7} />
-                }
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowThemePicker(v => !v)}
+                  className="btn-ghost p-2"
+                  aria-label="Choose theme"
+                  title="Theme"
+                >
+                  {isDark
+                    ? <Sun size={16} strokeWidth={1.7} />
+                    : <Moon size={16} strokeWidth={1.7} />
+                  }
+                </button>
+                {showThemePicker && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowThemePicker(false)} />
+                    <div
+                      className="absolute right-0 top-full mt-2 z-20 p-1.5"
+                      style={{
+                        width: 220,
+                        background: 'var(--fd-surface)',
+                        border: '1px solid var(--fd-border)',
+                        borderRadius: 8,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.28)',
+                      }}
+                    >
+                      {appThemes.map(t => {
+                        const active = t.id === theme;
+                        return (
+                          <button
+                            key={t.id}
+                            onClick={() => { setTheme(t.id); setShowThemePicker(false); }}
+                            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-md text-left"
+                            style={{ background: active ? 'var(--fd-sidebar-active)' : 'transparent' }}
+                          >
+                            <span
+                              className="flex-shrink-0 rounded-full overflow-hidden flex"
+                              style={{ width: 16, height: 16, border: '1px solid var(--fd-border-strong)' }}
+                            >
+                              {t.swatch.map((c, i) => (
+                                <span key={i} style={{ background: c, width: '33.34%', height: '100%' }} />
+                              ))}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-[12px] font-medium truncate" style={{ color: 'var(--fd-ink-1)' }}>
+                                {t.label}
+                              </span>
+                            </span>
+                            {active && <Check size={13} style={{ color: 'var(--fd-accent)' }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
             {/* Notifications */}

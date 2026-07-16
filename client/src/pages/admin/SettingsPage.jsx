@@ -291,7 +291,7 @@ function SecurityTab() {
 // index.css). Every other role keeps the plain light/dark picker below,
 // completely unchanged.
 function AppearanceTab({ role }) {
-  const { isDark, toggleTheme, devTheme, setDevTheme, devThemes } = useTheme();
+  const { theme, setTheme, appThemes, devTheme, setDevTheme, devThemes } = useTheme();
 
   if (role === 'developer') {
     return (
@@ -338,28 +338,30 @@ function AppearanceTab({ role }) {
     );
   }
 
-  const themes = [
-    { id: 'light', label: 'Light', icon: Sun,  desc: 'Clean light interface' },
-    { id: 'dark',  label: 'Dark',  icon: Moon, desc: 'Easy on the eyes at night' },
-  ];
-
   return (
     <div className="space-y-4">
       <Section title="Theme" description="Choose your preferred colour scheme.">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-sm">
-          {themes.map(({ id, label, icon: Icon, desc }) => {
-            const active = (id === 'dark') === isDark;
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
+          {appThemes.map(({ id, label, desc, swatch }) => {
+            const active = id === theme;
             return (
               <button
                 key={id}
-                onClick={() => { if ((id === 'dark') !== isDark) toggleTheme(); }}
+                onClick={() => setTheme(id)}
                 className="relative rounded-xl p-4 text-left transition-all"
                 style={{
                   background: active ? 'var(--fd-sidebar-active)' : 'var(--fd-surface-sunken)',
                   border: active ? '2px solid var(--fd-sidebar-link-active)' : '2px solid transparent',
                 }}
               >
-                <Icon size={18} style={{ color: active ? 'var(--fd-sidebar-link-active)' : 'var(--fd-ink-3)' }} />
+                <span
+                  className="flex-shrink-0 rounded-full overflow-hidden flex"
+                  style={{ width: 18, height: 18, border: '1px solid var(--fd-border-strong)' }}
+                >
+                  {swatch.map((c, i) => (
+                    <span key={i} style={{ background: c, width: '33.34%', height: '100%' }} />
+                  ))}
+                </span>
                 <div className="mt-2 text-[13px] font-medium" style={{ color: 'var(--fd-ink-1)' }}>{label}</div>
                 <div className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>{desc}</div>
                 {active && (

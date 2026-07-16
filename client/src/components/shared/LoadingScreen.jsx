@@ -60,27 +60,18 @@ export function Spinner({ size = 'md', className }) {
 }
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
+// Rotates through the app's semantic color tokens (accent, success, warning,
+// info, danger, neutral). These CSS variables are redefined per theme in
+// index.css (light, dark, ocean, forest, sunset, rose, midnight, slate), so
+// reading them directly here means the initials-circle color is automatically
+// correct in every theme — no light/dark-only special-casing needed.
 const AVATAR_PALETTES = [
-  { bg: 'var(--fd-accent-tint)', color: 'var(--fd-accent-hover)' },
-  { bg: '#edf7f1', color: '#2a7d4f' },
-  { bg: '#fef7ea', color: '#92600a' },
-  { bg: '#fdf2ff', color: '#7e22ce' },
-  { bg: '#fff0f0', color: '#b91c1c' },
-  { bg: '#f0f9ff', color: '#0369a1' },
-  { bg: '#f0fdf4', color: '#15803d' },
-  { bg: '#fffbeb', color: '#b45309' },
-];
-
-// Dark mode palette variants
-const AVATAR_PALETTES_DARK = [
-  { bg: 'rgba(var(--fd-accent-rgb),0.2)',  color: 'var(--fd-accent-soft)' },
-  { bg: 'rgba(42,125,79,0.2)',   color: '#4ade80' },
-  { bg: 'rgba(146,96,10,0.2)',   color: '#fbbf24' },
-  { bg: 'rgba(126,34,206,0.2)',  color: '#c084fc' },
-  { bg: 'rgba(185,28,28,0.2)',   color: '#f87171' },
-  { bg: 'rgba(3,105,161,0.2)',   color: '#38bdf8' },
-  { bg: 'rgba(21,128,61,0.2)',   color: '#4ade80' },
-  { bg: 'rgba(180,83,9,0.2)',    color: '#fb923c' },
+  { bg: 'var(--fd-accent-tint)',       color: 'var(--fd-accent-soft)' },
+  { bg: 'var(--fd-status-success-bg)', color: 'var(--fd-status-success-text)' },
+  { bg: 'var(--fd-status-warning-bg)', color: 'var(--fd-status-warning-text)' },
+  { bg: 'var(--fd-status-info-bg)',    color: 'var(--fd-status-info-text)' },
+  { bg: 'var(--fd-status-danger-bg)',  color: 'var(--fd-status-danger-text)' },
+  { bg: 'var(--fd-status-neutral-bg)', color: 'var(--fd-status-neutral-text)' },
 ];
 
 export function Avatar({ name, src, size = 'md', className }) {
@@ -98,8 +89,7 @@ export function Avatar({ name, src, size = 'md', className }) {
 
   const initials = name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?';
   const idx = (name?.charCodeAt(0) || 0) % AVATAR_PALETTES.length;
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const palette = isDark ? AVATAR_PALETTES_DARK[idx] : AVATAR_PALETTES[idx];
+  const palette = AVATAR_PALETTES[idx];
 
   const [imgError, setImgError] = React.useState(false);
 

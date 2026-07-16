@@ -117,6 +117,16 @@
     --fd-accent-rgb:    79, 110, 240;
     --fd-accent-tint:   #eff0fe;
     --fd-accent-soft:   #7896f3;
+
+    /* ── Semantic status tokens ── mirror the colors already used by the
+       plain .status-active / .status-onboarding / etc. classes below, just
+       exposed as variables too so inline styles (e.g. Avatar, client status
+       pills) can read them directly instead of hardcoding hex per theme. ── */
+    --fd-status-success-bg: #edf7f1; --fd-status-success-text: #2a7d4f;
+    --fd-status-warning-bg: #fef7ea; --fd-status-warning-text: #92600a;
+    --fd-status-danger-bg:  #fef2f2; --fd-status-danger-text:  #b91c1c;
+    --fd-status-neutral-bg: #f0eeea; --fd-status-neutral-text: #7a7770;
+    --fd-status-info-bg:    #f0f9ff; --fd-status-info-text:    #0369a1;
   }
 }
 
@@ -229,6 +239,14 @@
     --fd-accent-rgb:    79, 110, 240;
     --fd-accent-tint:   #1e2a4a;
     --fd-accent-soft:   #7896f3;
+
+    /* ── Semantic status tokens ── mirror the [data-theme="dark"] .status-*
+       class overrides already defined further down this file. ── */
+    --fd-status-success-bg: rgba(42,125,79,0.18);   --fd-status-success-text: #4ade80;
+    --fd-status-warning-bg: rgba(146,96,10,0.18);   --fd-status-warning-text: #fbbf24;
+    --fd-status-danger-bg:  rgba(185,28,28,0.18);   --fd-status-danger-text:  #f87171;
+    --fd-status-neutral-bg: rgba(138,134,128,0.15); --fd-status-neutral-text: #8a8680;
+    --fd-status-info-bg:    rgba(79,110,240,0.2);   --fd-status-info-text:    #7896f3;
   }
 }
 

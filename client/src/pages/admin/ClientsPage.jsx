@@ -8,53 +8,58 @@ import { formatDate, PLAN_LABELS } from '../../lib/utils';
 import { useServices } from '../../hooks/useServices';
 import useAuthStore from '../../context/authStore';
 
-// Status & plan styles now use CSS vars so they adapt to dark mode automatically
-const STATUS_STYLE_LIGHT = {
-  active:     { background: '#edf7f1', color: '#2a7d4f' },
-  onboarding: { background: '#fef7ea', color: '#92600a' },
-  paused:     { background: '#fef7ea', color: '#92600a' },
-  inactive:   { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' },
-  churned:    { background: '#fef2f2', color: '#b91c1c' },
+// ── Status / plan / card-accent colors — theme-proof ────────────────────────
+// The app ships 8 full themes (light, dark, ocean, forest, sunset, rose,
+// midnight, slate — see ThemeContext.jsx), each defining its own
+// --fd-status-*-bg/text and --fd-accent-* CSS variables in index.css. Reading
+// those variables directly (instead of hardcoding hex per light/dark, which
+// only covered 2 of the 8 themes and looked broken — mismatched pastel
+// banners on dark backgrounds — in the other 6) means every color below is
+// automatically correct in whichever theme is currently active, with no JS
+// theme-detection needed at all.
+const STATUS_TOKEN = {
+  active:     { background: 'var(--fd-status-success-bg)', color: 'var(--fd-status-success-text)' },
+  onboarding: { background: 'var(--fd-status-warning-bg)', color: 'var(--fd-status-warning-text)' },
+  paused:     { background: 'var(--fd-status-warning-bg)', color: 'var(--fd-status-warning-text)' },
+  inactive:   { background: 'var(--fd-status-neutral-bg)', color: 'var(--fd-status-neutral-text)' },
+  churned:    { background: 'var(--fd-status-danger-bg)',  color: 'var(--fd-status-danger-text)' },
 };
 
-const STATUS_STYLE_DARK = {
-  active:     { background: 'rgba(42,125,79,0.18)', color: '#4ade80' },
-  onboarding: { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
-  paused:     { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
-  inactive:   { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
-  churned:    { background: 'rgba(185,28,28,0.18)', color: '#f87171' },
-};
-
-const PLAN_STYLE_LIGHT = {
-  '3_month':  { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' },
-  '6_month':  { background: '#eff0fe', color: '#3a56d4' },
-  '1_year':   { background: '#fdf2ff', color: '#7e22ce' },
+const PLAN_TOKEN = {
+  '3_month':  { background: 'var(--fd-status-neutral-bg)', color: 'var(--fd-status-neutral-text)' },
+  '6_month':  { background: 'var(--fd-accent-tint)',       color: 'var(--fd-accent-soft)' },
+  '1_year':   { background: 'var(--fd-status-info-bg)',    color: 'var(--fd-status-info-text)' },
   // legacy
-  starter:    { background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-2)' },
-  growth:     { background: '#eff0fe', color: '#3a56d4' },
-  scale:      { background: '#fdf2ff', color: '#7e22ce' },
-  enterprise: { background: '#fef7ea', color: '#92600a' },
-};
-
-const PLAN_STYLE_DARK = {
-  '3_month':  { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
-  '6_month':  { background: 'rgba(79,110,240,0.2)', color: '#7896f3' },
-  '1_year':   { background: 'rgba(126,34,206,0.18)', color: '#c084fc' },
-  // legacy
-  starter:    { background: 'rgba(138,134,128,0.15)', color: '#8a8680' },
-  growth:     { background: 'rgba(79,110,240,0.2)', color: '#7896f3' },
-  scale:      { background: 'rgba(126,34,206,0.18)', color: '#c084fc' },
-  enterprise: { background: 'rgba(146,96,10,0.18)', color: '#fbbf24' },
+  starter:    { background: 'var(--fd-status-neutral-bg)', color: 'var(--fd-status-neutral-text)' },
+  growth:     { background: 'var(--fd-accent-tint)',       color: 'var(--fd-accent-soft)' },
+  scale:      { background: 'var(--fd-status-info-bg)',    color: 'var(--fd-status-info-text)' },
+  enterprise: { background: 'var(--fd-status-warning-bg)', color: 'var(--fd-status-warning-text)' },
 };
 
 function getStatusStyle(status) {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  return (isDark ? STATUS_STYLE_DARK : STATUS_STYLE_LIGHT)[status] || (isDark ? STATUS_STYLE_DARK : STATUS_STYLE_LIGHT).inactive;
+  return STATUS_TOKEN[status] || STATUS_TOKEN.inactive;
 }
 
 function getPlanStyle(plan) {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  return (isDark ? PLAN_STYLE_DARK : PLAN_STYLE_LIGHT)[plan] || (isDark ? PLAN_STYLE_DARK : PLAN_STYLE_LIGHT).starter;
+  return PLAN_TOKEN[plan] || PLAN_TOKEN.starter;
+}
+
+// ── Box view card accent — a signature color band per client ─────────────────
+// Rotates through the theme's own semantic tokens (accent, success, warning,
+// info, danger, neutral) keyed off the first letter of the company name, so
+// each client gets a consistent, distinct-looking banner that is always
+// correct for the active theme.
+const CARD_ACCENT_TOKENS = [
+  { tint: 'var(--fd-accent-tint)',       ink: 'var(--fd-accent-soft)' },
+  { tint: 'var(--fd-status-success-bg)', ink: 'var(--fd-status-success-text)' },
+  { tint: 'var(--fd-status-warning-bg)', ink: 'var(--fd-status-warning-text)' },
+  { tint: 'var(--fd-status-info-bg)',    ink: 'var(--fd-status-info-text)' },
+  { tint: 'var(--fd-status-danger-bg)',  ink: 'var(--fd-status-danger-text)' },
+  { tint: 'var(--fd-status-neutral-bg)', ink: 'var(--fd-status-neutral-text)' },
+];
+function getCardAccent(name) {
+  const idx = (name?.charCodeAt(0) || 0) % CARD_ACCENT_TOKENS.length;
+  return CARD_ACCENT_TOKENS[idx];
 }
 
 const STATUS_TABS = [
@@ -283,7 +288,11 @@ function ClientForm({ initial, onSubmit, loading, managers }) {
 }
 
 // ── Box view: draggable client card ───────────────────────────────────────────
+// Redesigned as a small "profile card": a signature tinted banner (unique per
+// client, same color family as their initials avatar) with the avatar
+// overlapping it, name + contact underneath, then services and manager.
 function ClientCard({ client, serviceLabels, onDragStart, onDragEnd, onDragOver, onDrop, onOpen, canDelete, onDelete, isDragging, isDragOver }) {
+  const accent = getCardAccent(client.company);
   return (
     <div
       draggable
@@ -292,84 +301,99 @@ function ClientCard({ client, serviceLabels, onDragStart, onDragEnd, onDragOver,
       onDragOver={e => { e.preventDefault(); e.stopPropagation(); onDragOver(client); }}
       onDrop={e => { e.preventDefault(); e.stopPropagation(); onDrop(client); }}
       onClick={() => onOpen(client._id)}
-      className="group rounded-xl p-3.5 cursor-pointer transition-all hover:-translate-y-0.5"
+      className="group relative rounded-2xl cursor-pointer transition-all duration-200 hover:-translate-y-1 overflow-hidden"
       style={{
         background: 'var(--fd-surface)',
-        border: isDragOver ? '1px solid #4f6ef0' : '1px solid var(--fd-border)',
-        boxShadow: isDragOver ? '0 0 0 3px rgba(79,110,240,0.15)' : '0 1px 2px rgba(0,0,0,0.04)',
+        border: isDragOver ? '1.5px solid #4f6ef0' : '1px solid var(--fd-border)',
+        boxShadow: isDragOver
+          ? '0 0 0 3px rgba(79,110,240,0.15)'
+          : 'var(--fd-card-shadow, 0 1px 2px rgba(0,0,0,0.04))',
         opacity: isDragging ? 0.4 : 1,
       }}
+      onMouseEnter={e => { if (!isDragOver) e.currentTarget.style.boxShadow = '0 10px 24px -8px rgba(0,0,0,0.14)'; }}
+      onMouseLeave={e => { if (!isDragOver) e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.04)'; }}
     >
-      <div className="flex items-start gap-2.5">
-        <Avatar name={client.company} src={client.logo} size="sm" />
-        <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[12.5px] truncate" style={{ color: 'var(--fd-ink-1)' }}>
+      {/* Signature banner — this client's own color, echoed by their avatar */}
+      <div className="h-11" style={{ background: accent.tint }} />
+
+      {/* Drag handle floats over the banner, top-right */}
+      <div
+        className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2.5 cursor-grab active:cursor-grabbing w-6 h-6 rounded-lg flex items-center justify-center"
+        style={{ color: accent.ink, background: 'rgba(255,255,255,0.6)' }}
+        title="Drag to reorder"
+      >
+        <GripVertical size={13} />
+      </div>
+
+      <div className="px-3.5 pb-3.5">
+        {/* Avatar overlaps the banner like a profile photo, status pill sits beside it */}
+        <div className="flex items-end justify-between -mt-6">
+          <Avatar
+            name={client.company}
+            src={client.logo}
+            size="lg"
+            className="ring-4 ring-[var(--fd-surface)]"
+          />
+          <span
+            className="mb-0.5 text-[9.5px] font-semibold px-2 py-0.5 rounded-full capitalize shadow-sm"
+            style={getStatusStyle(client.status)}
+          >
+            {client.status}
+          </span>
+        </div>
+
+        <div className="mt-2.5">
+          <div className="font-semibold text-[13px] truncate" style={{ color: 'var(--fd-ink-1)' }}>
             {client.company}
           </div>
           <div className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--fd-ink-4)' }}>
             {client.name}
           </div>
         </div>
-        <div
-          className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 cursor-grab active:cursor-grabbing"
-          style={{ color: 'var(--fd-ink-5)' }}
-          title="Drag to reorder"
-        >
-          <GripVertical size={13} />
-        </div>
-      </div>
 
-      <div className="flex items-center gap-1.5 mt-2.5">
-        <span
-          className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize"
-          style={getStatusStyle(client.status)}
-        >
-          {client.status}
-        </span>
-      </div>
-
-      {client.services?.length > 0 && (
-        <div className="flex gap-1 flex-wrap mt-2">
-          {client.services.slice(0, 2).map(s => (
-            <span
-              key={s}
-              className="px-1.5 py-0.5 rounded text-[10px] font-medium"
-              style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
-            >
-              {serviceLabels[s] || s}
-            </span>
-          ))}
-          {client.services.length > 2 && (
-            <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)' }}>
-              +{client.services.length - 2}
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between mt-2.5 pt-2.5" style={{ borderTop: '1px solid var(--fd-border-subtle)' }}>
-        <div className="flex items-center gap-1.5 min-w-0">
-          {client.accountManager ? (
-            <>
-              <Avatar name={client.accountManager.name} size="xs" />
-              <span className="text-[10.5px] truncate" style={{ color: 'var(--fd-ink-4)' }}>
-                {client.accountManager.name}
+        {client.services?.length > 0 && (
+          <div className="flex gap-1 flex-wrap mt-2.5">
+            {client.services.slice(0, 2).map(s => (
+              <span
+                key={s}
+                className="px-1.5 py-0.5 rounded-md text-[10px] font-medium"
+                style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}
+              >
+                {serviceLabels[s] || s}
               </span>
-            </>
-          ) : (
-            <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-5)' }}>No manager</span>
+            ))}
+            {client.services.length > 2 && (
+              <span className="px-1.5 py-0.5 rounded-md text-[10px]" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-4)' }}>
+                +{client.services.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-3 pt-3" style={{ borderTop: '1px solid var(--fd-border-subtle)' }}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {client.accountManager ? (
+              <>
+                <Avatar name={client.accountManager.name} size="xs" />
+                <span className="text-[10.5px] truncate" style={{ color: 'var(--fd-ink-4)' }}>
+                  {client.accountManager.name}
+                </span>
+              </>
+            ) : (
+              <span className="text-[10.5px]" style={{ color: 'var(--fd-ink-5)' }}>No manager</span>
+            )}
+          </div>
+          {canDelete && (
+            <button
+              onClick={e => { e.stopPropagation(); onDelete(client); }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+              style={{ background: '#fef2f2', color: '#b91c1c' }}
+              title="Delete client"
+            >
+              <Trash2 size={10} />
+            </button>
           )}
         </div>
-        {canDelete && (
-          <button
-            onClick={e => { e.stopPropagation(); onDelete(client); }}
-            className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-            style={{ background: '#fef2f2', color: '#b91c1c' }}
-            title="Delete client"
-          >
-            <Trash2 size={10} />
-          </button>
-        )}
       </div>
     </div>
   );
@@ -420,8 +444,8 @@ function ClientsBoardView({ orderedClients, serviceLabels, navigate, canDeleteCl
     <div
       onDragOver={e => e.preventDefault()}
       onDrop={handleDropOnGrid}
-      className="grid gap-3"
-      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}
+      className="grid gap-4"
+      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}
     >
       {orderedClients.map(client => (
         <ClientCard

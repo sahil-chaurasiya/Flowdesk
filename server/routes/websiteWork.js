@@ -107,10 +107,14 @@ router.put('/projects/:id', asyncHandler(async (req, res) => {
     return res.status(403).json({ success: false, message: 'You can only edit website projects you created' });
   }
 
-  const allowed = ['name', 'description', 'status', 'priority', 'deadline', 'client', 'categories', 'repoUrl', 'adminUrl', 'liveUrl'];
+  const allowed = ['name', 'description', 'status', 'priority', 'deadline', 'client', 'categories', 'repoUrl', 'adminUrl', 'liveUrl', 'notes'];
   const updates = {};
   allowed.forEach(f => { if (req.body[f] !== undefined) updates[f] = req.body[f]; });
   if (updates.client === '') updates.client = null;
+  // Scratchpad notes have their own timestamp, separate from the project's
+  // general `updatedAt`, so the drawer can show "last edited" for notes
+  // specifically without it changing every time the project itself is edited.
+  if (updates.notes !== undefined) updates.notesUpdatedAt = new Date();
 
   const project = await WebsiteProject.findByIdAndUpdate(req.params.id, updates, {
     new: true,

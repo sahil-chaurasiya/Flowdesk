@@ -54,6 +54,10 @@ const taskSchema = new mongoose.Schema({
   },
   deadline: Date,
   completedAt: Date,
+  // Stamped when the task first moves into 'review' — lets managers see how
+  // long something has been sitting there instead of just the general
+  // createdAt/updatedAt. See pre('save') hook below for the set/clear rules.
+  reviewRequestedAt: Date,
   estimatedHours: Number,
   actualHours: Number,
   tags: [String],
@@ -135,6 +139,19 @@ taskSchema.pre('save', function (next) {
       // means if it's completed again later, it gets a fresh, current
       // timestamp instead of keeping the old one.
       this.completedAt = undefined;
+    }
+
+    if (this.status === 'review' && !this.reviewRequestedAt) {
+      // Sent for review for the first time (or after being cleared below) —
+      // stamp it so managers can see how long it's been waiting.
+      this.reviewRequestedAt = new Date();
+    } else if (this.status !== 'review' && this.status !== 'completed' && this.reviewRequestedAt) {
+      // Pulled back out of review into active work (e.g. a revision was
+      // requested) — clear it so the next time this task is sent back for
+      // review it gets a fresh timestamp instead of the stale original one.
+      // Left intact on a move to 'completed' so the review-wait time stays
+      // visible as a record even after approval.
+      this.reviewRequestedAt = undefined;
     }
   }
   next();

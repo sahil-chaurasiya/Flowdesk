@@ -452,6 +452,13 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLo
               value={task.isClientRequest ? 'Client Request' : (task.createdBy?.name || '—')}
               valueColor={task.isClientRequest ? '#92400e' : undefined}
             />
+            {task.createdAt && (
+              <InfoTile
+                icon={Clock}
+                label="Created"
+                value={`${formatDate(task.createdAt)} · ${timeAgo(task.createdAt)}`}
+              />
+            )}
           </div>
 
           {/* Action zone */}
@@ -544,7 +551,11 @@ function TaskDetailModal({ task, onClose, onStatusUpdate, updating, onRevisionLo
               <Clock size={15} style={{ color: '#a855f7', flexShrink: 0 }} />
               <div>
                 <div className="text-[13px] font-semibold" style={{ color: '#a855f7' }}>Awaiting Review</div>
-                <div className="text-[12px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>Your PM will review and approve this task.</div>
+                <div className="text-[12px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>
+                  {task.reviewRequestedAt
+                    ? `Sent for review ${formatDate(task.reviewRequestedAt)} · ${timeAgo(task.reviewRequestedAt)}`
+                    : 'Your PM will review and approve this task.'}
+                </div>
               </div>
             </div>
           )}
@@ -863,6 +874,9 @@ export default function MyTasksPage() {
                       <Clock size={11} /> Due {formatDate(task.deadline)}
                     </span>
                   )}
+                  <span className="flex items-center gap-1">
+                    <Clock size={11} /> Created {timeAgo(task.createdAt)}
+                  </span>
                 </div>
 
                 {/* Action area */}
@@ -875,7 +889,7 @@ export default function MyTasksPage() {
 
                   {task.status === 'review' && (
                     <span className="text-xs italic flex items-center gap-1" style={{ color: '#a855f7' }}>
-                      <Clock size={11} /> Awaiting PM review
+                      <Clock size={11} /> Awaiting PM review{task.reviewRequestedAt ? ` · sent ${timeAgo(task.reviewRequestedAt)}` : ''}
                     </span>
                   )}
                   {task.status === 'completed' && (

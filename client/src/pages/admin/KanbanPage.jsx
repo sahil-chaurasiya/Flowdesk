@@ -314,6 +314,22 @@ function TaskDrawer({ task, onClose, onStatusChange, updating, onDelete, onEdit,
                 <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{CATEGORY_LABELS[task.category] || task.category}</div>
               </div>
             )}
+            {task.createdAt && (
+              <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><Clock size={11} style={{ color: 'var(--fd-ink-4)' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Created</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{formatDate(task.createdAt)}</div>
+                <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>{timeAgo(task.createdAt)}</div>
+              </div>
+            )}
+            {task.reviewRequestedAt && (
+              <div className="rounded-xl p-3" style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.2)' }}>
+                <div className="flex items-center gap-1.5 mb-1"><Target size={11} style={{ color: '#a855f7' }} /><span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Sent For Review</span></div>
+                <div className="text-[13px] font-semibold" style={{ color: '#a855f7' }}>{formatDate(task.reviewRequestedAt)}</div>
+                <div className="text-[11px] mt-0.5 font-medium" style={{ color: task.status === 'review' ? '#a855f7' : 'var(--fd-ink-4)' }}>
+                  {task.status === 'review' ? `waiting ${timeAgo(task.reviewRequestedAt)}` : timeAgo(task.reviewRequestedAt)}
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -430,6 +446,12 @@ function TaskCard({ task, onDragStart, onClick }) {
             <div className="text-[11px] mt-0.5" style={{ color: 'var(--fd-ink-4)' }}>🖥️ {task.websiteProject.name}</div>
           )}
           {task.description && <div className="text-[11px] mt-1 line-clamp-2 leading-relaxed" style={{ color: 'var(--fd-ink-4)' }}>{task.description}</div>}
+          <div className="text-[10px] mt-1" style={{ color: 'var(--fd-ink-5)' }}>
+            Created {timeAgo(task.createdAt)}
+            {task.status === 'review' && task.reviewRequestedAt && (
+              <span style={{ color: '#a855f7', fontWeight: 600 }}> · in review {timeAgo(task.reviewRequestedAt)}</span>
+            )}
+          </div>
         </div>
       </div>
       <div className="mt-2.5 flex items-center justify-between">

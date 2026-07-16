@@ -14,6 +14,20 @@ const websiteProjectSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  // ── Scratchpad ────────────────────────────────────────────────────────────
+  // Freeform markdown notes for the project — known issues, tech debt, TODOs.
+  // Not a formal task, just a running dev notepad. Rendered as a terminal-style
+  // panel in the Website Work project drawer (client/src/pages/admin/WebsiteWorkPage.jsx).
+  notes: {
+    type: String,
+    trim: true,
+    maxlength: [20000, 'Notes cannot exceed 20000 characters'],
+    default: '',
+  },
+  notesUpdatedAt: {
+    type: Date,
+    default: null,
+  },
   // ── Quick-reference links ────────────────────────────────────────────────
   // Optional URLs surfaced on the project card/drawer and pulled into the
   // Developer Dashboard's "stack.env" panel. All optional — nothing breaks

@@ -4,12 +4,26 @@ import {
   Code2, Plus, X, Trash2, Pencil, ChevronRight,
   AlertCircle, Calendar, Pin, GripVertical, Target, BarChart3,
   ChevronDown, ChevronUp, Loader2, Github, LayoutDashboard, Globe, ExternalLink,
+  Terminal, Save,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
 import { PageHeader, EmptyState, Card, Spinner, Avatar } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Textarea, Select, useToast } from '../../components/ui/index';
-import { formatDate } from '../../lib/utils';
+import { formatDate, timeAgo } from '../../lib/utils';
+
+// Terminal chrome — same dark "console" palette the Developer Dashboard uses
+// for its dev-facing panels (contribution heatmap, stack.env, etc).
+const TERM = {
+  bg:     '#0d1117',
+  header: '#161b22',
+  border: '#30363d',
+  text:   '#e6edf3',
+  dim:    '#8b949e',
+  green:  '#3fb950',
+  amber:  '#d29922',
+};
+const MONO = "'JetBrains Mono', 'Fira Code', 'Ubuntu Mono', 'DejaVu Sans Mono', ui-monospace, Consolas, monospace";
 
 const PROJECT_STATUS = {
   planning:    { label: 'Planning',    color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
@@ -355,6 +369,118 @@ function TaskModal({ isOpen, onClose, onSaved, editing, project, members }) {
 }
 
 // ── Project detail drawer ────────────────────────────────────────────────────
+// ── Scratchpad ────────────────────────────────────────────────────────────
+// Freeform markdown notes panel — known issues / tech debt / TODOs for a
+// project. Styled like a terminal text editor rather than a form field,
+// matching the console aesthetic devs already get on the Developer Dashboard.
+// Saves independently of the rest of the project (its own PUT call), so
+// jotting a note never risks clobbering other project fields.
+function ScratchpadPanel({ project, canEdit, onSaved }) {
+  const toast = useToast();
+  const [draft, setDraft] = useState(project.notes || '');
+  const [saving, setSaving] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  // Re-sync the draft if a different project is swapped into this same
+  // drawer instance, or if notes changed elsewhere (e.g. onProjectChanged
+  // refresh after another save).
+  useEffect(() => { setDraft(project.notes || ''); }, [project._id, project.notes]);
+
+  const dirty = draft !== (project.notes || '');
+
+  const save = async () => {
+    if (!dirty || saving) return;
+    setSaving(true);
+    try {
+      const { data } = await api.put(`/website-work/projects/${project._id}`, { notes: draft });
+      onSaved(data.project);
+      toast({ type: 'success', title: 'Notes saved' });
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to save notes', message: err.response?.data?.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      e.preventDefault();
+      save();
+    }
+  };
+
+  const lineCount = Math.max(draft.split('\n').length, 1);
+
+  return (
+    <section>
+      <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--fd-ink-5)' }}>
+        Scratchpad
+      </p>
+      <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${TERM.border}`, background: TERM.bg }}>
+        {/* Title bar */}
+        <div className="flex items-center gap-2 px-3 py-2" style={{ background: TERM.header, borderBottom: `1px solid ${TERM.border}` }}>
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#ff5f56' }} />
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#ffbd2e' }} />
+          <span className="w-2.5 h-2.5 rounded-full" style={{ background: '#27c93f' }} />
+          <span className="flex items-center gap-1.5 ml-2 min-w-0" style={{ fontFamily: MONO, fontSize: 11, color: TERM.dim }}>
+            <Terminal size={11} className="flex-shrink-0" />
+            <span className="truncate">notes.md{dirty ? ' •' : ''}</span>
+          </span>
+          <span className="ml-auto flex items-center gap-2 flex-shrink-0" style={{ fontFamily: MONO, fontSize: 10.5, color: TERM.dim }}>
+            {project.notesUpdatedAt && !dirty && <span>edited {timeAgo(project.notesUpdatedAt)}</span>}
+            {canEdit && (
+              <button
+                onClick={save}
+                disabled={!dirty || saving}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-md font-bold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: dirty ? TERM.green : TERM.dim, background: dirty ? 'rgba(63,185,80,0.12)' : 'transparent' }}
+                title="Save notes (Ctrl+S)"
+              >
+                {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />}
+                :wq
+              </button>
+            )}
+          </span>
+        </div>
+
+        {/* Body */}
+        {canEdit ? (
+          <textarea
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => setFocused(true)}
+            onBlur={() => { setFocused(false); save(); }}
+            placeholder={'# known issues\n\n# tech debt\n\n# todo\n'}
+            rows={8}
+            className="w-full px-3 py-2.5 resize-y outline-none bg-transparent"
+            style={{ fontFamily: MONO, fontSize: 12.5, lineHeight: 1.6, color: TERM.text, caretColor: TERM.green }}
+          />
+        ) : draft ? (
+          <pre className="w-full px-3 py-2.5 whitespace-pre-wrap break-words" style={{ fontFamily: MONO, fontSize: 12.5, lineHeight: 1.6, color: TERM.text }}>
+            {draft}
+          </pre>
+        ) : (
+          <p className="px-3 py-2.5 italic" style={{ fontFamily: MONO, fontSize: 12, color: TERM.dim }}>
+            -- no notes yet --
+          </p>
+        )}
+
+        {/* Status bar */}
+        <div
+          className="flex items-center justify-between px-3 py-1"
+          style={{ background: TERM.header, borderTop: `1px solid ${TERM.border}`, fontFamily: MONO, fontSize: 10, color: TERM.dim }}
+        >
+          <span style={{ color: canEdit && focused ? TERM.amber : TERM.dim }}>
+            {canEdit ? (focused ? '-- INSERT --' : dirty ? '-- unsaved --' : '-- NORMAL --') : '-- READ ONLY --'}
+          </span>
+          <span>{lineCount} ln, {draft.length} ch</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, onDelete, user }) {
   const toast = useToast();
   const [tasks, setTasks] = useState([]);
@@ -562,6 +688,9 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
               </div>
             </section>
           )}
+
+          {/* Scratchpad */}
+          <ScratchpadPanel project={project} canEdit={canManageProject} onSaved={() => onProjectChanged()} />
 
           {/* Linked tasks */}
           <section>

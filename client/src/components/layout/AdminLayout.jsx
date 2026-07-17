@@ -18,6 +18,8 @@ import { getInitials } from '../../lib/utils';
 import api from '../../lib/api';
 // ── AI Assistant ──────────────────────────────────────────────────────────────
 import AIAssistant from '../ai/AIAssistant';
+// ── Developer Terminal (Software Developer role only) ────────────────────────
+import DevTerminal, { DevTerminalTrigger } from '../dev/DevTerminal';
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -35,6 +37,7 @@ const navItems = [
   { to: '/admin/clients',          icon: Building2,       label: 'Clients',           roles: ['admin', 'manager'] },
   { to: '/admin/kanban',           icon: Kanban,          label: 'Kanban',             managerOnly: true },
   { to: '/admin/website-work',     icon: Code2,           label: 'Website Work',      websiteWorkOnly: true },
+  { to: '/admin/terminal',         icon: Terminal,        label: 'Terminal',          terminalOnly: true, action: 'terminal' },
   { to: '/admin/my-tasks',         icon: ListChecks,      label: 'My Tasks',           teamOnly: true },
   { to: '/admin/my-day',           icon: ClipboardList,   label: 'My Day',             myDayOnly: true },
   { to: '/admin/leads',            icon: Target,          label: 'Client Leads',       roles: ['admin', 'manager'] },
@@ -58,7 +61,7 @@ const navItems = [
 const NAV_SECTIONS = [
   {
     label: 'Workspace',
-    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/website-work', '/admin/my-tasks', '/admin/my-day', '/admin/leads', '/admin/internal-leads', '/admin/call-tracker'],
+    keys: ['/admin/dashboard', '/admin/clients', '/admin/tasks', '/admin/kanban', '/admin/website-work', '/admin/terminal', '/admin/my-tasks', '/admin/my-day', '/admin/leads', '/admin/internal-leads', '/admin/call-tracker'],
   },
   {
     label: 'Delivery',
@@ -91,6 +94,7 @@ export default function AdminLayout() {
   const [showNotifs, setShowNotifs] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   // Resize listener
   useEffect(() => {
@@ -168,6 +172,7 @@ export default function AdminLayout() {
     if (item.managerOnly       && !isManager)       return false;
     if (item.teamOnly          && !isTeamOnly)      return false;
     if (item.websiteWorkOnly   && !isWebsiteWork)   return false;
+    if (item.terminalOnly      && !isLinuxDevTheme) return false;
     if (item.internalLeadsOnly && !isInternalLeads) return false;
     if (item.callTrackerOnly   && !isCallTracker)   return false;
     if (item.hideForPM         && isPM)             return false;
@@ -238,26 +243,46 @@ export default function AdminLayout() {
                 </div>
               )}
               {sectionItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => isMobile && setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2 mb-0.5 text-[13px] font-medium transition-all duration-150 ${
+                item.action === 'terminal' ? (
+                  <button
+                    key={item.to}
+                    onClick={() => { setTerminalOpen(true); if (isMobile) setMobileOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 mb-0.5 text-[13px] font-medium transition-all duration-150 hover:text-[var(--fd-ink-1)] ${
                       isLinuxDevTheme ? '' : 'rounded-lg'
-                    } ${isActive ? '' : 'hover:text-[var(--fd-ink-1)]'}`
-                  }
-                  style={({ isActive }) => ({
-                    background: isActive ? (isLinuxDevTheme ? 'var(--fd-sidebar-active)' : 'var(--fd-sidebar-active-bg)') : 'transparent',
-                    color: isActive ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
-                    borderRadius: isLinuxDevTheme ? 4 : undefined,
-                    borderLeft: isLinuxDevTheme ? `2px solid ${isActive ? 'var(--fd-accent)' : 'transparent'}` : undefined,
-                  })}
-                  title={collapsed && !isMobile ? item.label : undefined}
-                >
-                  <item.icon size={16} strokeWidth={1.8} className="flex-shrink-0" />
-                  {(!collapsed || isMobile) && <span>{item.label}</span>}
-                </NavLink>
+                    }`}
+                    style={{
+                      background: terminalOpen ? (isLinuxDevTheme ? 'var(--fd-sidebar-active)' : 'var(--fd-sidebar-active-bg)') : 'transparent',
+                      color: terminalOpen ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
+                      borderRadius: isLinuxDevTheme ? 4 : undefined,
+                      borderLeft: isLinuxDevTheme ? `2px solid ${terminalOpen ? 'var(--fd-accent)' : 'transparent'}` : undefined,
+                    }}
+                    title={collapsed && !isMobile ? `${item.label} (Ctrl/Cmd + \`)` : "Open the developer terminal (Ctrl/Cmd + `)"}
+                  >
+                    <item.icon size={16} strokeWidth={1.8} className="flex-shrink-0" />
+                    {(!collapsed || isMobile) && <span>{item.label}</span>}
+                  </button>
+                ) : (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => isMobile && setMobileOpen(false)}
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 px-3 py-2 mb-0.5 text-[13px] font-medium transition-all duration-150 ${
+                        isLinuxDevTheme ? '' : 'rounded-lg'
+                      } ${isActive ? '' : 'hover:text-[var(--fd-ink-1)]'}`
+                    }
+                    style={({ isActive }) => ({
+                      background: isActive ? (isLinuxDevTheme ? 'var(--fd-sidebar-active)' : 'var(--fd-sidebar-active-bg)') : 'transparent',
+                      color: isActive ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
+                      borderRadius: isLinuxDevTheme ? 4 : undefined,
+                      borderLeft: isLinuxDevTheme ? `2px solid ${isActive ? 'var(--fd-accent)' : 'transparent'}` : undefined,
+                    })}
+                    title={collapsed && !isMobile ? item.label : undefined}
+                  >
+                    <item.icon size={16} strokeWidth={1.8} className="flex-shrink-0" />
+                    {(!collapsed || isMobile) && <span>{item.label}</span>}
+                  </NavLink>
+                )
               ))}
             </div>
           );
@@ -557,6 +582,18 @@ export default function AdminLayout() {
 
       {/* ── AI Assistant (floating, role-scoped) ─────────────────────────── */}
       <AIAssistant />
+
+      {/* ── Developer Terminal (Software Developer role only) ────────────── */}
+      {isLinuxDevTheme && !terminalOpen && (
+        <DevTerminalTrigger onClick={() => setTerminalOpen(true)} />
+      )}
+      {isLinuxDevTheme && (
+        <DevTerminal
+          open={terminalOpen}
+          onClose={() => setTerminalOpen(false)}
+          onToggle={() => setTerminalOpen(v => !v)}
+        />
+      )}
     </div>
   );
 }

@@ -19,7 +19,7 @@ import api from '../../lib/api';
 // ── AI Assistant ──────────────────────────────────────────────────────────────
 import AIAssistant from '../ai/AIAssistant';
 // ── Developer Terminal (Software Developer role only) ────────────────────────
-import DevTerminal, { DevTerminalTrigger } from '../dev/DevTerminal';
+import DevTerminal from '../dev/DevTerminal';
 
 const ROLE_LABELS = {
   admin: 'Admin',
@@ -256,7 +256,7 @@ export default function AdminLayout() {
                       borderRadius: isLinuxDevTheme ? 4 : undefined,
                       borderLeft: isLinuxDevTheme ? `2px solid ${terminalOpen ? 'var(--fd-accent)' : 'transparent'}` : undefined,
                     }}
-                    title={collapsed && !isMobile ? `${item.label} (Ctrl/Cmd + \`)` : "Open the developer terminal (Ctrl/Cmd + `)"}
+                    title={collapsed && !isMobile ? `${item.label} (Ctrl + /)` : 'Open the developer terminal (Ctrl + /)'}
                   >
                     <item.icon size={16} strokeWidth={1.8} className="flex-shrink-0" />
                     {(!collapsed || isMobile) && <span>{item.label}</span>}
@@ -583,10 +583,10 @@ export default function AdminLayout() {
       {/* ── AI Assistant (floating, role-scoped) ─────────────────────────── */}
       <AIAssistant />
 
-      {/* ── Developer Terminal (Software Developer role only) ────────────── */}
-      {isLinuxDevTheme && !terminalOpen && (
-        <DevTerminalTrigger onClick={() => setTerminalOpen(true)} />
-      )}
+      {/* ── Developer Terminal (Software Developer role only) ──────────────
+          Opened via the "Terminal" sidebar item or the Ctrl+/ shortcut —
+          no floating button here, it used to collide with the sidebar's
+          user-profile footer. */}
       {isLinuxDevTheme && (
         <DevTerminal
           open={terminalOpen}

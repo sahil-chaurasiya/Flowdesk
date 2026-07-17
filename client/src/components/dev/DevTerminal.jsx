@@ -266,10 +266,10 @@ export default function DevTerminal({ open, onClose, onToggle }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Global keyboard shortcut: Ctrl/Cmd + ` toggles the terminal
+  // Global keyboard shortcut: Ctrl + / (or Cmd + / on Mac) toggles the terminal
   useEffect(() => {
     const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === '`') {
+      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
         e.preventDefault();
         onToggle?.();
       } else if (open && e.key === 'Escape') {
@@ -1063,7 +1063,7 @@ export default function DevTerminal({ open, onClose, onToggle }) {
           style={{ height: 26, background: 'var(--fd-card-bg)', borderTop: '1px solid var(--fd-border)', fontFamily: MONO, fontSize: 10.5, color: 'var(--fd-ink-5)' }}
         >
           <span>flowdesk-cli</span>
-          <span>{RESOURCE_ORDER.length} resources · help · ⌘/Ctrl+` toggle · Esc close</span>
+          <span>{RESOURCE_ORDER.length} resources · help · Ctrl+/ toggle · Esc close</span>
         </div>
       </div>
     </div>
@@ -1099,7 +1099,7 @@ export function DevTerminalTrigger({ onClick }) {
   return (
     <button
       onClick={onClick}
-      title="Open Developer Terminal (Ctrl/Cmd + `)"
+      title="Open Developer Terminal (Ctrl + /)"
       style={{
         position: 'fixed',
         bottom: '24px',

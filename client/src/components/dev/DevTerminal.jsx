@@ -1,21 +1,3 @@
-/**
- * DevTerminal — FlowDesk "flowdesk-cli"
- *
- * A hacker-style command-line panel available only to the Software
- * Developer role. It talks to the exact same REST endpoints the normal
- * admin pages use (server/routes/tasks.js, websiteWork.js, calendar.js,
- * updates.js, files.js, credentials.js, users.js, clients.js, search.js) —
- * nothing new on the backend, this is purely a terminal-shaped client for
- * data that already exists.
- *
- * Everything the Software Developer role can see in the app is fetchable,
- * viewable, creatable and editable here through a small set of resource
- * commands (`tasks`, `projects`, `ptasks`, `calendar`, `updates`, `files`,
- * `creds`, `team`, `clients`) plus a couple of general ones (`help`,
- * `clear`, `whoami`, `theme`, `search`, `stats`, `exit`). Run `help` inside
- * the terminal for the full reference.
- */
-
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Terminal as TerminalIcon, X, Circle } from 'lucide-react';
 import api from '../../lib/api';

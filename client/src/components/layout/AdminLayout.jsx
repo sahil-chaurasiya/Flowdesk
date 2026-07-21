@@ -79,10 +79,10 @@ const NAV_SECTIONS = [
 
 const TEAM_ROLES = ['performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
 // Roles that should see the personal "My Tasks" page. This used to be just
-// TEAM_ROLES, which meant project managers (and developers) never saw the
-// nav link even though they can be assigned tasks directly — every internal
-// role should have a "My Tasks" view.
-const MY_TASKS_ROLES = ['manager', 'developer', ...TEAM_ROLES];
+// TEAM_ROLES, which meant project managers, developers, and admins never saw
+// the nav link even though they can be assigned tasks directly — every
+// internal role should have a "My Tasks" view.
+const MY_TASKS_ROLES = ['admin', 'manager', 'developer', ...TEAM_ROLES];
 
 export default function AdminLayout() {
   const { user, logout, updateUser } = useAuthStore();

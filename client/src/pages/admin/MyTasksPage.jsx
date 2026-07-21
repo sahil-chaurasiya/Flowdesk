@@ -54,6 +54,7 @@ const ROLE_WELCOME = {
   copywriter: { greeting: 'Your Writing Queue', icon: '✍️', tip: "Reference the client's brand voice in the Files section for any copy tasks." },
   developer: { greeting: 'Your Dev Queue', icon: '🖥️', tip: 'Check the Website Work section for full project context on any task here.' },
   manager: { greeting: 'Your Tasks', icon: '📋', tip: 'Tasks assigned directly to you — separate from the client tasks you manage.' },
+  admin: { greeting: 'Your Tasks', icon: '📋', tip: 'Tasks assigned directly to you — separate from the ones you assign to the team.' },
 };
 
 const PRIORITY_COLORS = {

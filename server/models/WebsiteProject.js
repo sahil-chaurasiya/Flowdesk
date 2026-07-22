@@ -90,6 +90,28 @@ const websiteProjectSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  // ── Credential access control ────────────────────────────────────────────
+  // Governs the project's "Credentials" panel (admin panel / hosting / FTP
+  // logins, etc — see models/WebsiteCredential.js). The project's creator
+  // (typically the developer who set it up) and admins always have full
+  // access; this list is how they can additionally grant other specific
+  // team members permission to view, edit, add, or delete credentials for
+  // this project. Nobody else can see this project's credentials at all.
+  credentialAccess: {
+    type: [{
+      _id: false,
+      user: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        required: true,
+      },
+      canView:   { type: Boolean, default: true },
+      canEdit:   { type: Boolean, default: false },
+      canAdd:    { type: Boolean, default: false },
+      canDelete: { type: Boolean, default: false },
+    }],
+    default: [],
+  },
   // ── Uptime monitoring ────────────────────────────────────────────────────
   // Populated by server/services/uptimeMonitor.js, which pings `liveUrl` on
   // a timer (see index.js) and on-demand (see PATCH /:id/check-uptime in

@@ -140,6 +140,7 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     clientId: clientIdParam,
     assignedTo, page = 1, search,
     createdBy, dateFrom, dateTo,
+    websiteProject,
   } = req.query;
 
   // Accept both ?client=<id> and ?clientId=<id>
@@ -202,6 +203,9 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   if (search)    query.title     = { $regex: search, $options: 'i' };
   // "Assigned by" filter — who created/assigned the task
   if (createdBy) query.createdBy = createdBy;
+  // Website Work project filter — lets the Kanban board narrow down to just
+  // the tasks tagged to a specific Website Work project.
+  if (websiteProject) query.websiteProject = websiteProject;
 
   // Monthly / date-range filter — scoped to task creation date, so the
   // person can view "this month's" tasks instead of the entire history.

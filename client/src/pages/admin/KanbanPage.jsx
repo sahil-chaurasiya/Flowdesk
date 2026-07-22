@@ -565,6 +565,10 @@ export default function KanbanPage() {
   const [filterClient, setFilterClient]     = useState('');
   const [filterMember, setFilterMember]     = useState('');
   const [filterPM, setFilterPM]             = useState('');   // admin only
+  // Website Work project filter — narrows the board down to tasks tagged
+  // to a specific Website Work project. Only shown to roles that can see
+  // the Website Project dropdown at all (admin, manager, developer).
+  const [filterWebsiteProject, setFilterWebsiteProject] = useState('');
   // "Assigned to me" — independent of the Team Member dropdown, since that
   // dropdown deliberately excludes admins/managers (it only lists individual
   // contributors). Without this, an admin/manager has no way to see just the
@@ -631,6 +635,7 @@ export default function KanbanPage() {
     try {
       const params = new URLSearchParams();
       if (filterClient) params.set('client', filterClient);
+      if (filterWebsiteProject) params.set('websiteProject', filterWebsiteProject);
       // "Assigned to me" takes priority over the Team Member dropdown — it's
       // how an admin/manager (who won't appear in that dropdown) can filter
       // down to just their own tasks, regardless of client or who created it.
@@ -652,7 +657,7 @@ export default function KanbanPage() {
       setTasks(result);
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, [filterClient, filterMember, filterPM, filterAssignedToMe, user?._id, canFilterByPM, showAllTime, monthCursor]);
+  }, [filterClient, filterMember, filterPM, filterWebsiteProject, filterAssignedToMe, user?._id, canFilterByPM, showAllTime, monthCursor]);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
@@ -800,7 +805,7 @@ export default function KanbanPage() {
       return acc;
     }, {});
 
-  const activeFilters = [filterClient, filterMember, filterPM].filter(Boolean).length + (showAllTime ? 1 : 0) + (filterAssignedToMe ? 1 : 0);
+  const activeFilters = [filterClient, filterMember, filterPM, filterWebsiteProject].filter(Boolean).length + (showAllTime ? 1 : 0) + (filterAssignedToMe ? 1 : 0);
 
   if (loading) return <div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>;
 
@@ -886,6 +891,22 @@ export default function KanbanPage() {
           </select>
         </div>
 
+        {/* Website Work project filter — admin, manager, developer */}
+        {canLinkWebsiteProject && websiteProjects.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Website Project</label>
+            <select
+              value={filterWebsiteProject}
+              onChange={e => setFilterWebsiteProject(e.target.value)}
+              className="fd-input text-[12.5px]"
+              style={{ minWidth: 170 }}
+            >
+              <option value="">All Website Projects</option>
+              {websiteProjects.map(p => <option key={p._id} value={p._id}>{p.name}</option>)}
+            </select>
+          </div>
+        )}
+
         {/* Team member filter — admin + manager */}
         <div className="flex flex-col gap-1">
           <label className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--fd-ink-4)' }}>Team Member</label>
@@ -940,7 +961,7 @@ export default function KanbanPage() {
 
         {activeFilters > 0 && (
           <button
-            onClick={() => { setFilterClient(''); setFilterMember(''); setFilterPM(''); setFilterAssignedToMe(false); setShowAllTime(false); setMonthCursor(new Date()); }}
+            onClick={() => { setFilterClient(''); setFilterMember(''); setFilterPM(''); setFilterWebsiteProject(''); setFilterAssignedToMe(false); setShowAllTime(false); setMonthCursor(new Date()); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors hover:opacity-80"
             style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', alignSelf: 'flex-end' }}
           >

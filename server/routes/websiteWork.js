@@ -10,21 +10,23 @@ const { logActivity } = require('../utils/activityLog');
 const { checkProject } = require('../services/uptimeMonitor');
 
 // ── Credential permission helper ─────────────────────────────────────────────
-// Admins and the project's creator always have full access. Everyone else
-// only gets whatever the creator has explicitly granted them via the
-// project's `credentialAccess` list (see models/WebsiteProject.js).
-function getCredentialPerms(project, user) {
-  if (user.role === 'admin' || String(project.createdBy?._id || project.createdBy) === String(user._id)) {
-    return { canView: true, canEdit: true, canAdd: true, canDelete: true };
+// Access is per-credential, not per-project, and there is no automatic
+// admin bypass: whoever added a credential always has full access to it;
+// everyone else — admins included — only gets what's explicitly listed in
+// that credential's own `permissions` array (see models/WebsiteCredential.js).
+function getCredentialPerms(credential, user) {
+  const isOwner = String(credential.addedBy?._id || credential.addedBy) === String(user._id);
+  if (isOwner) {
+    return { canView: true, canEdit: true, canDelete: true, isOwner: true };
   }
-  const entry = (project.credentialAccess || []).find(
-    a => String(a.user?._id || a.user) === String(user._id)
+  const entry = (credential.permissions || []).find(
+    p => String(p.user?._id || p.user) === String(user._id)
   );
   return {
     canView: !!entry?.canView,
     canEdit: !!entry?.canEdit,
-    canAdd: !!entry?.canAdd,
     canDelete: !!entry?.canDelete,
+    isOwner: false,
   };
 }
 
@@ -47,12 +49,15 @@ router.get('/projects', asyncHandler(async (req, res) => {
   const projects = await WebsiteProject.find(query)
     .populate('createdBy', 'name avatar role')
     .populate('client', 'name company')
-    .populate('credentialAccess.user', 'name avatar role jobTitle')
     .sort({ pinned: -1, pinOrder: 1, createdAt: -1 })
     .lean();
 
+  // Matches by websiteProject presence (not the isWebsiteWork flag) so a
+  // task created from the regular Kanban board and tagged to a Website
+  // Work project counts toward that project's stats too — same reasoning
+  // as the GET /tasks fix above.
   const statusAgg = await Task.aggregate([
-    { $match: { isWebsiteWork: true } },
+    { $match: { websiteProject: { $ne: null } } },
     { $group: { _id: { project: '$websiteProject', status: '$status' }, count: { $sum: 1 } } },
   ]);
 
@@ -79,7 +84,6 @@ router.get('/projects', asyncHandler(async (req, res) => {
         cancelled: counts.cancelled || 0,
         progress: total ? Math.round((completed / total) * 100) : 0,
       },
-      myCredentialPerms: getCredentialPerms(p, req.user),
     };
   });
 
@@ -119,13 +123,13 @@ router.post('/projects', asyncHandler(async (req, res) => {
 }));
 
 // @route PUT /api/website-work/projects/:id
-// @desc  Admins can edit any project. Developers can only edit projects
-//        they created themselves — not another developer's project.
+// @desc  Developers can edit any Website Work project. Admins can only
+//        edit projects they created themselves through this page.
 router.put('/projects/:id', asyncHandler(async (req, res) => {
   const existing = await WebsiteProject.findById(req.params.id);
   if (!existing) return res.status(404).json({ success: false, message: 'Project not found' });
 
-  if (req.user.role === 'developer' && String(existing.createdBy) !== String(req.user._id)) {
+  if (req.user.role === 'admin' && String(existing.createdBy) !== String(req.user._id)) {
     return res.status(403).json({ success: false, message: 'You can only edit website projects you created' });
   }
 
@@ -157,13 +161,13 @@ router.put('/projects/:id', asyncHandler(async (req, res) => {
 }));
 
 // @route DELETE /api/website-work/projects/:id
-// @desc  Deletes the project and all of its Website Work tasks. Admins can
-//        delete any project; developers only ones they created themselves.
+// @desc  Deletes the project and all of its Website Work tasks. Developers
+//        can delete any project; admins only ones they created themselves.
 router.delete('/projects/:id', asyncHandler(async (req, res) => {
   const project = await WebsiteProject.findById(req.params.id);
   if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-  if (req.user.role === 'developer' && String(project.createdBy) !== String(req.user._id)) {
+  if (req.user.role === 'admin' && String(project.createdBy) !== String(req.user._id)) {
     return res.status(403).json({ success: false, message: 'You can only delete website projects you created' });
   }
 
@@ -262,10 +266,17 @@ router.patch('/projects/:id/check-uptime', asyncHandler(async (req, res) => {
 // ── Tasks ───────────────────────────────────────────────────────────────────
 
 // @route GET /api/website-work/tasks?project=<id>
+// @desc  When a project is given, this returns every task tied to that
+//        Website Work project — including ones created from the regular
+//        Kanban board by picking the project from its "Website Project"
+//        dropdown, not just ones added from this page's own task list.
+//        Without a project (used for the dev dashboard overview), it's
+//        scoped to tasks explicitly flagged isWebsiteWork.
 router.get('/tasks', asyncHandler(async (req, res) => {
   const { project } = req.query;
-  const query = { isWebsiteWork: true };
-  if (project) query.websiteProject = project;
+  const query = project
+    ? { websiteProject: project }
+    : { isWebsiteWork: true };
 
   const tasks = await Task.find(query)
     .populate('assignedTo', 'name avatar role jobTitle')
@@ -326,16 +337,16 @@ router.post('/tasks', asyncHandler(async (req, res) => {
 }));
 
 // @route PUT /api/website-work/tasks/:id
-// @desc  Admins can edit or reassign any Website Work task. Developers can
+// @desc  Developers can edit or reassign any Website Work task. Admins can
 //        only edit tasks they created or are assigned to — not another
-//        developer's task.
+//        admin's task.
 router.put('/tasks/:id', asyncHandler(async (req, res) => {
   const existing = await Task.findById(req.params.id);
-  if (!existing || !existing.isWebsiteWork) {
+  if (!existing || !(existing.isWebsiteWork || existing.websiteProject)) {
     return res.status(404).json({ success: false, message: 'Task not found' });
   }
 
-  if (req.user.role === 'developer') {
+  if (req.user.role === 'admin') {
     const isOwner = String(existing.createdBy) === String(req.user._id) ||
       (existing.assignedTo && String(existing.assignedTo) === String(req.user._id));
     if (!isOwner) {
@@ -387,15 +398,15 @@ router.put('/tasks/:id', asyncHandler(async (req, res) => {
 }));
 
 // @route DELETE /api/website-work/tasks/:id
-// @desc  Admins can delete any Website Work task. Developers can only
+// @desc  Developers can delete any Website Work task. Admins can only
 //        delete tasks they created or are assigned to.
 router.delete('/tasks/:id', asyncHandler(async (req, res) => {
   const existing = await Task.findById(req.params.id);
-  if (!existing || !existing.isWebsiteWork) {
+  if (!existing || !(existing.isWebsiteWork || existing.websiteProject)) {
     return res.status(404).json({ success: false, message: 'Task not found' });
   }
 
-  if (req.user.role === 'developer') {
+  if (req.user.role === 'admin') {
     const isOwner = String(existing.createdBy) === String(req.user._id) ||
       (existing.assignedTo && String(existing.assignedTo) === String(req.user._id));
     if (!isOwner) {
@@ -416,41 +427,51 @@ router.delete('/tasks/:id', asyncHandler(async (req, res) => {
 }));
 
 // ── Credentials ────────────────────────────────────────────────────────────
-// Admin panel / hosting / FTP / domain logins for a project. Visibility and
-// what a non-owner can do with them (view/edit/add/delete) is entirely
-// governed by the project's `credentialAccess` list, set by whoever created
-// the project (or an admin) — see getCredentialPerms() above and the
-// credential-access route further down.
+// Admin panel / hosting / FTP / domain logins for a project. Access is set
+// per credential, by whoever adds it — see getCredentialPerms() above.
+// Nobody, including admins, sees a credential unless they added it or were
+// explicitly granted access on that specific credential.
 
 // @route GET /api/website-work/projects/:id/credentials
+// @desc  Returns only the credentials this user has view access to, each
+//        with their own personal permission flags attached as `myPerms`.
 router.get('/projects/:id/credentials', asyncHandler(async (req, res) => {
-  const project = await WebsiteProject.findById(req.params.id).populate('credentialAccess.user', 'name');
+  const project = await WebsiteProject.findById(req.params.id);
   if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-  const perms = getCredentialPerms(project, req.user);
-  if (!perms.canView) {
-    return res.status(403).json({ success: false, message: 'You do not have access to this project\'s credentials' });
-  }
-
-  const credentials = await WebsiteCredential.find({ project: project._id })
+  const all = await WebsiteCredential.find({ project: project._id })
     .populate('addedBy', 'name avatar role')
+    .populate('permissions.user', 'name avatar role jobTitle')
     .sort({ createdAt: -1 });
 
-  res.json({ success: true, credentials, myCredentialPerms: perms });
+  const visible = all
+    .map(c => ({ credential: c, perms: getCredentialPerms(c, req.user) }))
+    .filter(({ perms }) => perms.canView)
+    .map(({ credential, perms }) => ({ ...credential.toObject(), myPerms: perms }));
+
+  res.json({ success: true, credentials: visible });
 }));
 
 // @route POST /api/website-work/projects/:id/credentials
+// @desc  Any admin/developer with access to Website Work can add a
+//        credential (same rule as creating projects/tasks in this file).
+//        The adder becomes its owner and can optionally share it with
+//        specific teammates right away via `permissions`.
 router.post('/projects/:id/credentials', asyncHandler(async (req, res) => {
   const project = await WebsiteProject.findById(req.params.id);
   if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
 
-  const perms = getCredentialPerms(project, req.user);
-  if (!perms.canAdd) {
-    return res.status(403).json({ success: false, message: 'You do not have permission to add credentials to this project' });
-  }
-
-  const { label, platform, url, username, password, notes } = req.body;
+  const { label, platform, url, username, password, notes, permissions } = req.body;
   if (!label?.trim()) return res.status(400).json({ success: false, message: 'A label is required' });
+
+  const cleanPerms = Array.isArray(permissions)
+    ? permissions.filter(p => p && p.user).map(p => ({
+        user: p.user,
+        canView: !!p.canView,
+        canEdit: !!p.canEdit,
+        canDelete: !!p.canDelete,
+      }))
+    : [];
 
   const credential = await WebsiteCredential.create({
     project: project._id,
@@ -461,9 +482,12 @@ router.post('/projects/:id/credentials', asyncHandler(async (req, res) => {
     password,
     notes,
     addedBy: req.user._id,
+    permissions: cleanPerms,
   });
 
-  const populated = await WebsiteCredential.findById(credential._id).populate('addedBy', 'name avatar role');
+  const populated = await WebsiteCredential.findById(credential._id)
+    .populate('addedBy', 'name avatar role')
+    .populate('permissions.user', 'name avatar role jobTitle');
 
   logActivity({
     req,
@@ -472,18 +496,21 @@ router.post('/projects/:id/credentials', asyncHandler(async (req, res) => {
     meta: { project: project.name },
   });
 
-  res.status(201).json({ success: true, credential: populated });
+  res.status(201).json({
+    success: true,
+    credential: { ...populated.toObject(), myPerms: { canView: true, canEdit: true, canDelete: true, isOwner: true } },
+  });
 }));
 
 // @route PUT /api/website-work/credentials/:id
+// @desc  Edit a credential's own fields (label, login details, notes, etc).
+//        Requires canEdit — the owner always has it; anyone else needs to
+//        have been explicitly granted it.
 router.put('/credentials/:id', asyncHandler(async (req, res) => {
   const credential = await WebsiteCredential.findById(req.params.id);
   if (!credential) return res.status(404).json({ success: false, message: 'Credential not found' });
 
-  const project = await WebsiteProject.findById(credential.project);
-  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-
-  const perms = getCredentialPerms(project, req.user);
+  const perms = getCredentialPerms(credential, req.user);
   if (!perms.canEdit) {
     return res.status(403).json({ success: false, message: 'You do not have permission to edit this credential' });
   }
@@ -492,16 +519,59 @@ router.put('/credentials/:id', asyncHandler(async (req, res) => {
   allowed.forEach(f => { if (req.body[f] !== undefined) credential[f] = req.body[f]; });
   await credential.save();
 
-  const populated = await WebsiteCredential.findById(credential._id).populate('addedBy', 'name avatar role');
+  const populated = await WebsiteCredential.findById(credential._id)
+    .populate('addedBy', 'name avatar role')
+    .populate('permissions.user', 'name avatar role jobTitle');
 
   logActivity({
     req,
     action: 'website_credential.updated',
     entity: { type: 'website_credential', id: credential._id, name: credential.label },
-    meta: { project: project.name },
   });
 
-  res.json({ success: true, credential: populated });
+  res.json({ success: true, credential: { ...populated.toObject(), myPerms: perms } });
+}));
+
+// @route PUT /api/website-work/credentials/:id/access
+// @desc  Change who this specific credential is shared with and what they
+//        can do with it. Only the credential's owner (whoever added it) can
+//        do this — not even an admin who was merely granted canEdit access.
+router.put('/credentials/:id/access', asyncHandler(async (req, res) => {
+  const credential = await WebsiteCredential.findById(req.params.id);
+  if (!credential) return res.status(404).json({ success: false, message: 'Credential not found' });
+
+  const perms = getCredentialPerms(credential, req.user);
+  if (!perms.isOwner) {
+    return res.status(403).json({ success: false, message: 'Only whoever added this credential can manage who it\'s shared with' });
+  }
+
+  const { permissions } = req.body;
+  if (!Array.isArray(permissions)) {
+    return res.status(400).json({ success: false, message: 'permissions must be an array' });
+  }
+
+  credential.permissions = permissions
+    .filter(p => p && p.user && String(p.user) !== String(req.user._id))
+    .map(p => ({
+      user: p.user,
+      canView: !!p.canView,
+      canEdit: !!p.canEdit,
+      canDelete: !!p.canDelete,
+    }));
+
+  await credential.save();
+
+  const populated = await WebsiteCredential.findById(credential._id)
+    .populate('addedBy', 'name avatar role')
+    .populate('permissions.user', 'name avatar role jobTitle');
+
+  logActivity({
+    req,
+    action: 'website_credential.access_updated',
+    entity: { type: 'website_credential', id: credential._id, name: credential.label },
+  });
+
+  res.json({ success: true, credential: { ...populated.toObject(), myPerms: { canView: true, canEdit: true, canDelete: true, isOwner: true } } });
 }));
 
 // @route DELETE /api/website-work/credentials/:id
@@ -509,10 +579,7 @@ router.delete('/credentials/:id', asyncHandler(async (req, res) => {
   const credential = await WebsiteCredential.findById(req.params.id);
   if (!credential) return res.status(404).json({ success: false, message: 'Credential not found' });
 
-  const project = await WebsiteProject.findById(credential.project);
-  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-
-  const perms = getCredentialPerms(project, req.user);
+  const perms = getCredentialPerms(credential, req.user);
   if (!perms.canDelete) {
     return res.status(403).json({ success: false, message: 'You do not have permission to delete this credential' });
   }
@@ -523,56 +590,9 @@ router.delete('/credentials/:id', asyncHandler(async (req, res) => {
     req,
     action: 'website_credential.deleted',
     entity: { type: 'website_credential', id: credential._id, name: credential.label },
-    meta: { project: project.name },
   });
 
   res.json({ success: true, message: 'Credential deleted' });
-}));
-
-// @route PUT /api/website-work/projects/:id/credential-access
-// @desc  Set who (besides the project creator and admins, who always have
-//        full access) can view/edit/add/delete this project's credentials.
-//        Only the project's creator or an admin can change this — same rule
-//        used elsewhere in this file for editing/deleting the project itself.
-router.put('/projects/:id/credential-access', asyncHandler(async (req, res) => {
-  const project = await WebsiteProject.findById(req.params.id);
-  if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-
-  const isOwner = String(project.createdBy) === String(req.user._id);
-  if (req.user.role !== 'admin' && !isOwner) {
-    return res.status(403).json({ success: false, message: 'Only the project creator or an admin can manage credential access' });
-  }
-
-  const { credentialAccess } = req.body;
-  if (!Array.isArray(credentialAccess)) {
-    return res.status(400).json({ success: false, message: 'credentialAccess must be an array' });
-  }
-
-  project.credentialAccess = credentialAccess
-    .filter(a => a && a.user)
-    .map(a => ({
-      user: a.user,
-      canView: !!a.canView,
-      canEdit: !!a.canEdit,
-      canAdd: !!a.canAdd,
-      canDelete: !!a.canDelete,
-    }));
-
-  await project.save();
-
-  const populated = await WebsiteProject.findById(project._id)
-    .populate('createdBy', 'name avatar role')
-    .populate('client', 'name company')
-    .populate('credentialAccess.user', 'name avatar role jobTitle');
-
-  logActivity({
-    req,
-    action: 'website_project.updated',
-    entity: { type: 'website_project', id: project._id, name: project.name },
-    meta: { credentialAccessUpdated: true },
-  });
-
-  res.json({ success: true, project: populated });
 }));
 
 module.exports = router;

@@ -483,9 +483,12 @@ function ScratchpadPanel({ project, canEdit, onSaved }) {
 
 // ── Credentials ────────────────────────────────────────────────────────────
 // Admin panel / hosting / FTP / domain logins saved against a Website Work
-// project. Who can view/edit/add/delete them is controlled per-project by
-// the "Manage Access" panel below (server-enforced — see
-// getCredentialPerms() in server/routes/websiteWork.js).
+// project. Access is set per credential, by whoever adds it — not
+// per-project, and there's no automatic admin bypass. Whoever adds a
+// credential picks exactly who else can see it and what they can do
+// (view/edit/delete), and can change that later. Everyone else, including
+// admins, simply doesn't see it unless granted. Enforced server-side by
+// getCredentialPerms() in server/routes/websiteWork.js.
 const CREDENTIAL_PLATFORMS = {
   admin_panel: { label: 'Admin Panel',    icon: LayoutDashboard },
   hosting:     { label: 'Hosting',        icon: Server },
@@ -496,10 +499,82 @@ const CREDENTIAL_PLATFORMS = {
   other:       { label: 'Other',          icon: KeyRound },
 };
 
-function CredentialRow({ credential, canEdit, canDelete, onEdit, onDelete }) {
+// Shared "who can access this" editor — a list of {user, canView, canEdit,
+// canDelete} rows plus an "add person" picker. Used both inline in the Add
+// Credential modal and in the standalone Manage Access modal for editing an
+// existing credential's sharing later.
+function CredentialAccessEditor({ rows, setRows, members, excludeUserId }) {
+  const [addingId, setAddingId] = useState('');
+
+  const grantable = members.filter(m =>
+    String(m._id) !== String(excludeUserId) &&
+    !rows.some(r => String(r.user) === String(m._id))
+  );
+
+  const addRow = () => {
+    const m = members.find(x => x._id === addingId);
+    if (!m) return;
+    setRows(prev => [...prev, { user: m._id, name: m.name, canView: true, canEdit: false, canDelete: false }]);
+    setAddingId('');
+  };
+
+  const toggle = (userId, field) => {
+    setRows(prev => prev.map(r => String(r.user) === String(userId) ? { ...r, [field]: !r[field] } : r));
+  };
+
+  const removeRow = (userId) => setRows(prev => prev.filter(r => String(r.user) !== String(userId)));
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[12px]" style={{ color: 'var(--fd-ink-4)' }}>
+        Only you can see this credential unless you share it below. Pick who else can access it and exactly what they can do.
+      </p>
+
+      {rows.length === 0 ? (
+        <p className="text-[12px] italic" style={{ color: 'var(--fd-ink-5)' }}>Not shared with anyone yet — only you can see this.</p>
+      ) : (
+        <div className="space-y-2">
+          {rows.map(r => (
+            <div key={r.user} className="rounded-xl p-2.5" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[12.5px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{r.name}</span>
+                <button onClick={() => removeRow(r.user)} className="p-1 rounded-lg hover:bg-red-500/10" title="Remove access">
+                  <X size={13} style={{ color: '#ef4444' }} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {['canView', 'canEdit', 'canDelete'].map(field => (
+                  <label key={field} className="flex items-center gap-1.5 cursor-pointer text-[11.5px]" style={{ color: 'var(--fd-ink-3)' }}>
+                    <input type="checkbox" checked={r[field]} onChange={() => toggle(r.user, field)} className="rounded" style={{ accentColor: 'var(--fd-accent)' }} />
+                    {{ canView: 'View', canEdit: 'Edit', canDelete: 'Delete' }[field]}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {grantable.length > 0 && (
+        <div className="flex items-end gap-2 pt-1">
+          <Select label="Share with" value={addingId} onChange={e => setAddingId(e.target.value)} containerClassName="flex-1">
+            <option value="">Select a person…</option>
+            {grantable.map(m => <option key={m._id} value={m._id}>{m.name} — {m.role === 'developer' ? 'Developer' : (m.jobTitle || m.role)}</option>)}
+          </Select>
+          <Button variant="secondary" size="sm" onClick={addRow} disabled={!addingId}>Add</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CredentialRow({ credential, members, onEdit, onDelete, onAccessChanged }) {
   const [visible, setVisible] = useState(false);
   const [copied, setCopied] = useState('');
+  const [accessOpen, setAccessOpen] = useState(false);
   const meta = CREDENTIAL_PLATFORMS[credential.platform] || CREDENTIAL_PLATFORMS.other;
+  const perms = credential.myPerms || {};
+  const sharedCount = (credential.permissions || []).length;
 
   const copy = (text, field) => {
     if (!text || !navigator.clipboard) return;
@@ -517,12 +592,17 @@ function CredentialRow({ credential, canEdit, canDelete, onEdit, onDelete }) {
           <span className="font-semibold text-[13px] truncate" style={{ color: 'var(--fd-ink-1)' }}>{credential.label}</span>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {canEdit && (
+          {perms.isOwner && (
+            <button onClick={() => setAccessOpen(true)} className="p-1 rounded-lg hover:bg-[var(--fd-surface)] transition-colors" title="Manage who can access this">
+              <Shield size={12} style={{ color: 'var(--fd-ink-4)' }} />
+            </button>
+          )}
+          {perms.canEdit && (
             <button onClick={() => onEdit(credential)} className="p-1 rounded-lg hover:bg-[var(--fd-surface)] transition-colors" title="Edit credential">
               <Pencil size={12} style={{ color: 'var(--fd-ink-4)' }} />
             </button>
           )}
-          {canDelete && (
+          {perms.canDelete && (
             <button onClick={() => onDelete(credential)} className="p-1 rounded-lg hover:bg-red-500/10 transition-colors" title="Delete credential">
               <Trash2 size={12} style={{ color: '#ef4444' }} />
             </button>
@@ -572,17 +652,76 @@ function CredentialRow({ credential, canEdit, canDelete, onEdit, onDelete }) {
         </p>
       )}
 
-      <p className="text-[10.5px] mt-2" style={{ color: 'var(--fd-ink-5)' }}>
-        Added by {credential.addedBy?.name || '—'} · {timeAgo(credential.createdAt)}
+      <p className="text-[10.5px] mt-2 flex items-center gap-1.5" style={{ color: 'var(--fd-ink-5)' }}>
+        <span>Added by {credential.addedBy?.name || '—'} · {timeAgo(credential.createdAt)}</span>
+        {perms.isOwner && (
+          <span className="flex items-center gap-1">
+            <Shield size={9} /> {sharedCount > 0 ? `Shared with ${sharedCount}` : 'Only visible to you'}
+          </span>
+        )}
       </p>
+
+      {perms.isOwner && accessOpen && (
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--fd-border)' }}>
+          <CredentialAccessEditorWrapper
+            credential={credential}
+            members={members}
+            onClose={() => setAccessOpen(false)}
+            onSaved={onAccessChanged}
+          />
+        </div>
+      )}
     </div>
   );
 }
 
-function CredentialModal({ isOpen, onClose, onSaved, projectId, editing }) {
+// Thin wrapper that owns the save call for the inline "Manage Access"
+// editor on an existing credential (as opposed to the one embedded in the
+// Add Credential modal, which just holds local state until the credential
+// itself is created).
+function CredentialAccessEditorWrapper({ credential, members, onClose, onSaved }) {
+  const toast = useToast();
+  const [rows, setRows] = useState(
+    (credential.permissions || []).map(p => ({
+      user: p.user?._id || p.user,
+      name: p.user?.name || 'Unknown',
+      canView: !!p.canView, canEdit: !!p.canEdit, canDelete: !!p.canDelete,
+    }))
+  );
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const { data } = await api.put(`/website-work/credentials/${credential._id}/access`, {
+        permissions: rows.map(({ user, canView, canEdit, canDelete }) => ({ user, canView, canEdit, canDelete })),
+      });
+      onSaved(data.credential);
+      toast({ type: 'success', title: 'Access updated' });
+      onClose();
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to update access', message: err?.response?.data?.message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div>
+      <CredentialAccessEditor rows={rows} setRows={setRows} members={members} excludeUserId={credential.addedBy?._id || credential.addedBy} />
+      <div className="flex justify-end gap-2 mt-3">
+        <Button variant="secondary" size="sm" onClick={onClose}>Cancel</Button>
+        <Button size="sm" loading={saving} onClick={save}>Save Access</Button>
+      </div>
+    </div>
+  );
+}
+
+function CredentialModal({ isOpen, onClose, onSaved, projectId, editing, members, currentUserId }) {
   const toast = useToast();
   const blank = { label: '', platform: 'admin_panel', url: '', username: '', password: '', notes: '' };
   const [form, setForm] = useState(blank);
+  const [shareRows, setShareRows] = useState([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -590,6 +729,10 @@ function CredentialModal({ isOpen, onClose, onSaved, projectId, editing }) {
     setForm(editing
       ? { label: editing.label || '', platform: editing.platform || 'other', url: editing.url || '', username: editing.username || '', password: editing.password || '', notes: editing.notes || '' }
       : blank);
+    // Sharing is only set here when *creating* a new credential. Editing an
+    // existing one's sharing happens via the dedicated "Manage Access"
+    // editor on the credential card, not this fields-only modal.
+    setShareRows([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, editing]);
 
@@ -599,7 +742,10 @@ function CredentialModal({ isOpen, onClose, onSaved, projectId, editing }) {
     try {
       const { data } = editing
         ? await api.put(`/website-work/credentials/${editing._id}`, form)
-        : await api.post(`/website-work/projects/${projectId}/credentials`, form);
+        : await api.post(`/website-work/projects/${projectId}/credentials`, {
+            ...form,
+            permissions: shareRows.map(({ user, canView, canEdit, canDelete }) => ({ user, canView, canEdit, canDelete })),
+          });
       onSaved(data.credential, !editing);
       toast({ type: 'success', title: editing ? 'Credential updated' : 'Credential added' });
       onClose();
@@ -633,115 +779,13 @@ function CredentialModal({ isOpen, onClose, onSaved, projectId, editing }) {
           <Input label="Password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} />
         </div>
         <Textarea label="Notes" rows={2} value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} />
-      </div>
-    </Modal>
-  );
-}
 
-function CredentialAccessModal({ isOpen, onClose, project, members, onSaved }) {
-  const toast = useToast();
-  const [rows, setRows] = useState([]);
-  const [addingId, setAddingId] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setRows((project.credentialAccess || []).map(a => {
-      const uid = a.user?._id || a.user;
-      return {
-        user: uid,
-        name: a.user?.name || members.find(m => m._id === uid)?.name || 'Unknown',
-        canView: !!a.canView, canEdit: !!a.canEdit, canAdd: !!a.canAdd, canDelete: !!a.canDelete,
-      };
-    }));
-    setAddingId('');
-  }, [isOpen, project, members]);
-
-  const ownerId = String(project.createdBy?._id || project.createdBy);
-  const grantable = members.filter(m =>
-    m.role !== 'admin' &&
-    String(m._id) !== ownerId &&
-    !rows.some(r => String(r.user) === String(m._id))
-  );
-
-  const addRow = () => {
-    const m = members.find(x => x._id === addingId);
-    if (!m) return;
-    setRows(prev => [...prev, { user: m._id, name: m.name, canView: true, canEdit: false, canAdd: false, canDelete: false }]);
-    setAddingId('');
-  };
-
-  const toggle = (userId, field) => {
-    setRows(prev => prev.map(r => String(r.user) === String(userId) ? { ...r, [field]: !r[field] } : r));
-  };
-
-  const removeRow = (userId) => setRows(prev => prev.filter(r => String(r.user) !== String(userId)));
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      const { data } = await api.put(`/website-work/projects/${project._id}/credential-access`, {
-        credentialAccess: rows.map(({ user, canView, canEdit, canAdd, canDelete }) => ({ user, canView, canEdit, canAdd, canDelete })),
-      });
-      onSaved(data.project);
-      toast({ type: 'success', title: 'Credential access updated' });
-      onClose();
-    } catch (err) {
-      toast({ type: 'error', title: 'Failed to update access', message: err?.response?.data?.message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Manage Credential Access"
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button loading={saving} onClick={save}>Save Access</Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <p className="text-[12.5px]" style={{ color: 'var(--fd-ink-4)' }}>
-          The project creator and admins always have full access to this project&apos;s credentials. Choose who else can view, edit, add, or delete them.
-        </p>
-
-        {rows.length === 0 ? (
-          <p className="text-[12.5px] italic" style={{ color: 'var(--fd-ink-5)' }}>Nobody else has been granted access yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {rows.map(r => (
-              <div key={r.user} className="rounded-xl p-2.5" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[12.5px] font-semibold" style={{ color: 'var(--fd-ink-1)' }}>{r.name}</span>
-                  <button onClick={() => removeRow(r.user)} className="p-1 rounded-lg hover:bg-red-500/10" title="Remove access">
-                    <X size={13} style={{ color: '#ef4444' }} />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {['canView', 'canEdit', 'canAdd', 'canDelete'].map(field => (
-                    <label key={field} className="flex items-center gap-1.5 cursor-pointer text-[11.5px]" style={{ color: 'var(--fd-ink-3)' }}>
-                      <input type="checkbox" checked={r[field]} onChange={() => toggle(r.user, field)} className="rounded" style={{ accentColor: 'var(--fd-accent)' }} />
-                      {{ canView: 'View', canEdit: 'Edit', canAdd: 'Add', canDelete: 'Delete' }[field]}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {grantable.length > 0 && (
-          <div className="flex items-end gap-2 pt-2" style={{ borderTop: '1px solid var(--fd-border)' }}>
-            <Select label="Add team member" value={addingId} onChange={e => setAddingId(e.target.value)} containerClassName="flex-1">
-              <option value="">Select a person…</option>
-              {grantable.map(m => <option key={m._id} value={m._id}>{m.name} — {m.role === 'developer' ? 'Developer' : (m.jobTitle || m.role)}</option>)}
-            </Select>
-            <Button variant="secondary" size="sm" onClick={addRow} disabled={!addingId}>Add</Button>
+        {!editing && (
+          <div className="pt-3" style={{ borderTop: '1px solid var(--fd-border)' }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: 'var(--fd-ink-5)' }}>
+              <Shield size={11} /> Who can access this
+            </p>
+            <CredentialAccessEditor rows={shareRows} setRows={setShareRows} members={members} excludeUserId={currentUserId} />
           </div>
         )}
       </div>
@@ -749,36 +793,30 @@ function CredentialAccessModal({ isOpen, onClose, project, members, onSaved }) {
   );
 }
 
-function CredentialsPanel({ project, members, canManageAccess, onProjectChanged }) {
+function CredentialsPanel({ project, members, user, onProjectChanged }) {
   const toast = useToast();
   const [credentials, setCredentials] = useState([]);
-  const [perms, setPerms] = useState(project.myCredentialPerms || { canView: false, canEdit: false, canAdd: false, canDelete: false });
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCred, setEditingCred] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [accessModalOpen, setAccessModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await api.get(`/website-work/projects/${project._id}/credentials`);
       setCredentials(data.credentials || []);
-      setPerms(data.myCredentialPerms || {});
     } catch {
       setCredentials([]);
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
   }, [project._id]);
 
   useEffect(() => { if (expanded) load(); }, [expanded, load]);
-
-  // Keep the "can I even see this section" check in sync with the parent
-  // project object, which is refreshed whenever access is changed.
-  const canView = project.myCredentialPerms?.canView ?? perms.canView;
-  if (!canView) return null;
 
   const handleSaved = (cred, isNew) => {
     setCredentials(prev => isNew ? [cred, ...prev] : prev.map(c => c._id === cred._id ? cred : c));
@@ -800,49 +838,39 @@ function CredentialsPanel({ project, members, canManageAccess, onProjectChanged 
     <section>
       <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between mb-3 group">
         <p className="text-[11px] font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: 'var(--fd-ink-5)' }}>
-          <KeyRound size={12} /> Credentials {credentials.length > 0 && <span className="font-normal normal-case tracking-normal">({credentials.length})</span>}
+          <KeyRound size={12} /> Credentials {loaded && credentials.length > 0 && <span className="font-normal normal-case tracking-normal">({credentials.length})</span>}
         </p>
         {expanded ? <ChevronUp size={14} style={{ color: 'var(--fd-ink-5)' }} /> : <ChevronDown size={14} style={{ color: 'var(--fd-ink-5)' }} />}
       </button>
 
       {expanded && (
         <div className="space-y-2.5">
-          {canManageAccess && (
-            <button
-              onClick={() => setAccessModalOpen(true)}
-              className="flex items-center gap-1.5 text-[11.5px] font-medium mb-1 hover:underline"
-              style={{ color: 'var(--fd-accent)' }}
-            >
-              <Shield size={11} /> Manage who can view / edit / add / delete
-            </button>
-          )}
-
           {loading ? (
             <div className="flex items-center gap-2 text-[12px] py-4 justify-center" style={{ color: 'var(--fd-ink-5)' }}>
               <Loader2 size={13} className="animate-spin" /> Loading credentials…
             </div>
           ) : credentials.length === 0 ? (
-            <p className="text-[12.5px] italic py-2" style={{ color: 'var(--fd-ink-5)' }}>No credentials saved for this project yet.</p>
+            <p className="text-[12.5px] italic py-2" style={{ color: 'var(--fd-ink-5)' }}>
+              No credentials visible to you here yet — you'll see ones you add, or ones shared with you.
+            </p>
           ) : (
             <div className="space-y-2">
               {credentials.map(c => (
                 <CredentialRow
                   key={c._id}
                   credential={c}
-                  canEdit={perms.canEdit}
-                  canDelete={perms.canDelete}
+                  members={members}
                   onEdit={cred => { setEditingCred(cred); setModalOpen(true); }}
                   onDelete={setDeleteTarget}
+                  onAccessChanged={updated => setCredentials(prev => prev.map(c2 => c2._id === updated._id ? updated : c2))}
                 />
               ))}
             </div>
           )}
 
-          {perms.canAdd && (
-            <Button variant="secondary" size="sm" className="w-full" onClick={() => { setEditingCred(null); setModalOpen(true); }}>
-              <Plus size={13} /> Add Credential
-            </Button>
-          )}
+          <Button variant="secondary" size="sm" className="w-full" onClick={() => { setEditingCred(null); setModalOpen(true); }}>
+            <Plus size={13} /> Add Credential
+          </Button>
         </div>
       )}
 
@@ -852,6 +880,8 @@ function CredentialsPanel({ project, members, canManageAccess, onProjectChanged 
         onSaved={handleSaved}
         projectId={project._id}
         editing={editingCred}
+        members={members}
+        currentUserId={user?._id}
       />
 
       <Modal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Credential" size="sm">
@@ -863,19 +893,10 @@ function CredentialsPanel({ project, members, canManageAccess, onProjectChanged 
           <Button variant="danger" onClick={confirmDelete}>Delete</Button>
         </div>
       </Modal>
-
-      {canManageAccess && (
-        <CredentialAccessModal
-          isOpen={accessModalOpen}
-          onClose={() => setAccessModalOpen(false)}
-          project={project}
-          members={members}
-          onSaved={() => { onProjectChanged(); }}
-        />
-      )}
     </section>
   );
 }
+
 
 function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, onDelete, user }) {
   const toast = useToast();
@@ -898,11 +919,11 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
 
   useEffect(() => { load(); }, [load]);
 
-  // Admins can manage any task. Developers can only edit/delete tasks they
-  // created or are assigned to — not another developer's task.
+  // Developers can manage any task. Admins can only edit/delete tasks they
+  // created or are assigned to — not another admin's task.
   const canManageTask = (task) => {
-    if (user?.role === 'admin') return true;
-    if (user?.role === 'developer') {
+    if (user?.role === 'developer') return true;
+    if (user?.role === 'admin') {
       const uid = String(user._id);
       return String(task.createdBy?._id || task.createdBy) === uid ||
         String(task.assignedTo?._id || task.assignedTo) === uid;
@@ -910,7 +931,7 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
     return false;
   };
 
-  const canManageProject = user?.role === 'admin' || String(project.createdBy?._id || project.createdBy) === String(user?._id);
+  const canManageProject = user?.role === 'developer' || String(project.createdBy?._id || project.createdBy) === String(user?._id);
 
   const handleTaskSaved = (task, isNew) => {
     setTasks(prev => isNew ? [task, ...prev] : prev.map(t => t._id === task._id ? task : t));
@@ -1089,7 +1110,7 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
           <CredentialsPanel
             project={project}
             members={members}
-            canManageAccess={canManageProject}
+            user={user}
             onProjectChanged={onProjectChanged}
           />
 
@@ -1224,7 +1245,7 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
 // ── Project card ──────────────────────────────────────────────────────────────
 function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging, style }) {
   const sm = PROJECT_STATUS[project.status] || PROJECT_STATUS.planning;
-  const canManage = user?.role === 'admin' || String(project.createdBy?._id || project.createdBy) === String(user?._id);
+  const canManage = user?.role === 'developer' || String(project.createdBy?._id || project.createdBy) === String(user?._id);
 
   return (
     <div

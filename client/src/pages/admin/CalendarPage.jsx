@@ -396,6 +396,7 @@ function EventEditModal({ event, defaultDate, onClose, onSave, onDelete, clients
       visibility:   form.visibility,
       visibleTo:    form.visibleTo,
       status:       form.status,
+      isReady:      !!form.isReady,
       visibleToClient: form.visibleToClient,
     };
 

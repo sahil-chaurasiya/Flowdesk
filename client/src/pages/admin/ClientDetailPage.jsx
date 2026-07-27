@@ -282,7 +282,22 @@ function ClientCalendarTab({ clientId, events, setEvents, month, setMonth }) {
         const { data } = await api.post('/calendar', _payload);
         setEvents(prev => [...prev, enrich(data.event)]);
       } else {
-        const { data } = await api.put(`/calendar/${form._id}`, form);
+        // Build a clean payload — only scalar fields from form, never spread
+        // the populated event object (which has nested objects like
+        // client:{_id,company}, assignedTo/visibleTo:[{...}], plus virtuals
+        // like isOverdue and _id/__v). Sending those directly fails
+        // mongoose casting/validation on the server.
+        const _payload = {
+          title:        form.title,
+          type:         form.type,
+          shootSubtype: form.shootSubtype || null,
+          startDate:    form.startDate,
+          endDate:      form.endDate,
+          description:  form.description,
+          status:       form.status,
+          isReady:      !!form.isReady,
+        };
+        const { data } = await api.put(`/calendar/${form._id}`, _payload);
         setEvents(prev => prev.map(e => e._id === form._id ? enrich(data.event) : e));
       }
       setModal(null);

@@ -18,27 +18,32 @@ import { PageHeader, EmptyState, Card, Spinner } from '../../components/shared/L
 // Deliberately only ever shows a project's admin panel & live links — never
 // its GitHub repo URL, which stays admin/developer-only.
 const PLATFORM_META = {
-  admin_panel: { label: 'Admin Panel',      icon: LayoutDashboard },
-  hosting:     { label: 'Hosting',          icon: Server },
-  domain:      { label: 'Domain Registrar', icon: Globe },
-  ftp:         { label: 'FTP / SFTP',       icon: Terminal },
-  database:    { label: 'Database',         icon: Database },
-  email:       { label: 'Email',            icon: Mail },
-  other:       { label: 'Other',            icon: KeyRound },
+  admin_panel: { label: 'Admin Panel',      icon: LayoutDashboard, tint: '79, 110, 240' },
+  hosting:     { label: 'Hosting',          icon: Server,          tint: '234, 88, 12'  },
+  domain:      { label: 'Domain Registrar', icon: Globe,           tint: '34, 197, 94'  },
+  ftp:         { label: 'FTP / SFTP',       icon: Terminal,        tint: '100, 116, 139'},
+  database:    { label: 'Database',         icon: Database,        tint: '14, 165, 183' },
+  email:       { label: 'Email',            icon: Mail,            tint: '217, 74, 134' },
+  other:       { label: 'Other',            icon: KeyRound,        tint: '148, 148, 148'},
 };
 
 const MONO = "'JetBrains Mono', 'Fira Code', 'Ubuntu Mono', 'DejaVu Sans Mono', ui-monospace, Consolas, monospace";
 
 function CopyBtn({ text, field, copied, onCopy }) {
   if (!text) return null;
+  const isCopied = copied === field;
   return (
     <button
       onClick={() => onCopy(text, field)}
-      className="p-1 rounded hover:bg-[var(--fd-surface-sunken)] flex-shrink-0"
-      style={{ color: 'var(--fd-ink-5)' }}
+      className="flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium transition-colors shrink-0"
+      style={{
+        color: isCopied ? '#22c55e' : 'var(--fd-ink-4)',
+        background: isCopied ? 'rgba(34,197,94,0.12)' : 'var(--fd-surface-sunken)',
+        border: `1px solid ${isCopied ? 'rgba(34,197,94,0.3)' : 'var(--fd-border)'}`,
+      }}
       title="Copy"
     >
-      {copied === field ? <Check size={11} style={{ color: '#22c55e' }} /> : <Copy size={11} />}
+      {isCopied ? <><Check size={11} /> Copied</> : <><Copy size={11} /> Copy</>}
     </button>
   );
 }
@@ -57,38 +62,61 @@ function WebsiteCredentialCard({ credential }) {
   };
 
   return (
-    <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
-      <div className="flex items-center gap-2 mb-2">
-        <meta.icon size={14} style={{ color: 'var(--fd-ink-4)', flexShrink: 0 }} />
-        <span className="font-semibold text-[13px] truncate" style={{ color: 'var(--fd-ink-1)' }}>{credential.label}</span>
+    <div
+      className="rounded-xl p-4 transition-colors"
+      style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
+    >
+      <div className="flex items-center gap-2.5 mb-3">
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ background: `rgba(${meta.tint},0.14)` }}
+        >
+          <meta.icon size={15} style={{ color: `rgb(${meta.tint})` }} />
+        </div>
+        <div className="min-w-0">
+          <div className="font-semibold text-[13.5px] truncate" style={{ color: 'var(--fd-ink-1)' }}>{credential.label}</div>
+          <div className="text-[10.5px] font-medium" style={{ color: `rgb(${meta.tint})` }}>{meta.label}</div>
+        </div>
       </div>
 
       {credential.url && (
         <a
           href={credential.url} target="_blank" rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-[11.5px] mb-2 hover:underline"
-          style={{ color: 'var(--fd-accent)' }}
+          className="flex items-center gap-1.5 text-[11.5px] mb-3 px-2.5 py-1.5 rounded-lg hover:underline w-fit max-w-full"
+          style={{ color: 'var(--fd-accent)', background: 'var(--fd-surface)' }}
         >
-          <ExternalLink size={10} /> <span className="truncate">{credential.url}</span>
+          <ExternalLink size={11} className="shrink-0" /> <span className="truncate">{credential.url}</span>
         </a>
       )}
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {credential.username && (
-          <div className="flex items-center gap-2 text-[12px]">
-            <span style={{ color: 'var(--fd-ink-5)', width: 60, flexShrink: 0 }}>Username</span>
-            <span className="flex-1 truncate" style={{ fontFamily: MONO, color: 'var(--fd-ink-2)' }}>{credential.username}</span>
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2"
+            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border-subtle)' }}
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wide shrink-0 w-14" style={{ color: 'var(--fd-ink-5)' }}>User</span>
+            <span className="flex-1 truncate text-[12px]" style={{ fontFamily: MONO, color: 'var(--fd-ink-1)' }}>{credential.username}</span>
             <CopyBtn text={credential.username} field="user" copied={copied} onCopy={copy} />
           </div>
         )}
         {credential.password && (
-          <div className="flex items-center gap-2 text-[12px]">
-            <span style={{ color: 'var(--fd-ink-5)', width: 60, flexShrink: 0 }}>Password</span>
-            <span className="flex-1 truncate" style={{ fontFamily: MONO, color: 'var(--fd-ink-2)' }}>
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2"
+            style={{ background: 'var(--fd-surface)', border: '1px solid var(--fd-border-subtle)' }}
+          >
+            <span className="text-[10px] font-medium uppercase tracking-wide shrink-0 w-14" style={{ color: 'var(--fd-ink-5)' }}>Pass</span>
+            <span className="flex-1 truncate text-[12px]" style={{ fontFamily: MONO, color: 'var(--fd-ink-1)' }}>
               {visible ? credential.password : '•'.repeat(Math.min(credential.password.length, 12))}
             </span>
-            <button onClick={() => setVisible(v => !v)} className="p-1 rounded hover:bg-[var(--fd-surface)] flex-shrink-0" style={{ color: 'var(--fd-ink-5)' }} title={visible ? 'Hide' : 'Show'}>
+            <button
+              onClick={() => setVisible(v => !v)}
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium transition-colors shrink-0"
+              style={{ color: 'var(--fd-ink-4)', background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}
+              title={visible ? 'Hide' : 'Show'}
+            >
               {visible ? <EyeOff size={11} /> : <Eye size={11} />}
+              {visible ? 'Hide' : 'Show'}
             </button>
             <CopyBtn text={credential.password} field="pass" copied={copied} onCopy={copy} />
           </div>
@@ -96,18 +124,18 @@ function WebsiteCredentialCard({ credential }) {
       </div>
 
       {credential.notes && (
-        <p className="text-[11.5px] mt-2 pt-2 whitespace-pre-wrap" style={{ color: 'var(--fd-ink-4)', borderTop: '1px solid var(--fd-border)' }}>
+        <p className="text-[11.5px] mt-3 pt-3 whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--fd-ink-4)', borderTop: '1px solid var(--fd-border-subtle)' }}>
           {credential.notes}
         </p>
       )}
 
-      <p className="text-[10.5px] mt-2 flex items-center gap-1.5" style={{ color: 'var(--fd-ink-5)' }}>
+      <div className="text-[10.5px] mt-3 pt-3 flex items-center gap-1.5" style={{ color: 'var(--fd-ink-5)', borderTop: '1px solid var(--fd-border-subtle)' }}>
         {credential.myPerms?.isOwner ? (
           <span className="flex items-center gap-1"><Shield size={9} /> Added by you</span>
         ) : (
           <span>Shared by {credential.addedBy?.name || '—'}</span>
         )}
-      </p>
+      </div>
     </div>
   );
 }
@@ -152,7 +180,7 @@ function ProjectGroup({ group, search }) {
           )}
         </div>
       </div>
-      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
         {creds.map(c => <WebsiteCredentialCard key={c._id} credential={c} />)}
       </div>
     </Card>

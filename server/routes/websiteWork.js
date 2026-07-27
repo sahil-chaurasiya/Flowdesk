@@ -30,10 +30,56 @@ function getCredentialPerms(credential, user) {
   };
 }
 
-// Everything in this file is restricted to admin + developer. This is the
-// section where devs (and admins) create projects and assign/change tasks
-// to/for each other and to other team members. Nobody else can see or
-// touch any of it.
+// @route GET /api/website-work/my-credentials
+// @desc  Cross-project list of every website credential the requesting user
+//        can view — i.e. ones they added themselves, or were explicitly
+//        granted view access to (see getCredentialPerms() above). Grouped
+//        by project so the "Website Credentials" page can show which site
+//        each login belongs to.
+//        Intentionally NOT gated to admin/developer like the rest of this
+//        file: credential visibility here is per-credential, set by whoever
+//        added it, and has nothing to do with who manages Website Work
+//        projects — any team member a credential has been shared with
+//        should be able to see it here.
+//        Only ever exposes a project's name, status, adminUrl and liveUrl —
+//        never its repoUrl, which stays admin/developer-only.
+router.get('/my-credentials', protect, asyncHandler(async (req, res) => {
+  const all = await WebsiteCredential.find({
+    $or: [
+      { addedBy: req.user._id },
+      { 'permissions.user': req.user._id },
+    ],
+  })
+    .populate('project', 'name status adminUrl liveUrl')
+    .populate('addedBy', 'name avatar role jobTitle')
+    .populate('permissions.user', 'name avatar role jobTitle')
+    .sort({ createdAt: -1 });
+
+  const visible = all
+    .map(c => ({ credential: c, perms: getCredentialPerms(c, req.user) }))
+    .filter(({ perms }) => perms.canView)
+    .map(({ credential, perms }) => ({ ...credential.toObject(), myPerms: perms }));
+
+  const groups = [];
+  const byProject = new Map();
+  visible.forEach(c => {
+    const pid = String(c.project?._id || c.project || 'unknown');
+    if (!byProject.has(pid)) {
+      const group = { project: c.project, credentials: [] };
+      byProject.set(pid, group);
+      groups.push(group);
+    }
+    byProject.get(pid).credentials.push(c);
+  });
+
+  res.json({ success: true, groups });
+}));
+
+// Everything below this point is restricted to admin + developer. This is
+// the section where devs (and admins) create projects and assign/change
+// tasks to/for each other and to other team members. Nobody else can see
+// or touch any of it. (The credential-viewing route above is the one
+// deliberate exception — see its comment for why.)
 router.use(protect, authorize('admin', 'developer'));
 
 // ── Projects ────────────────────────────────────────────────────────────────

@@ -43,6 +43,8 @@ import CallTrackerPage      from './pages/admin/CallTrackerPage';
 import ApiLogsPage          from './pages/admin/ApiLogsPage';
 import ContactsPage         from './pages/admin/ContactsPage';
 import CredentialsPage      from './pages/admin/CredentialsPage';
+import CredentialsHubPage   from './pages/admin/CredentialsHubPage';
+import WebsiteCredentialsPage from './pages/admin/WebsiteCredentialsPage';
 import MyDayPage            from './pages/admin/MyDayPage';
 import TeamDailyLogPage     from './pages/admin/TeamDailyLogPage';
 import WebsiteWorkPage      from './pages/admin/WebsiteWorkPage';
@@ -164,12 +166,20 @@ export default function App() {
                 <Route path="settings"   element={<SettingsPage />} />
                 <Route path="activity"   element={<ActivityPage />} />
 
-                {/* ── Credentials Vault (admin + manager + developer + client) ─ */}
-                <Route path="credentials" element={
-                  <ProtectedRoute roles={['admin', 'manager', 'developer', 'client']}>
+                {/* ── Credentials hub — pick client creds or website creds ─── */}
+                <Route path="credentials" element={<CredentialsHubPage />} />
+
+                {/* ── Client Credentials (admin + manager + developer) ──────── */}
+                <Route path="credentials/clients" element={
+                  <ProtectedRoute roles={['admin', 'manager', 'developer']}>
                     <CredentialsPage />
                   </ProtectedRoute>
                 } />
+
+                {/* ── Website Credentials — any team member with credentials
+                     shared with them (access is enforced per-credential
+                     server-side, not by role) ───────────────────────────── */}
+                <Route path="credentials/websites" element={<WebsiteCredentialsPage />} />
 
                 {/* ── Contacts / Vendors (admin only) ──────────────────── */}
                 <Route path="contacts" element={

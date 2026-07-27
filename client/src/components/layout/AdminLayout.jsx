@@ -50,7 +50,7 @@ const navItems = [
   { to: '/admin/files',      icon: Upload,          label: 'Files',            hideForPM: true },
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
   { to: '/admin/team-log',   icon: ClipboardList,   label: 'Team Log',     adminManagerOnly: true },
-  { to: '/admin/credentials', icon: Key,            label: 'Credentials',  managerOnly: true },
+  { to: '/admin/credentials', icon: Key,            label: 'Credentials' },
   { to: '/admin/contacts',   icon: BookUser,        label: 'Contacts',     adminOnly: true },
   { to: '/admin/activity',   icon: Activity,        label: 'Activity',     adminOnly: true },
   { to: '/admin/logs',       icon: FileSearch,      label: 'API Logs',     adminOnly: true },

@@ -368,6 +368,68 @@ function TaskModal({ isOpen, onClose, onSaved, editing, project, members }) {
   );
 }
 
+// ── Task view modal — full read-only detail, opened by clicking a task row ──
+function TaskViewModal({ isOpen, onClose, task, canManage, onEdit }) {
+  if (!task) return null;
+  const ts = TASK_STATUS[task.status] || TASK_STATUS.pending;
+  const isOverdue = task.deadline && new Date(task.deadline) < new Date() && task.status !== 'completed';
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Task Details" size="md">
+      <div className="space-y-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <span className="px-2 py-0.5 rounded-full text-[10.5px] font-semibold" style={{ background: ts.bg, color: ts.color }}>
+              {ts.label}
+            </span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium capitalize" style={{ background: `${PRIORITY_COLORS[task.priority]}15`, color: PRIORITY_COLORS[task.priority] }}>
+              {task.priority}
+            </span>
+            {isOverdue && <span className="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">⚠ Overdue</span>}
+          </div>
+          <h3 className="text-[16px] font-bold leading-snug break-words" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</h3>
+        </div>
+
+        {task.description && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fd-ink-5)' }}>Description</p>
+            <p className="text-[13px] leading-relaxed whitespace-pre-wrap break-words" style={{ color: 'var(--fd-ink-3)' }}>{task.description}</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fd-ink-5)' }}>Assigned to</p>
+            {task.assignedTo ? (
+              <span className="flex items-center gap-1.5 text-[12.5px]" style={{ color: 'var(--fd-ink-2)' }}>
+                <Avatar name={task.assignedTo.name} src={task.assignedTo.avatar} size="xs" />
+                {task.assignedTo.name}
+              </span>
+            ) : (
+              <span className="text-[12.5px] italic" style={{ color: 'var(--fd-ink-5)' }}>Unassigned</span>
+            )}
+          </div>
+          <div className="rounded-xl p-3" style={{ background: 'var(--fd-surface-sunken)', border: '1px solid var(--fd-border)' }}>
+            <p className="text-[10.5px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--fd-ink-5)' }}>Deadline</p>
+            <span className="flex items-center gap-1.5 text-[12.5px]" style={{ color: isOverdue ? '#ef4444' : 'var(--fd-ink-2)' }}>
+              {task.deadline ? (<><Calendar size={12} /> {formatDate(task.deadline)}</>) : '—'}
+            </span>
+          </div>
+        </div>
+
+        <p className="text-[11.5px]" style={{ color: 'var(--fd-ink-5)' }}>
+          Created by {task.createdBy?.name || '—'}{task.createdAt ? ` · ${timeAgo(task.createdAt)}` : ''}
+        </p>
+
+        <div className="flex justify-end gap-2 pt-2" style={{ borderTop: '1px solid var(--fd-border)' }}>
+          <Button variant="secondary" onClick={onClose}>Close</Button>
+          {canManage && <Button onClick={onEdit}><Pencil size={13} /> Edit Task</Button>}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 // ── Project detail drawer ────────────────────────────────────────────────────
 // ── Scratchpad ────────────────────────────────────────────────────────────
 // Freeform markdown notes panel — known issues / tech debt / TODOs for a
@@ -906,6 +968,7 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [deleteTaskTarget, setDeleteTaskTarget] = useState(null);
+  const [viewingTask, setViewingTask] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -935,6 +998,7 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
 
   const handleTaskSaved = (task, isNew) => {
     setTasks(prev => isNew ? [task, ...prev] : prev.map(t => t._id === task._id ? task : t));
+    setViewingTask(prev => (prev && prev._id === task._id) ? task : prev);
     onProjectChanged();
   };
 
@@ -1141,8 +1205,9 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
                     return (
                       <div
                         key={task._id}
-                        className="rounded-xl p-3 w-full"
+                        className="rounded-xl p-3 w-full cursor-pointer transition-colors hover:brightness-110"
                         style={{ background: 'var(--fd-surface-sunken)', border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--fd-border)'}` }}
+                        onClick={() => setViewingTask(task)}
                       >
                         <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                           <span className="font-semibold text-[13px] break-words" style={{ color: 'var(--fd-ink-1)' }}>{task.title}</span>
@@ -1162,7 +1227,7 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] mb-2" style={{ color: 'var(--fd-ink-4)' }}>
                           {task.assignedTo ? (
                             <span className="flex items-center gap-1.5">
-                              <Avatar name={task.assignedTo.name} size="xs" />
+                              <Avatar name={task.assignedTo.name} src={task.assignedTo.avatar} size="xs" />
                               {task.assignedTo.name}
                             </span>
                           ) : (
@@ -1227,6 +1292,14 @@ function ProjectDrawer({ project, members, onClose, onProjectChanged, onEdit, on
         members={members}
       />
 
+      <TaskViewModal
+        isOpen={!!viewingTask}
+        onClose={() => setViewingTask(null)}
+        task={viewingTask}
+        canManage={viewingTask ? canManageTask(viewingTask) : false}
+        onEdit={() => { setEditingTask(viewingTask); setViewingTask(null); setTaskModalOpen(true); }}
+      />
+
       <Modal isOpen={!!deleteTaskTarget} onClose={() => setDeleteTaskTarget(null)} title="Delete Task" size="sm">
         <p className="text-[13px] mb-4" style={{ color: 'var(--fd-ink-3)' }}>
           Delete <strong>{deleteTaskTarget?.title}</strong>? This can&apos;t be undone.
@@ -1249,7 +1322,7 @@ function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging,
 
   return (
     <div
-      className={`group relative rounded-[20px] p-5 cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-2xl ${dragging ? 'opacity-40 scale-95' : ''}`}
+      className={`group relative rounded-[20px] p-5 cursor-pointer transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-2xl h-full flex flex-col ${dragging ? 'opacity-40 scale-95' : ''}`}
       style={{
         background: 'var(--fd-surface)',
         border: `1px solid ${project.pinned ? 'rgba(245,158,11,0.4)' : 'var(--fd-border)'}`,
@@ -1336,11 +1409,11 @@ function ProjectCard({ project, user, onView, onEdit, onDelete, onPin, dragging,
         <ProjectProgressBar stats={project.taskStats} />
       </div>
 
-      <div className="flex items-center justify-between mt-4 pt-3.5" style={{ borderTop: '1px solid var(--fd-border)' }}>
+      <div className="flex items-center justify-between mt-auto pt-3.5" style={{ borderTop: '1px solid var(--fd-border)' }}>
         <div className="flex items-center gap-1.5 min-w-0">
           {project.createdBy?.name && (
             <>
-              <Avatar name={project.createdBy.name} size="xs" />
+              <Avatar name={project.createdBy.name} src={project.createdBy.avatar} size="xs" />
               <span className="text-[11px] truncate" style={{ color: 'var(--fd-ink-5)' }}>{project.createdBy.name}</span>
             </>
           )}
@@ -1405,7 +1478,7 @@ function PinnedSection({ pinned, user, onView, onEdit, onDelete, onPin, onReorde
             onDragOver={e => handleDragOver(e, idx)}
             onDrop={e => handleDrop(e, idx)}
             onDragEnd={handleDragEnd}
-            className={`transition-all rounded-[20px] ${overIdx === idx && draggingIdx !== idx ? 'ring-2 ring-amber-400/50' : ''}`}
+            className={`h-full transition-all rounded-[20px] ${overIdx === idx && draggingIdx !== idx ? 'ring-2 ring-amber-400/50' : ''}`}
           >
             <ProjectCard
               project={p}

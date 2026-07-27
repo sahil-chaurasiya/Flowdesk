@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus, Eye, EyeOff, Copy, Check, Key, Edit3, Trash2,
-  Save, Instagram, Globe, Facebook, Linkedin, Youtube, Search,
+  Save, Instagram, Globe, Facebook, Linkedin, Youtube, Search, ArrowLeft,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -237,6 +238,7 @@ function CredTable({ creds, onEdit, onDelete }) {
 }
 
 export default function CredentialsPage() {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const toast = useToast();
   const isAdmin   = user?.role === 'admin';
@@ -335,12 +337,21 @@ export default function CredentialsPage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Credentials"
+        title="Client Credentials"
         subtitle="Store social media and platform login credentials"
         actions={
-          <Button onClick={() => { setEditCred(null); setShowModal(true); }}>
-            <Plus size={14} /> Add Credential
-          </Button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/admin/credentials')}
+              className="flex items-center gap-1.5 text-[12.5px] font-medium px-3 py-1.5 rounded-lg transition-colors"
+              style={{ color: 'var(--fd-ink-3)', border: '1px solid var(--fd-border)' }}
+            >
+              <ArrowLeft size={13} /> Back
+            </button>
+            <Button onClick={() => { setEditCred(null); setShowModal(true); }}>
+              <Plus size={14} /> Add Credential
+            </Button>
+          </div>
         }
       />
 

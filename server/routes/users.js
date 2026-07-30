@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
-const { getUploader, cloudinary, getFileUrl } = require('../config/cloudinary');
+const { getUploader, cloudinary, getFileUrl, useCloudinary } = require('../config/cloudinary');
 const { logActivity } = require('../utils/activityLog');
 
 const TEAM_ONLY_ROLES = ['developer', 'performance_marketer', 'social_media_manager', 'video_editor', 'graphic_designer', 'copywriter'];
@@ -283,7 +283,7 @@ router.delete('/:id/documents/:docId', protect, authorize('admin'), asyncHandler
   const doc = user.documents.id(req.params.docId);
   if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
 
-  if (process.env.FILE_STORAGE === 'cloudinary' && doc.publicId) {
+  if (useCloudinary && doc.publicId) {
     try { await cloudinary.uploader.destroy(doc.publicId, { resource_type: 'raw' }); } catch (_) {}
   }
 

@@ -6,7 +6,7 @@ const File = require('../models/File');
 const Client = require('../models/Client');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
-const { getUploader } = require('../config/cloudinary');
+const { getUploader, useCloudinary } = require('../config/cloudinary');
 const { createNotification } = require('../utils/notifications');
 
 const MANAGER_ROLES = ['admin', 'manager'];
@@ -76,56 +76,66 @@ router.post('/upload', protect, authorize('admin', 'manager', 'team'), asyncHand
   const upload = getUploader();
 
   upload.single('file')(req, res, async (err) => {
-    if (err) return res.status(400).json({ success: false, message: err.message });
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
+    // Wrapped in try/catch: this callback runs outside asyncHandler's promise
+    // chain, so an unhandled throw here previously meant no response (and no
+    // CORS headers) ever went back — the browser reported that as a CORS
+    // failure even though CORS itself was configured correctly.
+    try {
+      if (err) return res.status(400).json({ success: false, message: err.message });
+      if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
 
-    // Team members: validate they are assigned to the target client
-    if (!MANAGER_ROLES.includes(req.user.role) && req.body.clientId) {
-      const assignedClients = await Client.find({
-        $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
-      }).select('_id');
-      const isAssigned = assignedClients.some(c => String(c._id) === String(req.body.clientId));
-      if (!isAssigned) {
-        return res.status(403).json({ success: false, message: 'Not authorised to upload files for this client' });
+      // Team members: validate they are assigned to the target client
+      if (!MANAGER_ROLES.includes(req.user.role) && req.body.clientId) {
+        const assignedClients = await Client.find({
+          $or: [{ accountManager: req.user._id }, { teamMembers: req.user._id }],
+        }).select('_id');
+        const isAssigned = assignedClients.some(c => String(c._id) === String(req.body.clientId));
+        if (!isAssigned) {
+          return res.status(403).json({ success: false, message: 'Not authorised to upload files for this client' });
+        }
+      }
+
+      const fileUrl = useCloudinary
+        ? req.file.path
+        : `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+
+      const file = await File.create({
+        client:       req.body.clientId,
+        uploadedBy:   req.user._id,
+        name:         req.body.name || req.file.originalname,
+        originalName: req.file.originalname,
+        url:          fileUrl,
+        mimeType:     req.file.mimetype,
+        size:         req.file.size,
+        category:     req.body.category || 'other',
+        description:  req.body.description,
+        tags:         req.body.tags ? JSON.parse(req.body.tags) : [],
+        isPublic:     req.body.isPublic !== 'false',
+        cloudinaryId: useCloudinary ? req.file.filename : null,
+        storageType:  useCloudinary ? 'cloudinary' : 'local',
+      });
+
+      const populated = await File.findById(file._id)
+        .populate('uploadedBy', 'name avatar')
+        .populate('client', 'name company');
+
+      const client = await Client.findById(req.body.clientId);
+      if (client?.linkedUserId) {
+        await createNotification(client.linkedUserId, {
+          type: 'file',
+          title: 'New File Uploaded',
+          body: `${req.user.name} uploaded: ${file.name}`,
+          link: `/files`,
+        });
+      }
+
+      res.status(201).json({ success: true, file: populated });
+    } catch (innerErr) {
+      console.error('[files/upload] error:', innerErr);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'Upload failed: ' + innerErr.message });
       }
     }
-
-    const isCloudinary = process.env.FILE_STORAGE === 'cloudinary';
-    const fileUrl = isCloudinary
-      ? req.file.path
-      : `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
-    const file = await File.create({
-      client:       req.body.clientId,
-      uploadedBy:   req.user._id,
-      name:         req.body.name || req.file.originalname,
-      originalName: req.file.originalname,
-      url:          fileUrl,
-      mimeType:     req.file.mimetype,
-      size:         req.file.size,
-      category:     req.body.category || 'other',
-      description:  req.body.description,
-      tags:         req.body.tags ? JSON.parse(req.body.tags) : [],
-      isPublic:     req.body.isPublic !== 'false',
-      cloudinaryId: isCloudinary ? req.file.filename : null,
-      storageType:  isCloudinary ? 'cloudinary' : 'local',
-    });
-
-    const populated = await File.findById(file._id)
-      .populate('uploadedBy', 'name avatar')
-      .populate('client', 'name company');
-
-    const client = await Client.findById(req.body.clientId);
-    if (client?.linkedUserId) {
-      await createNotification(client.linkedUserId, {
-        type: 'file',
-        title: 'New File Uploaded',
-        body: `${req.user.name} uploaded: ${file.name}`,
-        link: `/files`,
-      });
-    }
-
-    res.status(201).json({ success: true, file: populated });
   });
 }));
 
@@ -190,36 +200,42 @@ router.post('/:id/replace', protect, authorize('admin', 'manager', 'team'), asyn
 
   const upload = getUploader();
   upload.single('file')(req, res, async (err) => {
-    if (err) return res.status(400).json({ success: false, message: err.message });
-    if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
+    try {
+      if (err) return res.status(400).json({ success: false, message: err.message });
+      if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
 
-    // Clean up the old cloudinary asset if we're replacing one
-    if (existing.storageType === 'cloudinary' && existing.cloudinaryId) {
-      try {
-        const { cloudinary } = require('../config/cloudinary');
-        await cloudinary.uploader.destroy(existing.cloudinaryId);
-      } catch (e) { console.error('Cloudinary delete error:', e); }
+      // Clean up the old cloudinary asset if we're replacing one
+      if (existing.storageType === 'cloudinary' && existing.cloudinaryId) {
+        try {
+          const { cloudinary } = require('../config/cloudinary');
+          await cloudinary.uploader.destroy(existing.cloudinaryId);
+        } catch (e) { console.error('Cloudinary delete error:', e); }
+      }
+
+      const fileUrl = useCloudinary
+        ? req.file.path
+        : `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+
+      existing.url = fileUrl;
+      existing.originalName = req.file.originalname;
+      existing.mimeType = req.file.mimetype;
+      existing.size = req.file.size;
+      existing.cloudinaryId = useCloudinary ? req.file.filename : null;
+      existing.storageType = useCloudinary ? 'cloudinary' : 'local';
+      existing.missing = false;
+      await existing.save();
+
+      const populated = await File.findById(existing._id)
+        .populate('uploadedBy', 'name avatar')
+        .populate('client', 'name company');
+
+      res.json({ success: true, file: annotateAvailability(populated) });
+    } catch (innerErr) {
+      console.error('[files/replace] error:', innerErr);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, message: 'Upload failed: ' + innerErr.message });
+      }
     }
-
-    const isCloudinary = process.env.FILE_STORAGE === 'cloudinary';
-    const fileUrl = isCloudinary
-      ? req.file.path
-      : `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
-    existing.url = fileUrl;
-    existing.originalName = req.file.originalname;
-    existing.mimeType = req.file.mimetype;
-    existing.size = req.file.size;
-    existing.cloudinaryId = isCloudinary ? req.file.filename : null;
-    existing.storageType = isCloudinary ? 'cloudinary' : 'local';
-    existing.missing = false;
-    await existing.save();
-
-    const populated = await File.findById(existing._id)
-      .populate('uploadedBy', 'name avatar')
-      .populate('client', 'name company');
-
-    res.json({ success: true, file: annotateAvailability(populated) });
   });
 }));
 

@@ -3455,7 +3455,7 @@ export default function ClientDetailPage() {
                       fd.append('category', fileUploadForm.category);
                       fd.append('description', fileUploadForm.description);
                       fd.append('isPublic', fileUploadForm.isPublic);
-                      await api.post('/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                      await api.post('/files/upload', fd, { headers: { 'Content-Type': undefined } });
                       setShowFileUploadModal(false);
                       setSelectedUploadFile(null);
                       // Refresh files list
@@ -3894,7 +3894,7 @@ export default function ClientDetailPage() {
                       fd.append('name', monthlyReportName || selectedMonthlyReportFile.name);
                       fd.append('category', 'monthly_report');
                       fd.append('isPublic', true);
-                      await api.post('/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+                      await api.post('/files/upload', fd, { headers: { 'Content-Type': undefined } });
                       setShowMonthlyReportUploadModal(false);
                       setSelectedMonthlyReportFile(null);
                       setMonthlyReportName('');

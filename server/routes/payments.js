@@ -8,7 +8,7 @@ const RenewalHistory      = require('../models/RenewalHistory');
 const ActivityLog         = require('../models/ActivityLog');
 const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler }       = require('../middleware/error');
-const { getUploader, getFileUrl } = require('../config/cloudinary');
+const { getUploader, getFileUrl, useCloudinary } = require('../config/cloudinary');
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ router.put(
     const { upiId, bankAccountName, accountNumber, ifscCode } = req.body;
     const update = { upiId, bankAccountName, accountNumber, ifscCode, updatedBy: req.user._id };
     if (req.file) {
-      update.qrImageUrl = process.env.FILE_STORAGE === 'cloudinary'
+      update.qrImageUrl = useCloudinary
         ? req.file.path
         : getFileUrl(req, req.file.filename);
     }
@@ -164,7 +164,7 @@ router.post(
     if (!client) return res.status(404).json({ success: false, message: 'Client record not found' });
 
     const screenshotUrl = req.file
-      ? (process.env.FILE_STORAGE === 'cloudinary' ? req.file.path : getFileUrl(req, req.file.filename))
+      ? (useCloudinary ? req.file.path : getFileUrl(req, req.file.filename))
       : undefined;
 
     const pv = await PaymentVerification.create({

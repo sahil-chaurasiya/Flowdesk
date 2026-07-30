@@ -426,7 +426,7 @@ export function FilesAdminPage() {
       const fd = new FormData();
       fd.append('file', selectedFile);
       Object.entries(uploadForm).forEach(([k, v]) => fd.append(k, v));
-      await api.post('/files/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/files/upload', fd, { headers: { 'Content-Type': undefined } });
       setShowModal(false);
       setSelectedFile(null);
       setUploadError(null);

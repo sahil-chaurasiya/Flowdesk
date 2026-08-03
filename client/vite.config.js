@@ -9,6 +9,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+    build: {
+    sourcemap: true, // TEMP — remove once we find the prod-only crash
+  },
   server: {
     port: 5173,
     proxy: {

@@ -6,7 +6,7 @@ import {
   DollarSign, Plus, CheckCircle, CheckCircle2, Check, Clock, AlertCircle, AlertTriangle, Users, X, UserPlus,
   Instagram, Facebook, Youtube, Linkedin, Twitter, TrendingUp, Eye, EyeOff,
   Heart, MessageCircle, Share2, BarChart2, IndianRupee,
-  ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle,
+  ChevronLeft, ChevronRight, Star, MapPin, ThumbsUp, Trash2, Circle, Loader, XCircle, CalendarClock,
   Target, Settings, Save, ChevronDown, Filter, Key, Copy, Link2, Unlink, Upload, Lock, Download, FileStack,
 } from 'lucide-react';
 import {
@@ -86,6 +86,7 @@ const EVENT_TYPES = Object.keys(EVENT_COLORS);
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 const STATUS_CONFIG = {
+  scheduled:   { label: 'Scheduled',   icon: CalendarClock, color: '#6366f1', bg: '#eef2ff' },
   pending:     { label: 'Pending',     icon: Circle,       color: '#94a3b8', bg: '#f8fafc' },
   in_progress: { label: 'In Progress', icon: Loader,       color: '#f59e0b', bg: '#fffbeb' },
   done:        { label: 'Done',        icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },

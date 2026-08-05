@@ -31,7 +31,7 @@ const calendarEventSchema = new mongoose.Schema({
   // Status
   status: {
     type: String,
-    enum: ['pending', 'in_progress', 'done', 'cancelled'],
+    enum: ['scheduled', 'pending', 'in_progress', 'done', 'cancelled'],
     default: 'pending',
   },
 

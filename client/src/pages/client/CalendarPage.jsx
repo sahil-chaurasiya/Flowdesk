@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Clock, AlignLeft,
   AlertTriangle, Check, Building2, Calendar,
-  CheckCircle2, Circle, Loader, XCircle,
+  CheckCircle2, Circle, Loader, XCircle, CalendarClock,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -45,6 +45,7 @@ const SHOOT_SUBTYPES = {
 };
 
 const STATUS_CONFIG = {
+  scheduled:   { label: 'Scheduled',   icon: CalendarClock, color: '#6366f1', bg: '#eef2ff' },
   pending:     { label: 'Pending',     icon: Circle,       color: '#94a3b8', bg: '#f8fafc' },
   in_progress: { label: 'In Progress', icon: Loader,       color: '#f59e0b', bg: '#fffbeb' },
   done:        { label: 'Done',        icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },

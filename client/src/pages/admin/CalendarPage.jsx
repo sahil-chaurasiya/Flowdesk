@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import {
   ChevronLeft, ChevronRight, Plus, Check, Edit2, Trash2,
   Clock, AlignLeft, List, Filter, X, AlertTriangle, User,
-  CheckCircle2, Circle, Loader, XCircle, Building2, Star, Sparkles, Lock,
+  CheckCircle2, Circle, Loader, XCircle, Building2, Star, Sparkles, Lock, CalendarClock,
 } from 'lucide-react';
 import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
@@ -60,6 +60,7 @@ const SHOOT_SUBTYPE_LABELS = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value
 const SHOOT_SUBTYPE_ICONS  = Object.fromEntries(SHOOT_SUBTYPES.map(s => [s.value, s.icon]));
 
 const STATUS_CONFIG = {
+  scheduled:   { label: 'Scheduled',   icon: CalendarClock, color: '#6366f1', bg: '#eef2ff' },
   pending:     { label: 'Pending',     icon: Circle,       color: '#94a3b8', bg: '#f8fafc' },
   in_progress: { label: 'In Progress', icon: Loader,       color: '#f59e0b', bg: '#fffbeb' },
   done:        { label: 'Done',        icon: CheckCircle2, color: '#22c55e', bg: '#f0fdf4' },

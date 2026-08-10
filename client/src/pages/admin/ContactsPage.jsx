@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Plus, Search, Phone, Mail, MapPin, DollarSign,
-  Edit3, Trash2, X, Save, Users, Filter,
+  Edit3, Trash2, X, Save, Users, Filter, Eye, Check,
 } from 'lucide-react';
 import api from '../../lib/api';
+import useAuthStore from '../../context/authStore';
 import { PageHeader, EmptyState, Card, CardContent, Spinner } from '../../components/shared/LoadingScreen';
 import { Button, Modal, Input, Select, useToast } from '../../components/ui/index';
 
@@ -52,11 +53,23 @@ const EMPTY_FORM = {
   name: '', field: '', phone: '', email: '', location: '',
   rateType: 'per_project', rateAmount: '', currency: 'INR',
   paymentMethod: '', portfolio: '', notes: '', isActive: true,
+  visibleTo: [],
 };
 
-function ContactForm({ initial, onSubmit, loading, onClose }) {
+function ContactForm({ initial, onSubmit, loading, onClose, teamMembers = [], currentUser }) {
   const [form, setForm] = useState(initial || EMPTY_FORM);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const toggleVisibleTo = (userId) => {
+    setForm(p => {
+      const already = p.visibleTo.includes(userId);
+      return { ...p, visibleTo: already ? p.visibleTo.filter(id => id !== userId) : [...p.visibleTo, userId] };
+    });
+  };
+
+  // Anyone besides the current user and admins — they already have access
+  // by default, so selecting them again would be a no-op.
+  const selectableMembers = teamMembers.filter(m => m.role !== 'admin' && m._id !== currentUser?._id);
 
   // If the contact's field is already saved but isn't one of the known options,
   // treat the dropdown as "Other" and show the custom text input pre-filled.
@@ -149,6 +162,42 @@ function ContactForm({ initial, onSubmit, loading, onClose }) {
         <label htmlFor="contactActive" className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Active contact</label>
       </div>
 
+      {/* Visibility — who else on the team can see this contact */}
+      <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--fd-surface-raised)', border: '1px solid var(--fd-border)' }}>
+        <div className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>
+          <Eye size={13} /> Visible to ({form.visibleTo.length} selected)
+        </div>
+        <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>
+          Admins and you always have access. Pick any other active team members who should see this contact too.
+        </p>
+        <div className="max-h-40 overflow-y-auto rounded-lg divide-y" style={{ border: '1px solid var(--fd-border)' }}>
+          {selectableMembers.length === 0 && (
+            <p className="text-[11px] p-3" style={{ color: 'var(--fd-ink-4)' }}>No other active team members yet.</p>
+          )}
+          {selectableMembers.map(member => {
+            const selected = form.visibleTo.includes(member._id);
+            return (
+              <button
+                key={member._id}
+                type="button"
+                onClick={() => toggleVisibleTo(member._id)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:opacity-80"
+                style={{ background: selected ? 'var(--fd-accent-light, #eff0fe)' : 'transparent' }}
+              >
+                <span
+                  className="w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center"
+                  style={{ background: selected ? 'var(--fd-accent, #4f6ef0)' : 'var(--fd-surface-sunken)', border: `1.5px solid ${selected ? 'var(--fd-accent, #4f6ef0)' : 'var(--fd-border)'}` }}
+                >
+                  {selected && <Check size={8} color="#fff" />}
+                </span>
+                <span className="text-[12px] font-medium" style={{ color: selected ? '#1a1a2e' : 'var(--fd-ink-1)' }}>{member.name}</span>
+                <span className="text-[11px] ml-auto capitalize" style={{ color: selected ? '#3a3a5c' : 'var(--fd-ink-4)' }}>{fieldLabel(member.jobTitle || member.role)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
         <Button
@@ -166,7 +215,10 @@ function ContactForm({ initial, onSubmit, loading, onClose }) {
 
 export default function ContactsPage() {
   const toast = useToast();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const [contacts, setContacts] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [fieldFilter, setFieldFilter] = useState('');
@@ -175,6 +227,16 @@ export default function ContactsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Contact is editable by whoever added it, and always by an admin.
+  const canEditContact = (c) => isAdmin || (c.addedBy?._id || c.addedBy) === user?._id;
+
+  // visibleTo comes back populated ({_id, name, role}) from the list —
+  // normalize to plain ids so the form's checkbox comparisons work.
+  const openEditModal = (c) => {
+    setEditContact({ ...c, visibleTo: (c.visibleTo || []).map(v => v._id || v) });
+    setShowModal(true);
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -188,6 +250,12 @@ export default function ContactsPage() {
   }, [search, fieldFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    api.get('/users?role=team&isActive=true').then(({ data }) => {
+      setTeamMembers(data.users || []);
+    }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (form) => {
     setSaving(true);
@@ -296,6 +364,11 @@ export default function ContactsPage() {
                               Portfolio ↗
                             </a>
                           )}
+                          <div className="flex items-center gap-1 mt-0.5 text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
+                            <Eye size={10} />
+                            {`Admins, ${c.addedBy?.name || 'adder'}`}
+                            {c.visibleTo?.length ? ` +${c.visibleTo.length} more` : ''}
+                          </div>
                         </td>
                         <td>
                           {c.field ? (
@@ -336,21 +409,25 @@ export default function ContactsPage() {
                         </td>
                         <td>
                           <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => { setEditContact(c); setShowModal(true); }}
-                              className="btn-ghost p-1.5"
-                              title="Edit"
-                            >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              onClick={() => setDeleteId(c._id)}
-                              className="btn-ghost p-1.5"
-                              title="Delete"
-                              style={{ color: '#b91c1c' }}
-                            >
-                              <Trash2 size={13} />
-                            </button>
+                            {canEditContact(c) && (
+                              <button
+                                onClick={() => openEditModal(c)}
+                                className="btn-ghost p-1.5"
+                                title="Edit"
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                            )}
+                            {isAdmin && (
+                              <button
+                                onClick={() => setDeleteId(c._id)}
+                                className="btn-ghost p-1.5"
+                                title="Delete"
+                                style={{ color: '#b91c1c' }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -374,10 +451,19 @@ export default function ContactsPage() {
                             {fieldLabel(c.field)}
                           </span>
                         )}
+                        <div className="flex items-center gap-1 mt-1 text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
+                          <Eye size={10} />
+                          {`Admins, ${c.addedBy?.name || 'adder'}`}
+                          {c.visibleTo?.length ? ` +${c.visibleTo.length} more` : ''}
+                        </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
-                        <button onClick={() => { setEditContact(c); setShowModal(true); }} className="btn-ghost p-1.5"><Edit3 size={13} /></button>
-                        <button onClick={() => setDeleteId(c._id)} className="btn-ghost p-1.5" style={{ color: '#b91c1c' }}><Trash2 size={13} /></button>
+                        {canEditContact(c) && (
+                          <button onClick={() => openEditModal(c)} className="btn-ghost p-1.5"><Edit3 size={13} /></button>
+                        )}
+                        {isAdmin && (
+                          <button onClick={() => setDeleteId(c._id)} className="btn-ghost p-1.5" style={{ color: '#b91c1c' }}><Trash2 size={13} /></button>
+                        )}
                       </div>
                     </div>
                     <div className="text-[12px] space-y-1" style={{ color: 'var(--fd-ink-3)' }}>
@@ -407,6 +493,8 @@ export default function ContactsPage() {
           onSubmit={handleSubmit}
           loading={saving}
           onClose={() => { setShowModal(false); setEditContact(null); }}
+          teamMembers={teamMembers}
+          currentUser={user}
         />
       </Modal>
 

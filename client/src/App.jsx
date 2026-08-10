@@ -181,9 +181,10 @@ export default function App() {
                      server-side, not by role) ───────────────────────────── */}
                 <Route path="credentials/websites" element={<WebsiteCredentialsPage />} />
 
-                {/* ── Contacts / Vendors (admin only) ──────────────────── */}
+                {/* ── Contacts / Vendors (all team members — visibility of
+                     individual contacts is enforced server-side) ───────── */}
                 <Route path="contacts" element={
-                  <ProtectedRoute roles={['admin']}>
+                  <ProtectedRoute roles={TEAM_ROLES}>
                     <ContactsPage />
                   </ProtectedRoute>
                 } />

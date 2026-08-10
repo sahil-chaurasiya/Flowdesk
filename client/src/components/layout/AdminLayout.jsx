@@ -51,7 +51,7 @@ const navItems = [
   { to: '/admin/team',       icon: Users,           label: 'Team',         adminOnly: true },
   { to: '/admin/team-log',   icon: ClipboardList,   label: 'Team Log',     adminManagerOnly: true },
   { to: '/admin/credentials', icon: Key,            label: 'Credentials' },
-  { to: '/admin/contacts',   icon: BookUser,        label: 'Contacts',     adminOnly: true },
+  { to: '/admin/contacts',   icon: BookUser,        label: 'Contacts' },
   { to: '/admin/activity',   icon: Activity,        label: 'Activity',     adminOnly: true },
   { to: '/admin/logs',       icon: FileSearch,      label: 'API Logs',     adminOnly: true },
   { to: '/admin/payment-verifications', icon: CreditCard, label: 'Payments', adminOnly: true },

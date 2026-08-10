@@ -60,11 +60,20 @@ const contactSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
   },
+  // Team members (besides the admin, who always has access, and the person
+  // who added the contact) who are allowed to see this contact. Chosen by
+  // whoever adds the contact.
+  visibleTo: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  }],
 }, {
   timestamps: true,
 });
 
 contactSchema.index({ field: 1 });
 contactSchema.index({ isActive: 1 });
+contactSchema.index({ addedBy: 1 });
+contactSchema.index({ visibleTo: 1 });
 
 module.exports = mongoose.model('Contact', contactSchema);

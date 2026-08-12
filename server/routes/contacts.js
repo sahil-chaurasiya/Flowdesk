@@ -5,44 +5,35 @@ const { protect, authorize } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/error');
 
 // @route GET /api/contacts
-// Visible to every team member. Admins see every contact by default;
-// everyone else only sees contacts they added themselves or that they were
-// explicitly given access to via `visibleTo`.
+// Visible to every team member. Every contact is visible to the entire
+// team regardless of who added it — no per-contact visibility
+// restrictions.
 router.get('/', protect, authorize('team'), asyncHandler(async (req, res) => {
-  const { search, field, isActive, page = 1, limit = 50 } = req.query;
+  const { search, field, isActive, minFollowers, maxFollowers, page = 1, limit = 50 } = req.query;
   const query = {};
 
   if (isActive !== undefined) query.isActive = isActive === 'true';
   if (field) query.field = field;
 
-  const conditions = [];
+  if (minFollowers !== undefined || maxFollowers !== undefined) {
+    query.followers = {};
+    if (minFollowers !== undefined && minFollowers !== '') query.followers.$gte = Number(minFollowers);
+    if (maxFollowers !== undefined && maxFollowers !== '') query.followers.$lte = Number(maxFollowers);
+  }
+
   if (search) {
-    conditions.push({
-      $or: [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { phone: { $regex: search, $options: 'i' } },
-        { location: { $regex: search, $options: 'i' } },
-        { field: { $regex: search, $options: 'i' } },
-      ],
-    });
+    query.$or = [
+      { name: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+      { phone: { $regex: search, $options: 'i' } },
+      { location: { $regex: search, $options: 'i' } },
+      { field: { $regex: search, $options: 'i' } },
+    ];
   }
-
-  if (req.user.role !== 'admin') {
-    conditions.push({
-      $or: [
-        { addedBy: req.user._id },
-        { visibleTo: req.user._id },
-      ],
-    });
-  }
-
-  if (conditions.length) query.$and = conditions;
 
   const total = await Contact.countDocuments(query);
   const contacts = await Contact.find(query)
     .populate('addedBy', 'name role')
-    .populate('visibleTo', 'name role')
     .sort({ createdAt: -1 })
     .skip((page - 1) * limit)
     .limit(Number(limit));
@@ -51,15 +42,11 @@ router.get('/', protect, authorize('team'), asyncHandler(async (req, res) => {
 }));
 
 // @route POST /api/contacts
-// Any team member can add a contact. The adder chooses (via `visibleTo`)
-// which other active team members can see it — admins can always see it
-// regardless, and so can whoever added it.
+// Any team member can add a contact. Contacts are visible to the whole
+// team by default — there's no per-contact visibility restriction.
 router.post('/', protect, authorize('team'), asyncHandler(async (req, res) => {
   const contact = await Contact.create({ ...req.body, addedBy: req.user._id });
-  const populated = await contact.populate([
-    { path: 'addedBy', select: 'name role' },
-    { path: 'visibleTo', select: 'name role' },
-  ]);
+  const populated = await contact.populate({ path: 'addedBy', select: 'name role' });
   res.status(201).json({ success: true, contact: populated });
 }));
 
@@ -76,8 +63,7 @@ router.put('/:id', protect, authorize('team'), asyncHandler(async (req, res) => 
   }
 
   const contact = await Contact.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-    .populate('addedBy', 'name role')
-    .populate('visibleTo', 'name role');
+    .populate('addedBy', 'name role');
   res.json({ success: true, contact });
 }));
 

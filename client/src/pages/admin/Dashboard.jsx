@@ -118,7 +118,7 @@ function TaskRow({ task, onStatusChange, updating }) {
         {task.priority}
       </span>
 
-      {onStatusChange ? (
+      {onStatusChange && task.status !== 'completed' && task.status !== 'cancelled' ? (
         <select
           className="text-[10.5px] font-medium px-2 py-0.5 rounded-full border-0 outline-none cursor-pointer flex-shrink-0"
           style={sStyle}
@@ -483,13 +483,18 @@ function TeamMemberDashboard({ user }) {
   const inProgress = tasks.filter(t => t.status === 'in_progress');
   const review    = tasks.filter(t => t.status === 'review');
   const completed = tasks.filter(t => t.status === 'completed');
-  // "Today" feed: anything that has to do with today — due today, completed
-  // today, marked as today's task, or currently being worked on / in review.
+  // "Active" feed: anything still outstanding — overdue, due today, or
+  // currently in flight (today/pending/in_progress/review). Completed and
+  // cancelled tasks are never included here, even if they were completed
+  // today — this widget is for what's still on the person's plate, not a
+  // "what happened today" log. (The Completed stat card above already
+  // covers that.)
   const todayTasks = tasks.filter(t => {
-    const dueToday       = t.deadline && isToday(new Date(t.deadline));
-    const completedToday = t.completedAt && isToday(new Date(t.completedAt));
-    const inFlight        = t.status === 'today' || t.status === 'in_progress' || t.status === 'review';
-    return dueToday || completedToday || inFlight;
+    if (t.status === 'completed' || t.status === 'cancelled') return false;
+    const overdue  = t.deadline && new Date(t.deadline) < new Date();
+    const dueToday = t.deadline && isToday(new Date(t.deadline));
+    const inFlight = t.status === 'today' || t.status === 'pending' || t.status === 'in_progress' || t.status === 'review';
+    return overdue || dueToday || inFlight;
   });
 
   if (loading) return <div className="flex items-center justify-center h-60"><Spinner size="lg" /></div>;

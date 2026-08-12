@@ -4,7 +4,7 @@ import {
   ListChecks, Clock, CheckCircle, AlertCircle, Play,
   X, Calendar, User, Tag, Flag, Building2, FileText, ChevronRight,
   ArrowRight, ChevronDown, ChevronLeft, UserCheck, Send, Zap, RotateCcw, MessageSquarePlus,
-  CalendarDays, SlidersHorizontal,
+  CalendarDays, SlidersHorizontal, PauseCircle,
 } from 'lucide-react';
 import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
 import api from '../../lib/api';
@@ -687,6 +687,11 @@ export default function MyTasksPage() {
   const welcome = ROLE_WELCOME[user?.role] || { greeting: 'Your Tasks', icon: '📋', tip: '' };
 
   const today     = tasks.filter(t => t.status === 'today').length;
+  // Tasks sitting untouched (never started, not due "today"). These were
+  // previously missing from the stat row entirely, so the visible task list
+  // total (e.g. 24) never matched the sum of the KPI cards (e.g. 19) —
+  // every "pending" task just silently fell out of the summary.
+  const pending = tasks.filter(t => t.status === 'pending').length;
   const inProgress = tasks.filter(t => t.status === 'in_progress').length;
   const review = tasks.filter(t => t.status === 'review').length;
   const completed = tasks.filter(t => t.status === 'completed').length;
@@ -705,11 +710,12 @@ export default function MyTasksPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-        <StatCard title="Today"       value={today}      icon={AlertCircle} color="orange" subtitle="Due today" />
-        <StatCard title="In Progress" value={inProgress} icon={Play}        color="blue"   subtitle="Active" />
-        <StatCard title="In Review"   value={review}     icon={Clock}       color="purple" subtitle="Awaiting approval" />
-        <StatCard title="Completed"   value={completed}  icon={CheckCircle} color="green"  subtitle="Done" />
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4">
+        <StatCard title="Today"       value={today}      icon={AlertCircle}  color="orange" subtitle="Due today" />
+        <StatCard title="Pending"     value={pending}    icon={PauseCircle}  color="red"    subtitle="Not started" />
+        <StatCard title="In Progress" value={inProgress} icon={Play}         color="blue"   subtitle="Active" />
+        <StatCard title="In Review"   value={review}     icon={Clock}        color="purple" subtitle="Awaiting approval" />
+        <StatCard title="Completed"   value={completed}  icon={CheckCircle}  color="green"  subtitle="Done" />
         <StatCard title="Revisions"   value={totalRevisions} icon={RotateCcw} color="orange" subtitle="Changes requested" />
       </div>
 

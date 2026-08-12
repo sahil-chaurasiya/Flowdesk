@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Plus, Search, Phone, Mail, MapPin, DollarSign,
-  Edit3, Trash2, X, Save, Users, Filter, Eye, Check,
+  Edit3, Trash2, X, Save, Users, Filter, UserCheck,
 } from 'lucide-react';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
@@ -49,27 +49,22 @@ function formatRate(contact) {
   return `${contact.currency || 'INR'} ${contact.rateAmount.toLocaleString()} ${label}`;
 }
 
+function formatFollowers(n) {
+  if (!n) return '—';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, '')}K`;
+  return n.toLocaleString();
+}
+
 const EMPTY_FORM = {
   name: '', field: '', phone: '', email: '', location: '',
   rateType: 'per_project', rateAmount: '', currency: 'INR',
-  paymentMethod: '', portfolio: '', notes: '', isActive: true,
-  visibleTo: [],
+  paymentMethod: '', portfolio: '', followers: '', notes: '', isActive: true,
 };
 
-function ContactForm({ initial, onSubmit, loading, onClose, teamMembers = [], currentUser }) {
+function ContactForm({ initial, onSubmit, loading, onClose }) {
   const [form, setForm] = useState(initial || EMPTY_FORM);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
-
-  const toggleVisibleTo = (userId) => {
-    setForm(p => {
-      const already = p.visibleTo.includes(userId);
-      return { ...p, visibleTo: already ? p.visibleTo.filter(id => id !== userId) : [...p.visibleTo, userId] };
-    });
-  };
-
-  // Anyone besides the current user and admins — they already have access
-  // by default, so selecting them again would be a no-op.
-  const selectableMembers = teamMembers.filter(m => m.role !== 'admin' && m._id !== currentUser?._id);
 
   // If the contact's field is already saved but isn't one of the known options,
   // treat the dropdown as "Other" and show the custom text input pre-filled.
@@ -139,7 +134,17 @@ function ContactForm({ initial, onSubmit, loading, onClose, teamMembers = [], cu
         <Input label="Payment Method" value={form.paymentMethod} onChange={e => set('paymentMethod', e.target.value)} placeholder="e.g. UPI, Bank Transfer, Cash" />
       </div>
 
-      <Input label="Portfolio / Website" value={form.portfolio} onChange={e => set('portfolio', e.target.value)} placeholder="https://..." />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input label="Portfolio / Website" value={form.portfolio} onChange={e => set('portfolio', e.target.value)} placeholder="https://..." />
+        <Input
+          label="Followers"
+          type="number"
+          min="0"
+          value={form.followers}
+          onChange={e => set('followers', e.target.value)}
+          placeholder="e.g. 15000"
+        />
+      </div>
       <div>
         <label className="block text-[12px] font-medium mb-1.5" style={{ color: 'var(--fd-ink-2)' }}>Notes</label>
         <textarea
@@ -162,42 +167,6 @@ function ContactForm({ initial, onSubmit, loading, onClose, teamMembers = [], cu
         <label htmlFor="contactActive" className="text-[13px]" style={{ color: 'var(--fd-ink-2)' }}>Active contact</label>
       </div>
 
-      {/* Visibility — who else on the team can see this contact */}
-      <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--fd-surface-raised)', border: '1px solid var(--fd-border)' }}>
-        <div className="flex items-center gap-1.5 text-[12px] font-semibold" style={{ color: 'var(--fd-ink-2)' }}>
-          <Eye size={13} /> Visible to ({form.visibleTo.length} selected)
-        </div>
-        <p className="text-[11px]" style={{ color: 'var(--fd-ink-4)' }}>
-          Admins and you always have access. Pick any other active team members who should see this contact too.
-        </p>
-        <div className="max-h-40 overflow-y-auto rounded-lg divide-y" style={{ border: '1px solid var(--fd-border)' }}>
-          {selectableMembers.length === 0 && (
-            <p className="text-[11px] p-3" style={{ color: 'var(--fd-ink-4)' }}>No other active team members yet.</p>
-          )}
-          {selectableMembers.map(member => {
-            const selected = form.visibleTo.includes(member._id);
-            return (
-              <button
-                key={member._id}
-                type="button"
-                onClick={() => toggleVisibleTo(member._id)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:opacity-80"
-                style={{ background: selected ? 'var(--fd-accent-light, #eff0fe)' : 'transparent' }}
-              >
-                <span
-                  className="w-3.5 h-3.5 rounded flex-shrink-0 flex items-center justify-center"
-                  style={{ background: selected ? 'var(--fd-accent, #4f6ef0)' : 'var(--fd-surface-sunken)', border: `1.5px solid ${selected ? 'var(--fd-accent, #4f6ef0)' : 'var(--fd-border)'}` }}
-                >
-                  {selected && <Check size={8} color="#fff" />}
-                </span>
-                <span className="text-[12px] font-medium" style={{ color: selected ? '#1a1a2e' : 'var(--fd-ink-1)' }}>{member.name}</span>
-                <span className="text-[11px] ml-auto capitalize" style={{ color: selected ? '#3a3a5c' : 'var(--fd-ink-4)' }}>{fieldLabel(member.jobTitle || member.role)}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       <div className="flex justify-end gap-2 pt-2">
         <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
         <Button
@@ -218,10 +187,10 @@ export default function ContactsPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const [contacts, setContacts] = useState([]);
-  const [teamMembers, setTeamMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [fieldFilter, setFieldFilter] = useState('');
+  const [minFollowers, setMinFollowers] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editContact, setEditContact] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -231,10 +200,8 @@ export default function ContactsPage() {
   // Contact is editable by whoever added it, and always by an admin.
   const canEditContact = (c) => isAdmin || (c.addedBy?._id || c.addedBy) === user?._id;
 
-  // visibleTo comes back populated ({_id, name, role}) from the list —
-  // normalize to plain ids so the form's checkbox comparisons work.
   const openEditModal = (c) => {
-    setEditContact({ ...c, visibleTo: (c.visibleTo || []).map(v => v._id || v) });
+    setEditContact(c);
     setShowModal(true);
   };
 
@@ -244,18 +211,13 @@ export default function ContactsPage() {
       const params = new URLSearchParams({ limit: 100 });
       if (search)      params.set('search', search);
       if (fieldFilter) params.set('field', fieldFilter);
+      if (minFollowers !== '') params.set('minFollowers', minFollowers);
       const { data } = await api.get(`/contacts?${params}`);
       setContacts(data.contacts || []);
     } finally { setLoading(false); }
-  }, [search, fieldFilter]);
+  }, [search, fieldFilter, minFollowers]);
 
   useEffect(() => { load(); }, [load]);
-
-  useEffect(() => {
-    api.get('/users?role=team&isActive=true').then(({ data }) => {
-      setTeamMembers(data.users || []);
-    }).catch(() => {});
-  }, []);
 
   const handleSubmit = async (form) => {
     setSaving(true);
@@ -324,6 +286,17 @@ export default function ContactsPage() {
             {uniqueFields.map(f => <option key={f} value={f}>{fieldLabel(f)}</option>)}
           </select>
         </div>
+        <div className="flex items-center gap-2">
+          <UserCheck size={14} style={{ color: 'var(--fd-ink-4)' }} />
+          <input
+            type="number"
+            min="0"
+            className="fd-input text-[13px] w-32"
+            placeholder="Min followers"
+            value={minFollowers}
+            onChange={e => setMinFollowers(e.target.value)}
+          />
+        </div>
         <div className="text-[12px] self-center" style={{ color: 'var(--fd-ink-4)' }}>
           {contacts.length} contact{contacts.length !== 1 ? 's' : ''}
         </div>
@@ -346,7 +319,7 @@ export default function ContactsPage() {
               <table className="fd-table">
                 <thead>
                   <tr>
-                    {['Name', 'Field', 'Contact', 'Location', 'Rate', 'Payment Method', ''].map(h => (
+                    {['Name', 'Field', 'Contact', 'Location', 'Followers', 'Rate', 'Payment Method', ''].map(h => (
                       <th key={h}>{h}</th>
                     ))}
                   </tr>
@@ -364,11 +337,6 @@ export default function ContactsPage() {
                               Portfolio ↗
                             </a>
                           )}
-                          <div className="flex items-center gap-1 mt-0.5 text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
-                            <Eye size={10} />
-                            {`Admins, ${c.addedBy?.name || 'adder'}`}
-                            {c.visibleTo?.length ? ` +${c.visibleTo.length} more` : ''}
-                          </div>
                         </td>
                         <td>
                           {c.field ? (
@@ -398,6 +366,11 @@ export default function ContactsPage() {
                               <MapPin size={11} style={{ color: 'var(--fd-ink-4)' }} />{c.location}
                             </div>
                           ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>}
+                        </td>
+                        <td>
+                          <div className="flex items-center gap-1.5 text-[12px]" style={{ color: 'var(--fd-ink-2)' }}>
+                            <UserCheck size={11} style={{ color: 'var(--fd-ink-4)' }} />{formatFollowers(c.followers)}
+                          </div>
                         </td>
                         <td>
                           <div className="flex items-center gap-1 text-[12.5px]" style={{ color: 'var(--fd-ink-2)' }}>
@@ -451,11 +424,6 @@ export default function ContactsPage() {
                             {fieldLabel(c.field)}
                           </span>
                         )}
-                        <div className="flex items-center gap-1 mt-1 text-[10.5px]" style={{ color: 'var(--fd-ink-4)' }}>
-                          <Eye size={10} />
-                          {`Admins, ${c.addedBy?.name || 'adder'}`}
-                          {c.visibleTo?.length ? ` +${c.visibleTo.length} more` : ''}
-                        </div>
                       </div>
                       <div className="flex gap-1 shrink-0">
                         {canEditContact(c) && (
@@ -470,6 +438,7 @@ export default function ContactsPage() {
                       {c.phone && <div className="flex items-center gap-1.5"><Phone size={11} />{c.phone}</div>}
                       {c.email && <div className="flex items-center gap-1.5"><Mail size={11} />{c.email}</div>}
                       {c.location && <div className="flex items-center gap-1.5"><MapPin size={11} />{c.location}</div>}
+                      {c.followers > 0 && <div className="flex items-center gap-1.5"><UserCheck size={11} />{formatFollowers(c.followers)} followers</div>}
                       {c.rateAmount > 0 && <div className="flex items-center gap-1.5">{formatRate(c)}</div>}
                     </div>
                     {c.notes && <p className="text-[11.5px] italic" style={{ color: 'var(--fd-ink-4)' }}>{c.notes}</p>}
@@ -493,8 +462,6 @@ export default function ContactsPage() {
           onSubmit={handleSubmit}
           loading={saving}
           onClose={() => { setShowModal(false); setEditContact(null); }}
-          teamMembers={teamMembers}
-          currentUser={user}
         />
       </Modal>
 

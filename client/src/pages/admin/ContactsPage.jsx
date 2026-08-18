@@ -24,6 +24,15 @@ const RATE_TYPES = [
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED'];
 
+const GENDER_OPTIONS = [
+  { value: 'male',   label: 'Male' },
+  { value: 'female', label: 'Female' },
+];
+
+function genderLabel(g) {
+  return GENDER_OPTIONS.find(o => o.value === g)?.label || '—';
+}
+
 const FIELD_COLORS = {
   videographer:        { bg: '#eff0fe', color: '#3a56d4' },
   photographer:        { bg: '#fdf2ff', color: '#7e22ce' },
@@ -57,7 +66,7 @@ function formatFollowers(n) {
 }
 
 const EMPTY_FORM = {
-  name: '', field: '', phone: '', email: '', location: '',
+  name: '', field: '', gender: '', phone: '', email: '', location: '',
   rateType: 'per_project', rateAmount: '', currency: 'INR',
   paymentMethod: '', portfolio: '', followers: '', notes: '', isActive: true,
 };
@@ -114,10 +123,16 @@ function ContactForm({ initial, onSubmit, loading, onClose }) {
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Select label="Gender" value={form.gender || ''} onChange={e => set('gender', e.target.value)}>
+          <option value="">Select...</option>
+          {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </Select>
+        <Input label="Location" value={form.location} onChange={e => set('location', e.target.value)} placeholder="City, Country" />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Phone" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+91 98000 00000" />
         <Input label="Email" type="email" value={form.email} onChange={e => set('email', e.target.value)} />
       </div>
-      <Input label="Location" value={form.location} onChange={e => set('location', e.target.value)} placeholder="City, Country" />
 
       {/* Rate info */}
       <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--fd-surface-raised)', border: '1px solid var(--fd-border)' }}>
@@ -190,6 +205,7 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [fieldFilter, setFieldFilter] = useState('');
+  const [genderFilter, setGenderFilter] = useState('');
   const [minFollowers, setMinFollowers] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editContact, setEditContact] = useState(null);
@@ -209,24 +225,27 @@ export default function ContactsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: 100 });
-      if (search)      params.set('search', search);
-      if (fieldFilter) params.set('field', fieldFilter);
+      if (search)       params.set('search', search);
+      if (fieldFilter)  params.set('field', fieldFilter);
+      if (genderFilter) params.set('gender', genderFilter);
       if (minFollowers !== '') params.set('minFollowers', minFollowers);
       const { data } = await api.get(`/contacts?${params}`);
       setContacts(data.contacts || []);
     } finally { setLoading(false); }
-  }, [search, fieldFilter, minFollowers]);
+  }, [search, fieldFilter, genderFilter, minFollowers]);
 
   useEffect(() => { load(); }, [load]);
 
   const handleSubmit = async (form) => {
     setSaving(true);
     try {
+      const payload = { ...form };
+      if (!payload.gender) delete payload.gender; // avoid sending '' against the gender enum
       if (editContact) {
-        await api.put(`/contacts/${editContact._id}`, form);
+        await api.put(`/contacts/${editContact._id}`, payload);
         toast({ type: 'success', title: 'Contact updated' });
       } else {
-        await api.post('/contacts', form);
+        await api.post('/contacts', payload);
         toast({ type: 'success', title: 'Contact added' });
       }
       setShowModal(false);
@@ -287,6 +306,17 @@ export default function ContactsPage() {
           </select>
         </div>
         <div className="flex items-center gap-2">
+          <Filter size={14} style={{ color: 'var(--fd-ink-4)' }} />
+          <select
+            className="fd-input text-[13px] pr-8"
+            value={genderFilter}
+            onChange={e => setGenderFilter(e.target.value)}
+          >
+            <option value="">All Genders</option>
+            {GENDER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
           <UserCheck size={14} style={{ color: 'var(--fd-ink-4)' }} />
           <input
             type="number"
@@ -319,7 +349,7 @@ export default function ContactsPage() {
               <table className="fd-table">
                 <thead>
                   <tr>
-                    {['Name', 'Field', 'Contact', 'Location', 'Followers', 'Rate', 'Payment Method', ''].map(h => (
+                    {['Name', 'Field', 'Gender', 'Contact', 'Location', 'Followers', 'Rate', 'Payment Method', ''].map(h => (
                       <th key={h}>{h}</th>
                     ))}
                   </tr>
@@ -344,6 +374,9 @@ export default function ContactsPage() {
                               {fieldLabel(c.field)}
                             </span>
                           ) : <span style={{ color: 'var(--fd-ink-5)' }}>—</span>}
+                        </td>
+                        <td className="text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
+                          {genderLabel(c.gender)}
                         </td>
                         <td>
                           <div className="space-y-0.5">
@@ -422,6 +455,11 @@ export default function ContactsPage() {
                         {c.field && (
                           <span className="text-[11px] font-medium px-2 py-0.5 rounded-full capitalize inline-block mt-1" style={chip}>
                             {fieldLabel(c.field)}
+                          </span>
+                        )}
+                        {c.gender && (
+                          <span className="text-[11px] ml-1.5" style={{ color: 'var(--fd-ink-4)' }}>
+                            {genderLabel(c.gender)}
                           </span>
                         )}
                       </div>

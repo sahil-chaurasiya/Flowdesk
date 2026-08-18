@@ -11,6 +11,10 @@ const contactSchema = new mongoose.Schema({
     type: String,
     trim: true,
   },
+  gender: {
+    type: String,
+    enum: ['male', 'female'],
+  },
   phone: {
     type: String,
     trim: true,
@@ -71,6 +75,7 @@ const contactSchema = new mongoose.Schema({
 });
 
 contactSchema.index({ field: 1 });
+contactSchema.index({ gender: 1 });
 contactSchema.index({ isActive: 1 });
 contactSchema.index({ addedBy: 1 });
 contactSchema.index({ followers: 1 });

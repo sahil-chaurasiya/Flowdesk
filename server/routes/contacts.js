@@ -9,11 +9,12 @@ const { asyncHandler } = require('../middleware/error');
 // team regardless of who added it — no per-contact visibility
 // restrictions.
 router.get('/', protect, authorize('team'), asyncHandler(async (req, res) => {
-  const { search, field, isActive, minFollowers, maxFollowers, page = 1, limit = 50 } = req.query;
+  const { search, field, gender, isActive, minFollowers, maxFollowers, page = 1, limit = 50 } = req.query;
   const query = {};
 
   if (isActive !== undefined) query.isActive = isActive === 'true';
   if (field) query.field = field;
+  if (gender) query.gender = gender;
 
   if (minFollowers !== undefined || maxFollowers !== undefined) {
     query.followers = {};
@@ -45,7 +46,9 @@ router.get('/', protect, authorize('team'), asyncHandler(async (req, res) => {
 // Any team member can add a contact. Contacts are visible to the whole
 // team by default — there's no per-contact visibility restriction.
 router.post('/', protect, authorize('team'), asyncHandler(async (req, res) => {
-  const contact = await Contact.create({ ...req.body, addedBy: req.user._id });
+  const body = { ...req.body };
+  if (body.gender === '') delete body.gender;
+  const contact = await Contact.create({ ...body, addedBy: req.user._id });
   const populated = await contact.populate({ path: 'addedBy', select: 'name role' });
   res.status(201).json({ success: true, contact: populated });
 }));
@@ -62,7 +65,9 @@ router.put('/:id', protect, authorize('team'), asyncHandler(async (req, res) => 
     return res.status(403).json({ success: false, message: 'You can only edit contacts you added' });
   }
 
-  const contact = await Contact.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+  const body = { ...req.body };
+  if (body.gender === '') body.gender = undefined;
+  const contact = await Contact.findByIdAndUpdate(req.params.id, body, { new: true, runValidators: true })
     .populate('addedBy', 'name role');
   res.json({ success: true, contact });
 }));

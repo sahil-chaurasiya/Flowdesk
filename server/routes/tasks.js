@@ -186,9 +186,15 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
       // No specific client requested — scope to managed clients. Website
       // Work tasks have no client, so they're exempted from this clause;
       // their visibility is governed separately below (owned-by-me only).
+      // Tasks with no client at all ("Other" — see isOtherFilter above)
+      // aren't tied to any specific client either, so they shouldn't be
+      // scoped away just because this manager isn't the account manager
+      // for some other client — otherwise they'd only ever be reachable
+      // by explicitly applying the "Other" filter.
       query.$or = [
         { client: { $in: scopedClientIds } },
         { isWebsiteWork: true },
+        { client: null },
       ];
     }
     // Admin with no filter: no restriction (scopedClientIds === null)
@@ -364,12 +370,20 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
     const allowed = ['status', 'actualHours', 'comments'];
     Object.keys(req.body).forEach(key => { if (!allowed.includes(key)) delete req.body[key]; });
   } else if (req.user.role === 'manager') {
-    // Managers: verify they have access to this task's client
-    const scopedClientIds = await getScopedClientIds(req.user);
-    if (scopedClientIds) {
-      const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
-      if (!hasAccess) {
-        return res.status(403).json({ success: false, message: 'Not authorised to edit this task' });
+    // Managers: verify they have access to this task's client. Tasks with
+    // no client ("Other" tasks) aren't tied to any specific client, so
+    // they're never out of scope — only skip the check when there actually
+    // is a client to check against. Previously this compared scopedClientIds
+    // against String(null) for these tasks, which never matched anything
+    // and made every "Other" task un-editable (e.g. couldn't be marked
+    // complete) for scoped managers.
+    if (existing.client) {
+      const scopedClientIds = await getScopedClientIds(req.user);
+      if (scopedClientIds) {
+        const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, message: 'Not authorised to edit this task' });
+        }
       }
     }
   } else if (req.user.role === 'developer') {
@@ -475,8 +489,10 @@ router.delete('/:id', protect, authorize('admin', 'manager', 'developer'), async
     return res.status(404).json({ success: false, message: 'Task not found' });
   }
 
-  // Managers: verify they have access to this task's client
-  if (req.user.role === 'manager') {
+  // Managers: verify they have access to this task's client. Tasks with no
+  // client ("Other" tasks) aren't tied to any specific client, so they're
+  // never out of scope — same fix as the PUT /:id handler above.
+  if (req.user.role === 'manager' && existing.client) {
     const scopedClientIds = await getScopedClientIds(req.user);
     if (scopedClientIds) {
       const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));

@@ -91,12 +91,32 @@ router.get('/mine', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async 
   const query = { assignedTo: req.user._id };
   if (status)    query.status   = status;
   if (priority)  query.priority = priority;
-  if (clientId)  query.client   = clientId;
   if (createdBy) query.createdBy = createdBy;
   if (dateFrom || dateTo) {
     query.createdAt = {};
     if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
     if (dateTo)   query.createdAt.$lte = new Date(dateTo);
+  }
+
+  // A task can be assigned to someone directly without that person ever
+  // being added to the client's team (e.g. a PM picks them from the
+  // assignee dropdown but forgets to add them under that client). If we
+  // let that task through here, it shows up on "My Tasks"/the dashboard
+  // but is impossible to find via the client filter, Kanban, etc. — since
+  // those all scope by team membership. So: only show tasks whose client
+  // this user is actually on the team for (or tasks with no client, e.g.
+  // personal/general tasks, which aren't gated by client team membership).
+  if (!MANAGER_ROLES.includes(req.user.role)) {
+    const memberClientIds = (await Client.find({ teamMembers: req.user._id }).select('_id')).map(c => c._id);
+    if (clientId) {
+      const hasAccess = memberClientIds.some(id => String(id) === String(clientId));
+      if (!hasAccess) return res.json({ success: true, tasks: [], total: 0 });
+      query.client = clientId;
+    } else {
+      query.$or = [{ client: { $in: memberClientIds } }, { client: null }];
+    }
+  } else if (clientId) {
+    query.client = clientId;
   }
 
   const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
@@ -161,12 +181,26 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   if (!isManager) {
     // Team members only see tasks assigned to them
     query.assignedTo = req.user._id;
-    // Still allow them to narrow down to a specific client among their own tasks
+    // ...and, among those, only tasks for a client they're actually on the
+    // team for (or tasks with no client at all). Without this, a task
+    // assigned directly to someone who was never added to that client's
+    // team would still show up here — e.g. on their dashboard's "Active
+    // Tasks" widget — while being invisible in every client-scoped view
+    // (the client filter, Kanban), which is exactly the kind of
+    // "it's on my dashboard but nowhere else" confusion this closes.
+    const memberClientIds = await getScopedClientIds(req.user);
     if (isOtherFilter) {
       query.client = null;
       query.isPersonal = { $ne: true };
     } else if (clientId) {
+      const hasAccess = memberClientIds.some(id => String(id) === String(clientId));
+      if (!hasAccess) return res.json({ success: true, tasks: [], total: 0, page: 1, pages: 0 });
       query.client = clientId;
+    } else {
+      query.$or = [
+        { client: { $in: memberClientIds } },
+        { client: null },
+      ];
     }
   } else {
     // Admins and managers: scope to their assigned clients

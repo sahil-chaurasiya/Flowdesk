@@ -779,6 +779,7 @@ export default function MyTasksPage() {
         </Select>
         <Select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className="w-44">
           <option value="">All Clients</option>
+          <option value="deleted">Deleted clients</option>
           {clientOptions.map(c => (
             <option key={c._id} value={c._id}>{c.company}</option>
           ))}

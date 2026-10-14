@@ -698,7 +698,7 @@ export default function KanbanPage() {
   };
 
   const openAddTask = (defaultStatus) => {
-    setForm({ title: '', description: '', client: filterClient || '', assignedTo: filterMember || '', priority: 'medium', status: defaultStatus, deadline: '', category: 'other', isClientVisible: false, isPersonal: false, websiteProject: '' });
+    setForm({ title: '', description: '', client: (filterClient === 'deleted' ? '' : filterClient) || '', assignedTo: filterMember || '', priority: 'medium', status: defaultStatus, deadline: '', category: 'other', isClientVisible: false, isPersonal: false, websiteProject: '' });
     setShowAddModal(true);
   };
 
@@ -887,6 +887,7 @@ export default function KanbanPage() {
           >
             <option value="">All Clients</option>
             <option value="other">Other (no client)</option>
+            <option value="deleted">Deleted clients</option>
             {clients.map(c => <option key={c._id} value={c._id}>{c.company}</option>)}
           </select>
         </div>

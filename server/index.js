@@ -57,7 +57,7 @@ const server = http.createServer(app);
 initSocket(server);
 
 // Connect Database
-connectDB();
+connectDB().then(() => require('./utils/backfillDeletedClientTasks')());
 
 // Security Middleware
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));

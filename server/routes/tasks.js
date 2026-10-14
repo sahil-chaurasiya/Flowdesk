@@ -14,6 +14,28 @@ const NON_CLIENT_ROLES = [...TEAM_ROLES];
 // delete across clients) — see getScopedClientIds below.
 const MANAGER_ROLES = ['admin', 'manager', 'developer'];
 
+// Tasks that still need someone's attention. Tasks belonging to a deleted
+// client that are in one of these statuses must never be hidden by the
+// monthly (createdAt) scoping — otherwise they get stuck forever, because
+// nobody can see them to move them along.
+const OPEN_STATUSES = ['today', 'pending', 'in_progress', 'review'];
+
+// Builds the createdAt date-range condition. Open tasks of deleted clients
+// are always carried over regardless of the range (unless the caller is
+// filtering to a specific client, where they don't belong anyway).
+function buildDateCondition(dateFrom, dateTo, { carryOverDeletedClient = true } = {}) {
+  const range = {};
+  if (dateFrom) range.$gte = new Date(dateFrom);
+  if (dateTo)   range.$lte = new Date(dateTo);
+  if (!carryOverDeletedClient) return { createdAt: range };
+  return {
+    $or: [
+      { createdAt: range },
+      { clientDeleted: true, status: { $in: OPEN_STATUSES } },
+    ],
+  };
+}
+
 // Helper: return the set of client IDs a manager/admin is scoped to.
 // Admins and developers get null (= no restriction). Managers (PMs) are
 // restricted to the clients they're the accountManager or a teamMember for —
@@ -91,12 +113,15 @@ router.get('/mine', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async 
   const query = { assignedTo: req.user._id };
   if (status)    query.status   = status;
   if (priority)  query.priority = priority;
-  if (clientId)  query.client   = clientId;
+  // "deleted" is a synthetic filter value (not a real client id) meaning
+  // tasks that belonged to a client that has since been deleted.
+  const isDeletedFilter = clientId === 'deleted';
+  if (isDeletedFilter) query.clientDeleted = true;
+  else if (clientId)   query.client = clientId;
   if (createdBy) query.createdBy = createdBy;
   if (dateFrom || dateTo) {
-    query.createdAt = {};
-    if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
-    if (dateTo)   query.createdAt.$lte = new Date(dateTo);
+    // Open tasks of deleted clients are always carried over (see OPEN_STATUSES).
+    query.$and = [buildDateCondition(dateFrom, dateTo, { carryOverDeletedClient: !clientId || isDeletedFilter })];
   }
 
   const PRIORITY_ORDER = { urgent: 0, high: 1, medium: 2, low: 3 };
@@ -149,6 +174,8 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
   // tasks that aren't tied to any client — excludes personal tasks, which
   // also have no client but are a separate concept.
   const isOtherFilter = clientId === 'other';
+  // "Deleted" is likewise synthetic: tasks whose client has been deleted.
+  const isDeletedFilter = clientId === 'deleted';
 
   const isManager = MANAGER_ROLES.includes(req.user.role);
   const query = {};
@@ -165,6 +192,8 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     if (isOtherFilter) {
       query.client = null;
       query.isPersonal = { $ne: true };
+    } else if (isDeletedFilter) {
+      query.clientDeleted = true;
     } else if (clientId) {
       query.client = clientId;
     }
@@ -175,6 +204,14 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
     if (isOtherFilter) {
       query.client = null;
       query.isPersonal = { $ne: true };
+    } else if (isDeletedFilter) {
+      query.clientDeleted = true;
+      // PMs only see deleted-client tasks they created or are assigned to
+      // (same rule as the unfiltered list); admins/developers see all
+      // (developers are narrowed further below).
+      if (scopedClientIds) {
+        query.$or = [{ createdBy: req.user._id }, { assignedTo: req.user._id }];
+      }
     } else if (clientId) {
       // Verify manager has access to the requested client
       if (scopedClientIds) {
@@ -191,10 +228,14 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
       // scoped away just because this manager isn't the account manager
       // for some other client — otherwise they'd only ever be reachable
       // by explicitly applying the "Other" filter.
+      // Tasks of a deleted client can no longer be matched through the
+      // client list above (the Client doc is gone), so keep them visible
+      // to the PM who created them or the person they're assigned to.
       query.$or = [
         { client: { $in: scopedClientIds } },
         { isWebsiteWork: true },
         { client: null },
+        { clientDeleted: true, $or: [{ createdBy: req.user._id }, { assignedTo: req.user._id }] },
       ];
     }
     // Admin with no filter: no restriction (scopedClientIds === null)
@@ -215,12 +256,6 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
 
   // Monthly / date-range filter — scoped to task creation date, so the
   // person can view "this month's" tasks instead of the entire history.
-  if (dateFrom || dateTo) {
-    query.createdAt = {};
-    if (dateFrom) query.createdAt.$gte = new Date(dateFrom);
-    if (dateTo)   query.createdAt.$lte = new Date(dateTo);
-  }
-
   // Personal tasks (own tasks, no client) are never visible to anyone
   // other than the person who created them — not even other admins.
   const andConditions = [{
@@ -229,6 +264,12 @@ router.get('/', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (req
       { isPersonal: true, createdBy: req.user._id },
     ],
   }];
+
+  // Monthly date-range filter. Open tasks of deleted clients are always
+  // carried over (see OPEN_STATUSES), unless filtering to a specific client.
+  if (dateFrom || dateTo) {
+    andConditions.push(buildDateCondition(dateFrom, dateTo, { carryOverDeletedClient: !clientId || isDeletedFilter }));
+  }
 
   // Website Work tasks now show up on this board too, but logically scoped:
   // only the ones *you* created or are assigned to — everyone else's
@@ -381,7 +422,14 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
       const scopedClientIds = await getScopedClientIds(req.user);
       if (scopedClientIds) {
         const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
-        if (!hasAccess) {
+        // The client was deleted, so it's no longer in anyone's scope —
+        // fall back to ownership (creator or assignee) so the task can
+        // still be moved along (e.g. approved out of Review).
+        const isOwnerOfDeletedClientTask = existing.clientDeleted && (
+          String(existing.createdBy) === String(req.user._id) ||
+          (existing.assignedTo && String(existing.assignedTo) === String(req.user._id))
+        );
+        if (!hasAccess && !isOwnerOfDeletedClientTask) {
           return res.status(403).json({ success: false, message: 'Not authorised to edit this task' });
         }
       }
@@ -400,6 +448,19 @@ router.put('/:id', protect, authorize(...NON_CLIENT_ROLES), asyncHandler(async (
 
   // Empty-string client would fail ObjectId casting — treat as "no client".
   if (req.body.client === '') delete req.body.client;
+
+  // A task whose client was deleted keeps that link (and its "deleted client"
+  // label) unless it's explicitly reassigned to a real, existing client.
+  if (existing.clientDeleted) {
+    if (!req.body.client) {
+      delete req.body.client;
+    } else if (String(req.body.client) !== String(existing.client)) {
+      req.body.clientDeleted = false;
+      req.body.deletedClientName = undefined;
+    } else {
+      delete req.body.client;
+    }
+  }
 
   // isPersonal can't be flipped after creation via a plain edit — keep the
   // logic simple and avoid a client task suddenly disappearing, or vice versa.
@@ -496,7 +557,11 @@ router.delete('/:id', protect, authorize('admin', 'manager', 'developer'), async
     const scopedClientIds = await getScopedClientIds(req.user);
     if (scopedClientIds) {
       const hasAccess = scopedClientIds.some(id => String(id) === String(existing.client));
-      if (!hasAccess) {
+      const isOwnerOfDeletedClientTask = existing.clientDeleted && (
+        String(existing.createdBy) === String(req.user._id) ||
+        (existing.assignedTo && String(existing.assignedTo) === String(req.user._id))
+      );
+      if (!hasAccess && !isOwnerOfDeletedClientTask) {
         return res.status(403).json({ success: false, message: 'Not authorised to delete this task' });
       }
     }

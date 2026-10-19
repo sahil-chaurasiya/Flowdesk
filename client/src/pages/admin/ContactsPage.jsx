@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus, Search, Phone, Mail, MapPin, DollarSign,
   Edit3, Trash2, X, Save, Users, Filter, UserCheck,
@@ -71,7 +72,7 @@ const EMPTY_FORM = {
   paymentMethod: '', portfolio: '', followers: '', notes: '', isActive: true,
 };
 
-function ContactForm({ initial, onSubmit, loading, onClose }) {
+export function ContactForm({ initial, onSubmit, loading, onClose }) {
   const [form, setForm] = useState(initial || EMPTY_FORM);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
@@ -199,6 +200,7 @@ function ContactForm({ initial, onSubmit, loading, onClose }) {
 
 export default function ContactsPage() {
   const toast = useToast();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const [contacts, setContacts] = useState([]);
@@ -219,6 +221,13 @@ export default function ContactsPage() {
   const openEditModal = (c) => {
     setEditContact(c);
     setShowModal(true);
+  };
+
+  // Open the contact's full profile page
+  const openContact = (c) => navigate(`/admin/contacts/${c._id}`);
+  const onRowKey = (e, c) => {
+    if (e.target !== e.currentTarget) return; // ignore keys pressed on inner buttons/links
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openContact(c); }
   };
 
   const load = useCallback(async () => {
@@ -358,11 +367,20 @@ export default function ContactsPage() {
                   {contacts.map(c => {
                     const chip = FIELD_COLORS[c.field] || FIELD_COLORS.other;
                     return (
-                      <tr key={c._id}>
+                      <tr
+                        key={c._id}
+                        onClick={() => openContact(c)}
+                        onKeyDown={(e) => onRowKey(e, c)}
+                        tabIndex={0}
+                        role="link"
+                        aria-label={`Open ${c.name}`}
+                        className="cursor-pointer"
+                      >
                         <td>
-                          <div className="font-semibold text-[13px]" style={{ color: 'var(--fd-ink-1)' }}>{c.name}</div>
+                          <div className="font-semibold text-[13px] hover:underline" style={{ color: 'var(--fd-ink-1)' }}>{c.name}</div>
                           {c.portfolio && (
                             <a href={c.portfolio} target="_blank" rel="noreferrer"
+                              onClick={e => e.stopPropagation()}
                               className="text-[11px] hover:underline" style={{ color: '#4f6ef0' }}>
                               Portfolio ↗
                             </a>
@@ -413,7 +431,7 @@ export default function ContactsPage() {
                         <td className="text-[12px]" style={{ color: 'var(--fd-ink-3)' }}>
                           {c.paymentMethod || '—'}
                         </td>
-                        <td>
+                        <td onClick={e => e.stopPropagation()}>
                           <div className="flex items-center gap-1">
                             {canEditContact(c) && (
                               <button
@@ -448,7 +466,15 @@ export default function ContactsPage() {
               {contacts.map(c => {
                 const chip = FIELD_COLORS[c.field] || FIELD_COLORS.other;
                 return (
-                  <div key={c._id} className="px-4 py-4 space-y-2">
+                  <div
+                    key={c._id}
+                    className="px-4 py-4 space-y-2 cursor-pointer"
+                    onClick={() => openContact(c)}
+                    onKeyDown={(e) => onRowKey(e, c)}
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`Open ${c.name}`}
+                  >
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="font-semibold text-[14px]" style={{ color: 'var(--fd-ink-1)' }}>{c.name}</div>
@@ -463,7 +489,7 @@ export default function ContactsPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex gap-1 shrink-0">
+                      <div className="flex gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                         {canEditContact(c) && (
                           <button onClick={() => openEditModal(c)} className="btn-ghost p-1.5"><Edit3 size={13} /></button>
                         )}

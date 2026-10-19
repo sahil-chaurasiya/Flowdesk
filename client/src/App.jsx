@@ -42,6 +42,8 @@ import InternalLeadsPage    from './pages/admin/InternalLeadsPage';
 import CallTrackerPage      from './pages/admin/CallTrackerPage';
 import ApiLogsPage          from './pages/admin/ApiLogsPage';
 import ContactsPage         from './pages/admin/ContactsPage';
+import ContactDetailPage    from './pages/admin/ContactDetailPage';
+import ContactProjectDetailPage from './pages/admin/ContactProjectDetailPage';
 import CredentialsPage      from './pages/admin/CredentialsPage';
 import CredentialsHubPage   from './pages/admin/CredentialsHubPage';
 import WebsiteCredentialsPage from './pages/admin/WebsiteCredentialsPage';
@@ -186,6 +188,16 @@ export default function App() {
                 <Route path="contacts" element={
                   <ProtectedRoute roles={TEAM_ROLES}>
                     <ContactsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="contacts/:id" element={
+                  <ProtectedRoute roles={TEAM_ROLES}>
+                    <ContactDetailPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="contacts/:id/projects/:projectId" element={
+                  <ProtectedRoute roles={TEAM_ROLES}>
+                    <ContactProjectDetailPage />
                   </ProtectedRoute>
                 } />
 

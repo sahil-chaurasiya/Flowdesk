@@ -1,0 +1,58 @@
+/* AUTO-GENERATED adapter: re-maps the Attendance app's dark-theme utilities onto Flowdesk design tokens.
+   Scoped to .att-module so nothing outside the Attendance module changes. */
+
+.att-module .text-white { color: var(--fd-ink-1); }
+.att-module .text-gray-200 { color: var(--fd-ink-1); }
+.att-module .text-gray-300 { color: var(--fd-ink-2); }
+.att-module .text-gray-400 { color: var(--fd-ink-3); }
+.att-module .text-gray-500 { color: var(--fd-ink-3); }
+.att-module .text-gray-600 { color: var(--fd-ink-4); }
+.att-module .text-gray-700 { color: var(--fd-ink-4); }
+.att-module .text-black { color: #fff; }
+.att-module .bg-white\/\[0\.02\] { background-color: var(--fd-surface-raised); }
+.att-module .bg-white\/\[0\.03\] { background-color: var(--fd-surface-sunken); }
+.att-module .bg-white\/\[0\.04\] { background-color: var(--fd-surface-sunken); }
+.att-module .bg-white\/10 { background-color: var(--fd-surface-sunken); }
+.att-module .bg-surface { background-color: var(--fd-canvas); }
+.att-module .bg-surface-card { background-color: var(--fd-surface); }
+.att-module .bg-surface-border { background-color: var(--fd-border); }
+.att-module .border-white\/\[0\.04\] { border-color: var(--fd-border); }
+.att-module .border-white\/\[0\.05\] { border-color: var(--fd-border); }
+.att-module .border-white\/\[0\.06\] { border-color: var(--fd-border); }
+.att-module .border-white\/\[0\.08\] { border-color: var(--fd-border); }
+.att-module .border-surface-border { border-color: var(--fd-border); }
+.att-module .hover\:text-white:hover { color: var(--fd-ink-1); }
+.att-module .hover\:text-gray-200:hover { color: var(--fd-ink-1); }
+.att-module .hover\:text-gray-300:hover { color: var(--fd-ink-1); }
+.att-module .hover\:bg-white\/\[0\.02\]:hover { background-color: var(--fd-surface-raised); }
+.att-module .hover\:bg-white\/\[0\.03\]:hover { background-color: var(--fd-surface-sunken); }
+.att-module .hover\:bg-white\/\[0\.05\]:hover { background-color: var(--fd-surface-sunken); }
+.att-module .hover\:bg-white\/\[0\.07\]:hover { background-color: var(--fd-surface-sunken); }
+.att-module .hover\:bg-white\/5:hover { background-color: var(--fd-surface-sunken); }
+.att-module .hover\:bg-surface-border:hover { background-color: var(--fd-border); }
+.att-module .divide-white\/\[0\.04\] > :not([hidden]) ~ :not([hidden]) { border-color: var(--fd-border); }
+.att-module [class*='via-white'] { --tw-gradient-stops: var(--tw-gradient-from), var(--fd-border), var(--tw-gradient-to); }
+.att-module .bg-attbrand-500, .att-module .bg-attbrand-400, .att-module .hover\:bg-attbrand-600:hover { color:#fff; }
+
+/* Component classes from the original app, expressed with Flowdesk tokens */
+.att-module { color: var(--fd-ink-2); }
+.att-module .card, .att-module .card-elevated, .att-module .stat-card {
+  background: var(--fd-card-bg); border: 1px solid var(--fd-border); border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04); padding: 0; }
+.att-module .stat-card { padding: 1rem; }
+.att-module .page-title { font-size: 1.25rem; font-weight: 700; color: var(--fd-ink-1); letter-spacing: -0.01em; }
+.att-module .section-title { font-size: 0.9rem; font-weight: 600; color: var(--fd-ink-1); }
+.att-module .label { display:block; font-size: 0.72rem; font-weight: 600; color: var(--fd-ink-3); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.att-module .divider { height: 1px; background: var(--fd-border); border: 0; }
+.att-module .text-gradient { color: var(--fd-accent); background: none; -webkit-text-fill-color: currentColor; }
+.att-module .glow-dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--fd-accent); box-shadow: 0 0 0 3px rgba(var(--fd-accent-rgb), .18); display:inline-block; }
+.att-module .glass { background: var(--fd-surface); border: 1px solid var(--fd-border); }
+.att-module .badge-present { background: var(--fd-success-bg, #edf7f1); color: var(--fd-success, #2a7d4f); border: 1px solid var(--fd-success-border, #b8e2c9); border-radius: 9999px; padding: 2px 10px; font-size: .72rem; font-weight: 600; }
+.att-module .badge-late    { background: var(--fd-warning-bg, #fef7ea); color: var(--fd-warning, #92600a); border: 1px solid var(--fd-warning-border, #f5d78e); border-radius: 9999px; padding: 2px 10px; font-size: .72rem; font-weight: 600; }
+.att-module .badge-absent  { background: var(--fd-danger-bg, #fef2f2); color: var(--fd-danger, #b91c1c); border: 1px solid var(--fd-danger-border, #fecaca); border-radius: 9999px; padding: 2px 10px; font-size: .72rem; font-weight: 600; }
+.att-module .safe-top, .att-module .safe-bottom { padding-top: 0; padding-bottom: 0; }
+.att-module input, .att-module select, .att-module textarea { color: var(--fd-input-text); }
+.att-module input[type="date"], .att-module input[type="month"] { color-scheme: light dark; }
+[data-theme="dark"] .att-module input[type="date"], [data-theme="dark"] .att-module input[type="month"] { color-scheme: dark; }
+.att-module .noise-overlay::after { display: none; }
+

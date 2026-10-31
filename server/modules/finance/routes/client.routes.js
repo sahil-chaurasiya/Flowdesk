@@ -1,0 +1,14 @@
+const router = require('express').Router();
+const { getClients, getClient, createClient, updateClient, deleteClient, pauseClient, resumeClient, completeClient, reactivateClient, setMonthContractValue, reorderClients } = require('../controllers/client.controller');
+router.get('/', getClients);
+router.post('/', createClient);
+router.put('/reorder', reorderClients);
+router.get('/:id', getClient);
+router.put('/:id', updateClient);
+router.post('/:id/pause', pauseClient);
+router.post('/:id/resume', resumeClient);
+router.post('/:id/complete', completeClient);
+router.post('/:id/reactivate', reactivateClient);
+router.put('/:id/month-value', setMonthContractValue);
+router.delete('/:id', deleteClient);
+module.exports = router;

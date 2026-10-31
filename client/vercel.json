@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/((?!Monthly_Report_Format\\.docx|icon-512\\.png|assets/).*)", "destination": "/index.html" }
+  ]
+}

@@ -1,0 +1,41 @@
+/* AUTO-GENERATED adapter for the Revenue & Finance module (scoped to .fin-module).
+   The accountant screens were written with light-only Tailwind neutrals; this maps them onto Flowdesk's tokens
+   so they follow Flowdesk light/dark/role themes. Nothing outside .fin-module is affected. */
+
+.fin-module { color: var(--fd-ink-1); }
+.fin-module * { border-color: var(--fd-border); }
+.fin-module .text-gray-900 { color: var(--fd-ink-1); }
+.fin-module .text-gray-800 { color: var(--fd-ink-1); }
+.fin-module .text-gray-700 { color: var(--fd-ink-2); }
+.fin-module .text-gray-600 { color: var(--fd-ink-2); }
+.fin-module .text-gray-500 { color: var(--fd-ink-3); }
+.fin-module .text-gray-400 { color: var(--fd-ink-4); }
+.fin-module .text-gray-300 { color: var(--fd-ink-5); }
+.fin-module .bg-white { background-color: var(--fd-card-bg); }
+.fin-module .bg-gray-50 { background-color: var(--fd-surface-raised); }
+.fin-module .bg-gray-50\/50 { background-color: var(--fd-surface-raised); }
+.fin-module .bg-gray-100 { background-color: var(--fd-surface-sunken); }
+.fin-module .bg-gray-200 { background-color: var(--fd-border); }
+.fin-module .bg-gray-300 { background-color: var(--fd-border-strong); }
+.fin-module .border-gray-100 { border-color: var(--fd-border-subtle); }
+.fin-module .border-gray-200 { border-color: var(--fd-border); }
+.fin-module .border-gray-300 { border-color: var(--fd-border-strong); }
+.fin-module .hover\:text-gray-700:hover { color: var(--fd-ink-1); }
+.fin-module .hover\:text-gray-600:hover { color: var(--fd-ink-1); }
+.fin-module .group-hover\:text-gray-500:hover { color: var(--fd-ink-2); }
+.fin-module .hover\:bg-gray-50:hover { background-color: var(--fd-surface-raised); }
+.fin-module .hover\:bg-gray-100:hover { background-color: var(--fd-surface-sunken); }
+.fin-module .hover\:bg-gray-200:hover { background-color: var(--fd-border); }
+.fin-module .hover\:bg-white:hover { background-color: var(--fd-card-bg); }
+.fin-module .hover\:border-gray-300:hover { border-color: var(--fd-border-strong); }
+
+.fin-module input, .fin-module select, .fin-module textarea {
+  background-color: var(--fd-input-bg); color: var(--fd-input-text); border-color: var(--fd-input-border); }
+.fin-module input::placeholder, .fin-module textarea::placeholder { color: var(--fd-input-placeholder); }
+.fin-module table { color: var(--fd-ink-2); }
+.fin-module thead { background-color: var(--fd-table-head-bg); }
+.fin-module .bg-primary { color: hsl(var(--primary-foreground)); }
+[data-theme="dark"] .fin-module .bg-green-50, [data-theme="dark"] .fin-module .bg-red-50,
+[data-theme="dark"] .fin-module .bg-yellow-50, [data-theme="dark"] .fin-module .bg-blue-50,
+[data-theme="dark"] .fin-module .bg-orange-50, [data-theme="dark"] .fin-module .bg-purple-50 { filter: brightness(.35) saturate(1.2); }
+

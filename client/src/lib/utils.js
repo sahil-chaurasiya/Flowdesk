@@ -1,0 +1,167 @@
+import React from 'react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+import { format, formatDistanceToNow, parseISO } from 'date-fns';
+
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
+export const formatDate = (date, fmt = 'MMM d, yyyy') => {
+  if (!date) return '—';
+  return format(typeof date === 'string' ? parseISO(date) : date, fmt);
+};
+
+export const timeAgo = (date) => {
+  if (!date) return '';
+  return formatDistanceToNow(typeof date === 'string' ? parseISO(date) : date, { addSuffix: true });
+};
+
+export const formatCurrency = (amount, currency = 'INR') => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount || 0);
+};
+export const formatNumber = (num) => {
+  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num?.toLocaleString() || '0';
+};
+
+export const getInitials = (name = '') => {
+  return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+};
+
+export const getStatusColor = (status) => {
+  const map = {
+    active: 'bg-emerald-100 text-emerald-700',
+    inactive: 'bg-slate-100 text-slate-600',
+    onboarding: 'bg-amber-100 text-amber-700',
+    paused: 'bg-orange-100 text-orange-700',
+    churned: 'bg-red-100 text-red-700',
+  };
+  return map[status] || 'bg-slate-100 text-slate-600';
+};
+
+export const getPriorityColor = (priority) => {
+  const map = {
+    low: 'bg-slate-100 text-slate-600',
+    medium: 'bg-blue-100 text-blue-700',
+    high: 'bg-orange-100 text-orange-700',
+    urgent: 'bg-red-100 text-red-700 font-semibold',
+  };
+  return map[priority] || 'bg-slate-100 text-slate-600';
+};
+
+export const getTaskStatusColor = (status) => {
+  const map = {
+    pending: 'bg-slate-100 text-slate-600',
+    in_progress: 'bg-blue-100 text-blue-700',
+    review: 'bg-purple-100 text-purple-700',
+    completed: 'bg-emerald-100 text-emerald-700',
+    cancelled: 'bg-red-100 text-red-600',
+  };
+  return map[status] || 'bg-slate-100 text-slate-600';
+};
+
+export const formatFileSize = (bytes) => {
+  if (!bytes) return '—';
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+};
+
+export const getFileIcon = (mimeType = '') => {
+  if (mimeType.includes('pdf')) return '📄';
+  if (mimeType.includes('image')) return '🖼️';
+  if (mimeType.includes('zip') || mimeType.includes('archive')) return '📦';
+  if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return '📊';
+  if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml')) return '📝';
+  if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return '📑';
+  if (mimeType.includes('video')) return '🎬';
+  return '📎';
+};
+
+// Static fallback — used only as seed data. The live list is stored in MongoDB
+// and fetched via useServices() hook. These keys are inserted by seed.js.
+export const SERVICE_LABELS = {
+  seo: 'SEO',
+  ppc: 'PPC / Paid Ads',
+  social_media: 'Social Media',
+  content_marketing: 'Content Marketing',
+  email_marketing: 'Email Marketing',
+  web_design: 'Web Design',
+  analytics: 'Analytics',
+  branding: 'Branding',
+  video_production: 'Video Production',
+  influencer_marketing: 'Influencer Marketing',
+};
+
+export const PLAN_LABELS = {
+  '3_month':  '3 Month',
+  '6_month':  '6 Month',
+  '1_year':   '1 Year',
+  '3_months': '3 Months',
+  '6_months': '6 Months',
+};
+
+export const CONTRACT_STATUS_LABELS = {
+  active:        'Active',
+  expiring_soon: 'Expiring Soon',
+  expired:       'Expired',
+};
+
+export const DURATION_LABELS = {
+  '3_months': '3 Months',
+  '6_months': '6 Months',
+  '1_year':   '1 Year',
+};
+
+export const PLAN_COLORS = {
+  '3_month': 'bg-slate-100 text-slate-700',
+  '6_month': 'bg-blue-100 text-blue-700',
+  '1_year':  'bg-purple-100 text-purple-700',
+};
+
+// Turns plain text containing URLs into text + clickable <a> nodes.
+// Preserves line breaks. Safe to drop straight into JSX: {linkifyText(str)}
+// Written with React.createElement (no JSX) since this file is plain .js.
+const URL_REGEX = /(https?:\/\/[^\s<>"')\]]+)/gi;
+
+export const linkifyText = (text, linkClassName = 'underline break-all') => {
+  if (!text) return null;
+  const lines = String(text).split('\n');
+
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(URL_REGEX);
+    const rendered = parts.map((part, partIdx) => {
+      const isUrl = URL_REGEX.test(part);
+      URL_REGEX.lastIndex = 0; // reset since the regex is global
+      if (isUrl) {
+        return React.createElement(
+          'a',
+          {
+            key: partIdx,
+            href: part,
+            target: '_blank',
+            rel: 'noopener noreferrer',
+            className: linkClassName,
+            style: { color: 'var(--fd-accent, #4f6ef0)' },
+            onClick: (e) => e.stopPropagation(),
+          },
+          part
+        );
+      }
+      return React.createElement(React.Fragment, { key: partIdx }, part);
+    });
+
+    return React.createElement(
+      React.Fragment,
+      { key: lineIdx },
+      rendered,
+      lineIdx < lines.length - 1 ? React.createElement('br') : null
+    );
+  });
+};

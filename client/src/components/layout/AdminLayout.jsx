@@ -16,6 +16,7 @@ import { useSocket } from '../../context/SocketContext';
 import { useTheme } from '../../context/ThemeContext';
 import NotificationPanel from '../shared/NotificationPanel';
 import GlobalSearch from '../shared/GlobalSearch';
+import AttendanceIntroTour from '../shared/AttendanceIntroTour';
 import { getInitials } from '../../lib/utils';
 import api from '../../lib/api';
 // ── AI Assistant ──────────────────────────────────────────────────────────────
@@ -614,6 +615,9 @@ export default function AdminLayout() {
 
       {/* ── Global Search ────────────────────────────────────────────────── */}
       <GlobalSearch isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+
+      {/* ── Login-time heads-up about Attendance (once per person) ─────── */}
+      <AttendanceIntroTour />
 
       {/* ── AI Assistant (floating, role-scoped) ─────────────────────────── */}
       <AIAssistant />

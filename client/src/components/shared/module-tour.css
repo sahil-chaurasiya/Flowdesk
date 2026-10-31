@@ -1,0 +1,87 @@
+/* Spotlight tour. Colours, type and radius all come from Flowdesk tokens. */
+
+.fd-tour { position: fixed; inset: 0; z-index: 10000; font-family: var(--fd-mono, inherit); }
+.fd-tour { --tour-radius: 14px; --tour-inner: 8px; }
+html[data-role-theme] .fd-tour { --tour-radius: 6px; --tour-inner: 3px; }
+
+.fd-tour__blocker { position: absolute; inset: 0; background: transparent; }
+
+/* centred cards: plain dimmed backdrop */
+.fd-tour__dim { position: absolute; inset: 0; background: rgba(6, 8, 12, .62); animation: fd-tour-fade .25s ease both; }
+
+/* targeted steps: a window cut into the dimmer by a huge box-shadow, ringed in the accent */
+.fd-tour__spot {
+  position: absolute;
+  border-radius: var(--tour-inner);
+  box-shadow: 0 0 0 2px var(--fd-accent), 0 0 0 6px rgba(var(--fd-accent-rgb, 79, 110, 240), .22), 0 0 0 9999px rgba(6, 8, 12, .62);
+  pointer-events: none;
+  transition: left .35s cubic-bezier(.3, .8, .25, 1), top .35s cubic-bezier(.3, .8, .25, 1),
+              width .35s cubic-bezier(.3, .8, .25, 1), height .35s cubic-bezier(.3, .8, .25, 1);
+}
+
+.fd-tour__pop {
+  position: absolute;
+  box-sizing: border-box;
+  padding: 18px 18px 14px;
+  background: var(--fd-modal-bg, var(--fd-card-bg, #fff));
+  color: var(--fd-ink-2);
+  border: 1px solid var(--fd-modal-border, var(--fd-border));
+  border-radius: var(--tour-radius);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .35);
+  animation: fd-tour-in .28s cubic-bezier(.3, .8, .25, 1) both;
+}
+.fd-tour__pop--center { padding-top: 22px; }
+
+.fd-tour__badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; margin-bottom: 12px;
+  border-radius: var(--tour-inner);
+  background: var(--fd-accent-tint, var(--fd-sidebar-active));
+  color: var(--fd-accent);
+  box-shadow: inset 0 0 0 1px rgba(var(--fd-accent-rgb, 79, 110, 240), .3);
+}
+
+.fd-tour__progress { display: flex; gap: 4px; margin-bottom: 12px; }
+.fd-tour__progress span { flex: 1; height: 3px; border-radius: 2px; background: var(--fd-border-strong, var(--fd-border)); transition: background-color .25s ease; }
+.fd-tour__progress span.is-done { background: var(--fd-accent); }
+
+.fd-tour__title { margin: 0 0 6px; font-size: 15px; font-weight: 650; line-height: 1.3; color: var(--fd-ink-1); letter-spacing: -.005em; }
+.fd-tour__body { margin: 0; font-size: 13px; line-height: 1.6; color: var(--fd-ink-3); }
+
+.fd-tour__actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+.fd-tour__nav { display: flex; gap: 8px; }
+
+.fd-tour__btn, .fd-tour__skip {
+  font: inherit; font-size: 12.5px; font-weight: 600; line-height: 1;
+  cursor: pointer; transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.fd-tour__btn {
+  padding: 8px 14px; border-radius: var(--tour-inner);
+  background: var(--fd-btn-secondary-bg, transparent); color: var(--fd-btn-secondary-text, var(--fd-ink-2));
+  border: 1px solid var(--fd-btn-secondary-border, var(--fd-border-strong));
+}
+.fd-tour__btn:hover { background: var(--fd-btn-secondary-hover, var(--fd-sidebar-hover)); }
+.fd-tour__btn--primary { background: var(--fd-accent); border-color: var(--fd-accent); color: hsl(var(--primary-foreground, 0 0% 100%)); }
+.fd-tour__btn--primary:hover { background: var(--fd-accent-hover, var(--fd-accent)); border-color: var(--fd-accent-hover, var(--fd-accent)); }
+.fd-tour__skip { padding: 8px 2px; background: none; border: 0; color: var(--fd-ink-4); font-weight: 500; }
+.fd-tour__skip:hover { color: var(--fd-ink-1); }
+.fd-tour__btn:focus-visible, .fd-tour__skip:focus-visible { outline: 2px solid var(--fd-accent); outline-offset: 2px; }
+
+/* small "Tour" replay button that sits beside the module nav */
+.fd-tour-replay {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 11px; font: inherit; font-size: 12px; font-weight: 500; line-height: 1;
+  color: var(--fd-ink-3); background: transparent; cursor: pointer;
+  border: 1px dashed var(--fd-border-strong, var(--fd-border)); border-radius: 8px;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+html[data-role-theme] .fd-tour-replay { border-radius: 4px; }
+.fd-tour-replay:hover { color: var(--fd-accent); border-color: var(--fd-accent); background: var(--fd-accent-tint, transparent); }
+.fd-tour-replay:focus-visible { outline: 2px solid var(--fd-accent); outline-offset: 2px; }
+
+@keyframes fd-tour-in { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes fd-tour-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-tour__spot, .fd-tour__pop, .fd-tour__dim, .fd-tour__progress span { transition: none; animation: none; }
+}

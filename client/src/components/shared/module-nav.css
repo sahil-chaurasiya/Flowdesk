@@ -1,0 +1,112 @@
+/* Sub-navigation for embedded modules. All colour, type and corner values come from
+   Flowdesk tokens, so it follows light / dark / palette / developer themes automatically. */
+
+.fd-modnav {
+  --mn-radius: 12px;
+  --mn-inner: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 20px;
+  font-family: var(--fd-mono, inherit);   /* monospace automatically in the developer themes */
+}
+html[data-role-theme] .fd-modnav { --mn-radius: 5px; --mn-inner: 3px; }
+
+.fd-modnav__box {
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px;
+  border-radius: var(--mn-radius);
+  background: var(--fd-surface-sunken);
+  border: 1px solid var(--fd-border);
+}
+.fd-modnav__box--dock { flex: 0 1 auto; }
+.fd-modnav__box--mode { flex: 0 0 auto; }
+
+.fd-modnav__scroll {
+  min-width: 0;                 /* lets the dock shrink instead of widening the page */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  overscroll-behavior-x: contain;
+  border-radius: var(--mn-inner);
+}
+.fd-modnav__scroll::-webkit-scrollbar { display: none; }
+
+.fd-modnav__scroll[data-edge-right] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 26px), transparent); }
+.fd-modnav__scroll[data-edge-left]  { -webkit-mask-image: linear-gradient(to left,  #000 calc(100% - 26px), transparent); mask-image: linear-gradient(to left,  #000 calc(100% - 26px), transparent); }
+.fd-modnav__scroll[data-edge-left][data-edge-right] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 26px, #000 calc(100% - 26px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 26px, #000 calc(100% - 26px), transparent);
+}
+
+.fd-modnav__track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+}
+
+/* the highlight that slides to whichever tab is active */
+.fd-modnav__thumb {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  border-radius: var(--mn-inner);
+  background: var(--fd-accent-tint, var(--fd-sidebar-active));
+  box-shadow: inset 0 0 0 1px rgba(var(--fd-accent-rgb, 79, 110, 240), .32);
+  pointer-events: none;
+}
+.fd-modnav__thumb[data-ready] {
+  transition: transform .32s cubic-bezier(.3, .8, .25, 1), width .32s cubic-bezier(.3, .8, .25, 1), opacity .15s ease;
+}
+
+.fd-modnav__tab {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: var(--mn-inner);
+  background: transparent;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--fd-ink-3);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color .15s ease;
+}
+.fd-modnav__icon { flex-shrink: 0; color: var(--fd-ink-4); transition: color .15s ease; }
+.fd-modnav__tab:hover { color: var(--fd-ink-1); }
+.fd-modnav__tab:hover .fd-modnav__icon { color: var(--fd-ink-2); }
+.fd-modnav__tab:focus-visible { outline: 2px solid var(--fd-accent); outline-offset: -2px; }
+.fd-modnav__tab[aria-current="page"] { color: var(--fd-accent); font-weight: 600; }
+.fd-modnav__tab[aria-current="page"] .fd-modnav__icon { color: var(--fd-accent); }
+
+/* the Me / Team switch is the louder of the two: solid accent thumb */
+.fd-modnav__box--mode .fd-modnav__thumb {
+  background: var(--fd-accent);
+  box-shadow: 0 1px 6px rgba(var(--fd-accent-rgb, 79, 110, 240), .35);
+}
+.fd-modnav__box--mode .fd-modnav__tab[aria-current="page"] { color: hsl(var(--primary-foreground, 0 0% 100%)); }
+.fd-modnav__box--mode .fd-modnav__tab[aria-current="page"] .fd-modnav__icon { color: currentColor; }
+
+.fd-modnav__trailing { margin-left: auto; flex: 0 0 auto; }
+
+@media (max-width: 640px) {
+  .fd-modnav { margin-bottom: 16px; gap: 8px; }
+  .fd-modnav__box--dock { flex: 1 1 100%; }   /* dock gets its own full-width row, scrolls inside it */
+  .fd-modnav__tab { padding: 7px 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fd-modnav__thumb[data-ready], .fd-modnav__tab, .fd-modnav__icon { transition: none; }
+}

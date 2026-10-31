@@ -1,28 +1,24 @@
 import React, { useMemo } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import useModulesStore from '../../context/modulesStore';
+import { LayoutDashboard, Users, Banknote, Receipt, Wallet, Briefcase, CreditCard, Landmark, BookOpen, BarChart3, Settings } from 'lucide-react';
+import ModuleNav from '../../components/shared/ModuleNav';
 import './finance-theme.css';
 
 const TABS = [
-  { to: '/admin/finance', label: 'Dashboard', end: true },
-  { to: '/admin/finance/clients', label: 'Clients' },
-  { to: '/admin/finance/payments', label: 'Collections' },
-  { to: '/admin/finance/invoice', label: 'Invoices' },
-  { to: '/admin/finance/salaries', label: 'Salaries' },
-  { to: '/admin/finance/freelancers', label: 'Freelancers' },
-  { to: '/admin/finance/expenses', label: 'Expenses' },
-  { to: '/admin/finance/emi', label: 'EMI' },
-  { to: '/admin/finance/accounting', label: 'Accounting' },
-  { to: '/admin/finance/reports', label: 'Reports' },
-  { to: '/admin/finance/settings', label: 'Settings' },
+  { to: '/admin/finance', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/admin/finance/clients', label: 'Clients', icon: Users },
+  { to: '/admin/finance/payments', label: 'Collections', icon: Banknote },
+  { to: '/admin/finance/invoice', label: 'Invoices', icon: Receipt },
+  { to: '/admin/finance/salaries', label: 'Salaries', icon: Wallet },
+  { to: '/admin/finance/freelancers', label: 'Freelancers', icon: Briefcase },
+  { to: '/admin/finance/expenses', label: 'Expenses', icon: CreditCard },
+  { to: '/admin/finance/emi', label: 'EMI', icon: Landmark },
+  { to: '/admin/finance/accounting', label: 'Accounting', icon: BookOpen },
+  { to: '/admin/finance/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/admin/finance/settings', label: 'Settings', icon: Settings },
 ];
-
-const tabClass = ({ isActive }) => `px-3 py-1.5 rounded-lg text-[12.5px] font-medium whitespace-nowrap transition-colors ${isActive ? 'font-semibold' : ''}`;
-const tabStyle = ({ isActive }) => ({
-  background: isActive ? 'var(--fd-sidebar-active-bg, var(--fd-accent-tint))' : 'transparent',
-  color: isActive ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
-});
 
 function Notice({ title, children }) {
   return (
@@ -54,12 +50,10 @@ export default function FinanceShell() {
   return (
     <QueryClientProvider client={client}>
       <div className="fin-module">
-        <div className="flex items-center gap-1 overflow-x-auto pb-3 mb-4" style={{ borderBottom: '1px solid var(--fd-border)', scrollbarWidth: 'none' }}>
-          {TABS.map((t) => (
-            <NavLink key={t.to} to={t.to} end={t.end} className={tabClass} style={tabStyle}>{t.label}</NavLink>
-          ))}
-          {!fin.canWrite && <span className="ml-auto text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>Read-only</span>}
-        </div>
+        <ModuleNav
+          groups={[{ items: TABS }]}
+          trailing={!fin.canWrite && <span className="text-[11px] px-2 py-0.5 rounded" style={{ background: 'var(--fd-surface-sunken)', color: 'var(--fd-ink-3)' }}>Read-only</span>}
+        />
         <Outlet />
       </div>
     </QueryClientProvider>

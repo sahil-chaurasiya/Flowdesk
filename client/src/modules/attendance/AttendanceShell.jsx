@@ -1,34 +1,42 @@
-import React from 'react';
-import { NavLink, Outlet, Navigate, Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Outlet, Navigate, Link } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AttendanceAuthProvider, useAuth } from './context/AuthContext';
 import useModulesStore from '../../context/modulesStore';
+import useAuthStore from '../../context/authStore';
 import LoadingScreen from '../../components/shared/LoadingScreen';
+import { HelpCircle, UserCheck, CalendarCheck, History, CalendarOff, FileEdit, UserRound, LayoutDashboard, Users, Table2, BarChart3, Laptop, Inbox, ClipboardList, User } from 'lucide-react';
+import ModuleNav from '../../components/shared/ModuleNav';
+import ModuleTour from '../../components/shared/ModuleTour';
+import { attendanceIntroKey, readFlag } from '../../components/shared/AttendanceIntroTour';
 import './attendance-theme.css';
 
 const MY_TABS = [
-  { to: '/admin/attendance', label: 'My Attendance', end: true },
-  { to: '/admin/attendance/history', label: 'History' },
-  { to: '/admin/attendance/leave', label: 'Leave' },
-  { to: '/admin/attendance/regularization', label: 'Regularization' },
-  { to: '/admin/attendance/profile', label: 'Profile' },
+  { to: '/admin/attendance', label: 'My Attendance', icon: CalendarCheck, end: true },
+  { to: '/admin/attendance/history', label: 'History', icon: History },
+  { to: '/admin/attendance/leave', label: 'Leave', icon: CalendarOff },
+  { to: '/admin/attendance/regularization', label: 'Regularization', icon: FileEdit },
+  { to: '/admin/attendance/profile', label: 'Profile', icon: UserRound },
 ];
 const ADMIN_TABS = [
-  { to: '/admin/attendance/manage', label: 'Overview', end: true },
-  { to: '/admin/attendance/manage/employees', label: 'Employees' },
-  { to: '/admin/attendance/manage/attendance', label: 'Records' },
-  { to: '/admin/attendance/manage/reports', label: 'Reports' },
-  { to: '/admin/attendance/manage/wfh-requests', label: 'WFH' },
-  { to: '/admin/attendance/manage/leave-requests', label: 'Leave Requests' },
-  { to: '/admin/attendance/manage/regularization-requests', label: 'Regularization Requests' },
+  { to: '/admin/attendance/manage', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/admin/attendance/manage/employees', label: 'Employees', icon: Users },
+  { to: '/admin/attendance/manage/attendance', label: 'Records', icon: Table2 },
+  { to: '/admin/attendance/manage/reports', label: 'Reports', icon: BarChart3 },
+  { to: '/admin/attendance/manage/wfh-requests', label: 'WFH', icon: Laptop },
+  { to: '/admin/attendance/manage/leave-requests', label: 'Leave Requests', icon: Inbox },
+  { to: '/admin/attendance/manage/regularization-requests', label: 'Regularization Requests', icon: ClipboardList },
 ];
 
-const tabClass = ({ isActive }) =>
-  `px-3 py-1.5 rounded-lg text-[12.5px] font-medium whitespace-nowrap transition-colors ${isActive ? 'font-semibold' : ''}`;
-const tabStyle = ({ isActive }) => ({
-  background: isActive ? 'var(--fd-sidebar-active-bg, var(--fd-accent-tint))' : 'transparent',
-  color: isActive ? 'var(--fd-accent)' : 'var(--fd-ink-3)',
-});
+
+// ── First-visit tour ────────────────────────────────────────────────────────
+// Finds the Attendance link in the Flowdesk sidebar without editing the sidebar:
+// same href as the "My Attendance" tab, so skip anything inside the module nav.
+const findSidebarLink = () =>
+  [...document.querySelectorAll('a[href="/admin/attendance"]')].find((el) => !el.closest('.fd-modnav')) || null;
+const findModeSwitch = () => document.querySelector('.fd-modnav__box--mode');
+const findDock = () => document.querySelector('.fd-modnav__box--dock');
+const findPage = () => document.querySelector('.fd-modnav')?.nextElementSibling || null;
 
 function Notice({ title, children }) {
   return (
@@ -42,6 +50,80 @@ function Notice({ title, children }) {
 function Gate() {
   const { user, loading, error } = useAuth();
   const access = useModulesStore((s) => s.access);
+  const flowdeskUserId = useAuthStore((s) => s.user?._id);
+
+  // Tour: opens by itself the first time someone lands on Attendance, remembered per person
+  // on this browser. The "Tour" button beside the tabs replays it.
+  const tourKey = `fd:tour:attendance:v1:${flowdeskUserId || 'anon'}`;
+  const [tourOpen, setTourOpen] = useState(false);
+  const ready = !loading && !error;
+  useEffect(() => {
+    if (!ready) return undefined;
+    let seen = true;
+    try { seen = !!window.localStorage.getItem(tourKey); } catch { /* storage blocked: don't nag */ }
+    if (seen) return undefined;
+    const t = setTimeout(() => setTourOpen(true), 700);
+    return () => clearTimeout(t);
+  }, [ready, tourKey]);
+  const closeTour = useCallback(() => {
+    try { window.localStorage.setItem(tourKey, '1'); } catch { /* ignore */ }
+    setTourOpen(false);
+  }, [tourKey]);
+
+  const hasProfileForTour = !!user && !user.synthetic;
+  const canAdminForTour = !!access?.attendance?.canAdmin;
+  // The dashboard intro already did the welcome; only repeat it if they replay the tour by hand.
+  const introSeen = useMemo(() => readFlag(attendanceIntroKey(flowdeskUserId)), [flowdeskUserId]);
+  const [replayed, setReplayed] = useState(false);
+  const skipWelcome = introSeen && !replayed;
+  const tourSteps = useMemo(() => [
+    ...(skipWelcome ? [] : [{
+      id: 'welcome',
+      icon: UserCheck,
+      title: 'Attendance is now part of Flowdesk',
+      body: hasProfileForTour
+        ? 'Check in, apply for leave and review your hours without leaving this workspace. Here’s a quick look around.'
+        : 'Review your team’s attendance, requests and reports without leaving this workspace. Here’s a quick look around.',
+    }]),
+    {
+      id: 'sidebar',
+      target: findSidebarLink,
+      placement: ['right', 'bottom'],
+      pad: 4,
+      title: 'Find it in the sidebar',
+      body: canAdminForTour
+        ? 'Attendance sits with your other tools. Attendance Admin, just below it, opens the team view.'
+        : 'Attendance sits with your other tools. Come back here whenever you need it.',
+    },
+    ...(canAdminForTour && hasProfileForTour ? [{
+      id: 'mode',
+      target: findModeSwitch,
+      placement: ['bottom', 'right'],
+      pad: 4,
+      title: 'Switch between you and your team',
+      body: 'Me is your own attendance. Team has employee records, reports and the requests waiting for approval.',
+    }] : []),
+    {
+      id: 'dock',
+      target: findDock,
+      placement: ['bottom', 'top'],
+      pad: 4,
+      title: 'Every page is one tab away',
+      body: hasProfileForTour
+        ? 'History, leave, regularization and your profile live here. The highlight follows you as you move.'
+        : 'Employees, records, reports and every request queue live here. The highlight follows you as you move.',
+    },
+    {
+      id: 'page',
+      target: findPage,
+      placement: ['right', 'left', 'bottom'],
+      pad: 8,
+      title: hasProfileForTour ? 'Start with today' : 'Your team at a glance',
+      body: hasProfileForTour
+        ? 'Check in when you start work and check out when you finish. Working outside the office? You’ll be asked to send a WFH request. Replay this tour anytime from the Tour button.'
+        : 'Today’s numbers and pending requests show up here first. Replay this tour anytime from the Tour button.',
+    },
+  ], [hasProfileForTour, canAdminForTour, skipWelcome]);
 
   if (loading) return <LoadingScreen />;
 
@@ -74,16 +156,19 @@ function Gate() {
 
   return (
     <div className="att-module">
-      <div className="flex items-center gap-1 overflow-x-auto pb-3 mb-4" style={{ borderBottom: '1px solid var(--fd-border)', scrollbarWidth: 'none' }}>
-        {hasProfile && MY_TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={tabClass} style={tabStyle}>{t.label}</NavLink>
-        ))}
-        {hasProfile && canAdmin && <span className="mx-2 h-4 w-px" style={{ background: 'var(--fd-border-strong)' }} />}
-        {canAdmin && ADMIN_TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={tabClass} style={tabStyle}>{t.label}</NavLink>
-        ))}
-      </div>
+      <ModuleNav
+        groups={[
+          { label: 'Me', icon: User, items: hasProfile ? MY_TABS : [] },
+          { label: 'Team', icon: Users, items: canAdmin ? ADMIN_TABS : [] },
+        ]}
+        trailing={(
+          <button type="button" className="fd-tour-replay" onClick={() => { setReplayed(true); setTourOpen(true); }} title="Take a quick tour of Attendance">
+            <HelpCircle size={14} strokeWidth={1.9} /> Tour
+          </button>
+        )}
+      />
       <Outlet />
+      <ModuleTour steps={tourSteps} open={tourOpen} onClose={closeTour} />
     </div>
   );
 }

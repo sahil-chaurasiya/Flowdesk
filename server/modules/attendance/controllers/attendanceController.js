@@ -4,6 +4,7 @@ const { getAttendanceStatus, getTodayDate } = require('../services/attendanceSer
 const { asyncHandler } = require('../middleware/errorHandler');
 const { checkWFHPermission, incrementWFHDaysUsed } = require('./wfhController');
 const { sendPushToUser } = require('../services/pushService');
+const { computeCLLedger } = require('../services/clService');
 
 // @desc    Check in
 // @route   POST /api/attendance/checkin
@@ -175,6 +176,22 @@ const getHistory = asyncHandler(async (req, res) => {
   res.json({ success: true, attendance, total, page: parseInt(page) });
 });
 
+// @desc    Get Casual Leave (CL) balance for a month (1 CL/month, unused CL carries forward)
+// @route   GET /api/attendance/cl
+// @access  Private
+const getCL = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const month = parseInt(req.query.month) || now.getMonth() + 1;
+  const year  = parseInt(req.query.year)  || now.getFullYear();
+
+  if (!req.attUser._id) {
+    return res.json({ success: true, cl: null });
+  }
+
+  const ledger = await computeCLLedger(req.attUser._id, req.attUser.createdAt, month, year);
+  res.json({ success: true, cl: ledger[ledger.length - 1] });
+});
+
 // Helper: count working days (Mon-Sat) in a date range, capped at today IST
 const countWorkingDays = (startStr, endStr) => {
   const DATA_START = '2026-04-01';
@@ -292,4 +309,4 @@ const getStats = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { checkIn, checkOut, getTodayAttendance, getHistory, getStats };
+module.exports = { checkIn, checkOut, getTodayAttendance, getHistory, getStats, getCL };

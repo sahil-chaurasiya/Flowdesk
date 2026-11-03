@@ -13,7 +13,10 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DATA_START = new Date('2026-04-01T00:00:00+05:30');
 
 const countWorkingDays = (month, year) => {
+  // Only fully elapsed days count — today is never counted as absent while the
+  // day is still in progress.
   const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  nowIST.setDate(nowIST.getDate() - 1);
   nowIST.setHours(23, 59, 59, 999);
   const monthStart = new Date(year, month - 1, 1);
   const monthEnd   = new Date(year, month, 0);
@@ -194,6 +197,7 @@ export default function EmployeeHistory() {
   const [year, setYear]   = useState(now.getFullYear());
   const [records, setRecords] = useState([]);
   const [holidays, setHolidays] = useState([]);
+  const [cl, setCl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [view, setView] = useState('calendar');
@@ -225,8 +229,16 @@ export default function EmployeeHistory() {
         setHolidays(data.holidays || []);
       } catch { /* non-critical, ignore */ }
     };
+    const fetchCL = async () => {
+      setCl(null);
+      try {
+        const { data } = await api.get('/attendance/cl', { params: { month, year } });
+        setCl(data.cl || null);
+      } catch { /* non-critical, falls back to plain absent count */ }
+    };
     fetchHistory();
     fetchHolidays();
+    fetchCL();
   }, [month, year]);
 
   useEffect(() => {
@@ -242,7 +254,7 @@ export default function EmployeeHistory() {
   const calendarDays = buildCalendarGrid(month, year, records);
   const present = records.filter(r => isFullyAttended(r) && r.status === 'present').length;
   const late    = records.filter(r => isFullyAttended(r) && r.status === 'late').length;
-  const withFullAttendance = present + late;
+  const withFullAttendance = present + late; // (display only; absent uses attendedBeforeToday below)
   const passedSundays = calendarDays.filter(d => d && d.isSunday && d.isPast && !d.isBeforeStart).length;
   // Declared holidays that have already occurred don't count as working days,
   // so they're never counted absent (future holidays aren't in the elapsed
@@ -251,9 +263,14 @@ export default function EmployeeHistory() {
     const ist = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     return ist.toISOString().split('T')[0];
   })();
-  const holidayWorkingDays = holidays.filter(h => h.date <= todayIsoIST && new Date(h.date + 'T00:00:00').getDay() !== 0).length;
+  const holidayWorkingDays = holidays.filter(h => h.date < todayIsoIST && new Date(h.date + 'T00:00:00').getDay() !== 0).length;
   const workingDays = Math.max(0, countWorkingDays(month, year) - holidayWorkingDays);
-  const absent = Math.max(0, workingDays - withFullAttendance);
+  const attendedBeforeToday = records.filter(r => isFullyAttended(r) && (r.status === 'present' || r.status === 'late') && r.date < todayIsoIST).length;
+  const rawAbsent = Math.max(0, workingDays - attendedBeforeToday);
+  // 1 CL per month (unused CL carries forward). Absences are covered by CL
+  // first; only the rest show up as absent.
+  const clUsed = cl ? Math.min(cl.clUsed, rawAbsent) : 0;
+  const absent = rawAbsent - clUsed;
   const validYears = getValidYears();
 
   return (
@@ -311,6 +328,30 @@ export default function EmployeeHistory() {
           </div>
         ))}
       </div>
+
+      {/* Casual leave */}
+      {cl && (
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { val: clUsed, label: 'CL Used', color: '#60a5fa' },
+            { val: cl.available - clUsed, label: 'CL Remaining', color: '#38bdf8' },
+          ].map(({ val, label, color }) => (
+            <div
+              key={label}
+              className="rounded-xl p-3 text-center animate-fade-in"
+              style={{ background: 'var(--fd-card-bg)', border: '1px solid var(--fd-border)' }}
+            >
+              <p className="text-xl font-display font-bold" style={{ color }}>{val}</p>
+              <p className="text-[9px] text-gray-600 mt-0.5 uppercase tracking-wide">{label}</p>
+            </div>
+          ))}
+          {cl.carriedIn > 0 && (
+            <p className="col-span-2 text-[10px] text-gray-600 text-center">
+              {cl.carriedIn} CL carried forward from previous month{cl.carriedIn > 1 ? 's' : ''} + {cl.granted} new this month
+            </p>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-10"><Spinner size="lg" className="text-attbrand-500" /></div>

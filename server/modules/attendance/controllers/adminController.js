@@ -4,6 +4,7 @@ const LeaveRequest = require('../models/LeaveRequest');
 const WFHRequest = require('../models/WFHRequest');
 const RegularizationRequest = require('../models/RegularizationRequest');
 const Holiday = require('../models/Holiday');
+const { computeCLLedger } = require('../services/clService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { getTodayDate } = require('../services/attendanceService');
 const ExcelJS = require('exceljs');
@@ -143,7 +144,15 @@ const getEmployeeAttendance = asyncHandler(async (req, res) => {
     date: { $gte: startDate, $lte: endDate },
   }).sort({ date: 1 }).lean();
 
-  res.json({ success: true, user, records });
+  // Casual leave (1/month, unused carries forward): the page applies it to its own absent count
+  let cl = null;
+  try {
+    const ledger = await computeCLLedger(req.params.id, user.createdAt, targetMonth, targetYear);
+    const cur = ledger[ledger.length - 1];
+    cl = { carriedIn: cur.carriedIn, granted: cur.granted };
+  } catch (e) { /* non-critical */ }
+
+  res.json({ success: true, user, records, cl });
 });
 
 // @desc    Get all attendance records (admin)

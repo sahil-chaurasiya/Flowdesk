@@ -22,8 +22,9 @@ const getValidYears = () => {
   return years;
 };
 
-const countWorkingDays = (month, year) => {
+const countWorkingDays = (month, year, excludeToday = false) => {
   const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  if (excludeToday) nowIST.setDate(nowIST.getDate() - 1); // today is still in progress
   nowIST.setHours(23, 59, 59, 999);
   const effectiveStart = new Date(Math.max(new Date(year, month - 1, 1), DATA_START));
   const effectiveEnd   = new Date(Math.min(new Date(year, month, 0), nowIST));
@@ -99,6 +100,7 @@ export default function AdminEmployeeAttendance() {
   const [view,    setView]    = useState('list'); // 'list' | 'calendar'
   const [selDay,  setSelDay]  = useState(null);
   const [fetchError, setFetchError] = useState(false);
+  const [clInfo, setClInfo] = useState(null);
 
   const fetchAttendance = useCallback(async (isRetry = false) => {
     setLoading(true);
@@ -109,6 +111,7 @@ export default function AdminEmployeeAttendance() {
       const { data } = await api.get(`/admin/employees/${id}/attendance`, { params: { month, year }, timeout: 30000 });
       setEmp(data?.user || null);
       setRecords(Array.isArray(data?.records) ? data.records : []);
+      setClInfo(data?.cl || null);
       setFetchError(false);
     } catch {
       if (!isRetry) { setLoading(false); return fetchAttendance(true); }
@@ -127,10 +130,19 @@ export default function AdminEmployeeAttendance() {
   const workingDays   = countWorkingDays(month, year);
   const present       = records.filter(r => r.status === 'present').length;
   const late          = records.filter(r => r.status === 'late').length;
-  const withCheckIn   = records.filter(r => r.checkInTime).length;
-  const exemptCount   = records.filter(r => isExemptStatus(r)).length;
   const approvedLeaves = records.filter(r => r.status === 'on_leave').length;
-  const absent        = Math.max(0, workingDays - withCheckIn - exemptCount);
+  // Today is never counted as absent while the day is still in progress
+  const todayIso      = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const pastRecords   = records.filter(r => r.date < todayIso);
+  const rawAbsent     = Math.max(0,
+    countWorkingDays(month, year, true)
+    - pastRecords.filter(r => r.checkInTime).length
+    - pastRecords.filter(r => isExemptStatus(r)).length);
+  // 1 CL per month + unused CL carried forward; absences are covered by CL first
+  const clAvailable   = clInfo ? clInfo.carriedIn + clInfo.granted : 0;
+  const clUsed        = clInfo ? Math.min(rawAbsent, clAvailable) : 0;
+  const clRemaining   = clAvailable - clUsed;
+  const absent        = rawAbsent - clUsed;
   const pct           = workingDays > 0 ? Math.round(((present + late) / workingDays) * 100) : 0;
   const totalHours    = records.reduce((a, r) => a + (r.workHours || 0), 0);
   const calendarDays  = buildCalendarGrid(month, year, records);
@@ -226,22 +238,32 @@ export default function AdminEmployeeAttendance() {
       ) : (
         <>
           {/* ── Stats ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
+          <div className={`grid gap-3 ${clInfo ? 'grid-cols-3 md:grid-cols-9' : 'grid-cols-2 sm:grid-cols-3 md:grid-cols-7'}`}>
             {[
               { label: 'Present',  value: present,          cls: 'text-emerald-400' },
               { label: 'Late',     value: late,             cls: 'text-amber-400'   },
               { label: 'Absent',   value: absent,           cls: 'text-red-400'     },
+              ...(clInfo ? [
+                { label: 'CL Used',      value: clUsed,      cls: 'text-blue-400' },
+                { label: 'CL Remaining', value: clRemaining, cls: 'text-sky-400'  },
+              ] : []),
               { label: 'Approved Leaves', value: approvedLeaves, cls: 'text-sky-400' },
               { label: 'Sundays',  value: passedSundays,    cls: 'text-attbrand-500'   },
               { label: 'Hrs Worked', value: fmtH(totalHours), cls: 'text-purple-400' },
               { label: 'Attend %', value: `${pct}%`,        cls: pct >= 90 ? 'text-emerald-400' : pct >= 75 ? 'text-amber-400' : 'text-red-400' },
             ].map(s => (
               <div key={s.label} className="rounded-2xl p-3 text-center">
-                <p className={`text-xl font-bold font-display ${s.cls}`}>{s.value}</p>
+                <p className={`text-xl font-bold font-display whitespace-nowrap ${s.cls}`}>{s.value}</p>
                 <p className="text-[10px] text-gray-500 mt-0.5">{s.label}</p>
               </div>
             ))}
           </div>
+
+          {clInfo && clInfo.carriedIn > 0 && (
+            <p className="text-[10px] text-gray-500 text-center -mt-2">
+              {clInfo.carriedIn} CL carried forward + {clInfo.granted} new this month
+            </p>
+          )}
 
           {/* ── Calendar View ── */}
           {view === 'calendar' && (
@@ -291,7 +313,7 @@ export default function AdminEmployeeAttendance() {
                 <div className="rounded-2xl p-10 text-center text-gray-400">No records for {MONTHS[month - 1]} {year}</div>
               )}
               {dayList.map(({ d, dateStr, isSunday, isToday, record, status }) => (
-                <div key={dateStr} className={`card p-4 animate-slide-up ${isToday ? 'border border-attbrand-500/30' : ''}`}>
+                <div key={dateStr} className={`card !p-4 animate-slide-up ${isToday ? 'border border-attbrand-500/30' : ''}`}>
                   <div className="flex items-start justify-between gap-3">
                     {/* Date */}
                     <div className="flex-shrink-0 w-14 text-center">

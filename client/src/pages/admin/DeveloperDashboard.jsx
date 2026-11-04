@@ -1,11 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Terminal, GitBranch, Rocket, Code2, ListChecks, FolderKanban,
   AlertTriangle, CheckCircle2, Circle, CircleDot, Diamond, X,
   Flame, Boxes, Pin, Sparkles, ChevronRight, ArrowUpRight, Plus,
   Minus, Square, Github, LayoutDashboard, Globe, Copy, Check,
-  Wifi, WifiOff, RefreshCw,
+  Wifi, WifiOff, RefreshCw, LogIn, LogOut, Loader2,
 } from 'lucide-react';
 import {
   eachDayOfInterval, startOfDay, endOfDay, subDays, format as fmtDate,
@@ -13,6 +13,9 @@ import {
 } from 'date-fns';
 import api from '../../lib/api';
 import useAuthStore from '../../context/authStore';
+import useModulesStore from '../../context/modulesStore';
+import attApi from '../../modules/attendance/services/api';
+import { useGeolocation } from '../../modules/attendance/hooks/useGeolocation';
 import { Spinner, EmptyState } from '../../components/shared/LoadingScreen';
 import { timeAgo, formatDate } from '../../lib/utils';
 
@@ -379,6 +382,328 @@ function LogLine({ level, timestamp, children }) {
   );
 }
 
+// ── Attendance quick action ──────────────────────────────────────────────────
+// Check in / check out straight from the dashboard, so a developer doesn't have
+// to open Attendance → My Attendance just to punch in. It talks to the very same
+// endpoints as that page (same office-location check, same WFH rules, same
+// "one check-in per day" rules — all enforced server-side) and it only shows up
+// for people who can see Attendance in the sidebar.
+//
+// Feedback is inline (terminal style) on purpose: the toast container only
+// exists inside the Attendance module, so toasts would never show up here.
+const attClock = (d) => d
+  ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })
+  : '--:--';
+
+const attHours = (h) => {
+  if (!h) return '0h 0m';
+  const total = Math.round(h * 60);
+  return `${Math.floor(total / 60)}h ${total % 60}m`;
+};
+
+function SessionTimer({ since }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const s = Math.max(0, Math.floor((now - new Date(since).getTime()) / 1000));
+  const pad = (n) => String(n).padStart(2, '0');
+  return <span style={{ color: DEV.text }}>{pad(Math.floor(s / 3600))}:{pad(Math.floor((s % 3600) / 60))}:{pad(s % 60)}</span>;
+}
+
+function CmdButton({ onClick, disabled, color, icon: Icon, spin, filled, children, title }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md transition-all active:scale-[0.97] hover:brightness-125 disabled:opacity-60 disabled:cursor-not-allowed"
+      style={{
+        fontFamily: MONO, fontSize: 11.5, fontWeight: 700, lineHeight: 1.6,
+        color: filled ? DEV.bg : color,
+        background: filled ? color : `${color}1f`,
+        border: `1px solid ${color}`,
+      }}
+    >
+      {Icon && <Icon size={12} className={spin ? 'animate-spin' : ''} />} {children}
+    </button>
+  );
+}
+
+function AttendanceQuickAction() {
+  const user = useAuthStore((s) => s.user);
+  const access = useModulesStore((s) => s.access?.attendance);
+  // Same rule the sidebar uses to show the Attendance link.
+  const allowed = !!(access?.enabled && access?.canUse);
+  const { getPosition } = useGeolocation();
+
+  const [state, setState] = useState('loading');   // loading | ready | unavailable | hidden
+  const [attendance, setAttendance] = useState(null);
+  const [wfhStatus, setWfhStatus] = useState({ pending: null, active: null });
+  const [busy, setBusy] = useState(false);          // false | 'locating' | 'saving'
+  const [confirmOut, setConfirmOut] = useState(false);
+  const [msg, setMsg] = useState(null);             // { type: 'ok' | 'err', text }
+  const [wfh, setWfh] = useState(null);            // { position, note, days, comment } while the WFH panel is open
+  const [wfhSending, setWfhSending] = useState(false);
+  const flashTimer = useRef(null);
+
+  const flash = useCallback((type, text) => {
+    clearTimeout(flashTimer.current);
+    setMsg({ type, text });
+    flashTimer.current = setTimeout(() => setMsg(null), type === 'ok' ? 5000 : 9000);
+  }, []);
+  useEffect(() => () => clearTimeout(flashTimer.current), []);
+
+  const load = useCallback(async () => {
+    try {
+      const { data } = await attApi.get('/attendance/today');
+      setAttendance(data.attendance || null);
+      setState('ready');
+    } catch (err) {
+      const status = err.response?.status;
+      // No attendance profile linked / module off / role not allowed → stay out of the way.
+      setState(status === 403 || status === 404 || status === 503 ? 'hidden' : 'unavailable');
+    }
+  }, []);
+
+  const loadWfh = useCallback(async () => {
+    try {
+      const { data } = await attApi.get('/wfh/my-status');
+      setWfhStatus({ pending: data.pendingRequest || null, active: data.activePermission || null });
+    } catch { /* optional extra info — ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!allowed) return undefined;
+    load();
+    loadWfh();
+    // Checked in from your phone? Coming back to this tab picks it up.
+    const onVisible = () => { if (document.visibilityState === 'visible') { load(); loadWfh(); } };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [allowed, load, loadWfh]);
+
+  // Check-out can't be undone (the server allows one check-in per day), so the
+  // first click only arms it; it disarms itself after a few seconds.
+  useEffect(() => {
+    if (!confirmOut) return undefined;
+    const t = setTimeout(() => setConfirmOut(false), 5000);
+    return () => clearTimeout(t);
+  }, [confirmOut]);
+
+  const checkIn = async () => {
+    setMsg(null);
+    setBusy('locating');
+    let position;
+    try {
+      position = await getPosition();
+    } catch (e) {
+      setBusy(false);
+      flash('err', e.message || 'Unable to get your location');
+      return;
+    }
+    setBusy('saving');
+    try {
+      const { data } = await attApi.post('/attendance/checkin', { latitude: position.latitude, longitude: position.longitude });
+      flash('ok', data.message || 'Checked in');
+      await load();
+      // Same side effects as the Attendance page: register push + local notification (best effort).
+      import('../../modules/attendance/services/notifications')
+        .then((m) => { m.enablePushNotifications().catch(() => {}); m.notifyCheckIn(user?.name || 'You', data.attendance?.status); })
+        .catch(() => {});
+    } catch (err) {
+      const d = err.response?.data;
+      if (d?.outsideOffice) {
+        // Outside the office radius and no approved WFH → offer the WFH request right here.
+        setWfh({ position, note: d.message, days: 1, comment: '' });
+      } else {
+        flash('err', d?.message || err.message || 'Check-in failed');
+      }
+    } finally { setBusy(false); }
+  };
+
+  const checkOut = async () => {
+    setConfirmOut(false);
+    setMsg(null);
+    setBusy('locating');
+    let position;
+    try {
+      position = await getPosition();
+    } catch (e) {
+      setBusy(false);
+      flash('err', e.message || 'Unable to get your location');
+      return;
+    }
+    setBusy('saving');
+    try {
+      const { data } = await attApi.post('/attendance/checkout', { latitude: position.latitude, longitude: position.longitude });
+      flash('ok', data.message || 'Checked out');
+      await load();
+    } catch (err) {
+      flash('err', err.response?.data?.message || err.message || 'Check-out failed');
+    } finally { setBusy(false); }
+  };
+
+  const sendWfh = async () => {
+    if (!wfh?.position) return;
+    setWfhSending(true);
+    try {
+      await attApi.post('/wfh/request', {
+        comment: wfh.comment,
+        daysRequested: wfh.days,
+        latitude: wfh.position.latitude,
+        longitude: wfh.position.longitude,
+        accuracy: wfh.position.accuracy,
+      });
+      setWfh(null);
+      flash('ok', 'WFH request sent to admin');
+      loadWfh();
+    } catch (err) {
+      flash('err', err.response?.data?.message || 'Failed to send WFH request');
+    } finally { setWfhSending(false); }
+  };
+
+  if (!allowed || state === 'hidden') return null;
+
+  const checkedIn  = !!attendance?.checkInTime;
+  const checkedOut = !!attendance?.checkOutTime;
+  const working    = checkedIn && !checkedOut;
+  const isWfhDay   = attendance?.notes === 'Work From Home';
+  const busyLabel  = busy === 'locating' ? 'locating…' : 'saving…';
+  const wfhRemaining = wfhStatus.active ? (wfhStatus.active.remainingDays ?? wfhStatus.active.daysApproved) : 0;
+
+  const Prompt = (
+    <div className="mt-1">
+      <span style={{ color: DEV.green }}>➜</span> <span style={{ color: DEV.blue }}>~</span> <span style={{ color: DEV.text }}>attendance --today</span>
+    </div>
+  );
+
+  return (
+    <>
+      {Prompt}
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5" style={{ color: DEV.dim }}>
+        {state === 'loading' && <span>checking<span className="devdash-cursor" style={{ height: 11 }} /></span>}
+
+        {state === 'unavailable' && (
+          <>
+            <span style={{ color: DEV.orange }}>attendance unavailable</span>
+            <CmdButton onClick={() => { setState('loading'); load(); }} color={DEV.dim} icon={RefreshCw}>retry</CmdButton>
+          </>
+        )}
+
+        {state === 'ready' && (
+          <>
+            {!checkedIn && (
+              <>
+                <span><span style={{ color: DEV.orange }}>●</span> not checked in</span>
+                {wfhStatus.active && wfhRemaining > 0 && !wfh && (
+                  <span style={{ color: DEV.green }}>wfh approved · {wfhRemaining}d left</span>
+                )}
+                {wfhStatus.pending && !wfhStatus.active && (
+                  <span style={{ color: DEV.orange }}>wfh request pending</span>
+                )}
+                <CmdButton onClick={checkIn} disabled={!!busy || !!wfh} color={DEV.green} icon={busy ? Loader2 : LogIn} spin={!!busy} filled title="Check in now (uses your location, same as the Attendance page)">
+                  {busy ? busyLabel : './check-in'}
+                </CmdButton>
+              </>
+            )}
+
+            {working && (
+              <>
+                <span>
+                  <span style={{ color: DEV.green }}>●</span> checked in <span style={{ color: DEV.text }}>{attClock(attendance.checkInTime)}</span>
+                  {attendance.status === 'late' && <span style={{ color: DEV.orange }}> · late</span>}
+                  {isWfhDay && <span style={{ color: DEV.purple }}> · wfh</span>}
+                </span>
+                <span>⏱ <SessionTimer since={attendance.checkInTime} /></span>
+                {confirmOut && !busy ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span style={{ color: DEV.orange }}>end your day?</span>
+                    <CmdButton onClick={checkOut} color={DEV.orange} icon={LogOut} filled>yes, check out</CmdButton>
+                    <CmdButton onClick={() => setConfirmOut(false)} color={DEV.dim}>cancel</CmdButton>
+                  </span>
+                ) : (
+                  <CmdButton onClick={() => setConfirmOut(true)} disabled={!!busy} color={DEV.orange} icon={busy ? Loader2 : LogOut} spin={!!busy} title="Check out for the day">
+                    {busy ? busyLabel : './check-out'}
+                  </CmdButton>
+                )}
+              </>
+            )}
+
+            {checkedOut && (
+              <span>
+                <span style={{ color: DEV.blue }}>✓</span> day complete · <span style={{ color: DEV.text }}>{attClock(attendance.checkInTime)}</span> → <span style={{ color: DEV.text }}>{attClock(attendance.checkOutTime)}</span> · <span style={{ color: DEV.green }}>{attHours(attendance.workHours)}</span>
+              </span>
+            )}
+
+            <Link
+              to="/admin/attendance"
+              className="inline-flex items-center gap-1 transition-opacity hover:opacity-70"
+              style={{ fontSize: 11, color: DEV.dim }}
+              title="Open Attendance"
+            >
+              details <ArrowUpRight size={10} />
+            </Link>
+          </>
+        )}
+      </div>
+
+      {/* inline result / error line */}
+      {msg && (
+        <div style={{ color: msg.type === 'ok' ? DEV.green : DEV.red }}>
+          {msg.type === 'ok' ? '✓' : '✗'} {msg.text}
+        </div>
+      )}
+
+      {/* outside the office → ask for WFH without leaving the dashboard */}
+      {wfh && (
+        <div className="mt-2 rounded-lg px-3.5 py-3 max-w-xl" style={{ background: DEV.panel2, border: `1px solid ${DEV.border}`, lineHeight: 1.7 }}>
+          <div style={{ color: DEV.orange }}>⚠ outside office radius</div>
+          <div style={{ color: DEV.dim, fontSize: 11.5 }}>{wfh.note || 'You are outside the office location. Request WFH permission if you are working from home.'}</div>
+
+          <div className="flex items-center gap-3 mt-2">
+            <span style={{ color: DEV.dim }}>days</span>
+            <button
+              type="button"
+              onClick={() => setWfh((w) => ({ ...w, days: Math.max(1, w.days - 1) }))}
+              className="w-6 h-6 rounded flex items-center justify-center"
+              style={{ border: `1px solid ${DEV.border}`, color: DEV.text, background: DEV.bg }}
+              aria-label="Fewer days"
+            ><Minus size={11} /></button>
+            <span style={{ color: DEV.text, fontWeight: 700, minWidth: 16, textAlign: 'center' }}>{wfh.days}</span>
+            <button
+              type="button"
+              onClick={() => setWfh((w) => ({ ...w, days: Math.min(30, w.days + 1) }))}
+              className="w-6 h-6 rounded flex items-center justify-center"
+              style={{ border: `1px solid ${DEV.border}`, color: DEV.text, background: DEV.bg }}
+              aria-label="More days"
+            ><Plus size={11} /></button>
+          </div>
+
+          <input
+            value={wfh.comment}
+            onChange={(e) => setWfh((w) => ({ ...w, comment: e.target.value }))}
+            placeholder="# comment (optional) — e.g. working from home"
+            maxLength={200}
+            className="w-full mt-2 px-2.5 py-1.5 rounded-md outline-none"
+            style={{ fontFamily: MONO, fontSize: 11.5, background: DEV.bg, border: `1px solid ${DEV.border}`, color: DEV.text }}
+          />
+
+          <div className="flex items-center gap-2 mt-2.5">
+            <CmdButton onClick={sendWfh} disabled={wfhSending} color={DEV.green} icon={wfhSending ? Loader2 : undefined} spin={wfhSending} filled>
+              {wfhSending ? 'sending…' : './request-wfh'}
+            </CmdButton>
+            <CmdButton onClick={() => setWfh(null)} disabled={wfhSending} color={DEV.dim}>cancel</CmdButton>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Root ─────────────────────────────────────────────────────────────────────
 export default function DeveloperDashboard() {
   const { user } = useAuthStore();
@@ -565,6 +890,9 @@ export default function DeveloperDashboard() {
             <span style={{ color: DEV.orange }}>{kpis.todo} todo</span> · <span style={{ color: DEV.blue }}>{kpis.inProgress} in_progress</span> · <span style={{ color: DEV.purple }}>{kpis.review} review</span>
             {kpis.overdue > 0 && <> · <span style={{ color: DEV.red }}>{kpis.overdue} overdue</span></>}
           </div>
+
+          {/* check in / check out — direct access to Attendance */}
+          <AttendanceQuickAction />
 
           {uptimeInfo && (
             <>
